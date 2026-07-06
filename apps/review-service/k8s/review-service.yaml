@@ -1,0 +1,74 @@
+# review-service: the custom Spring Boot micro-service of the training.
+# Deployed by scripts/deploy.sh which replaces IMAGE_PLACEHOLDER with the
+# freshly built image tag.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: review-service
+  labels:
+    app: review-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: review-service
+  template:
+    metadata:
+      labels:
+        app: review-service
+    spec:
+      containers:
+        - name: review-service
+          image: review-service:IMAGE_PLACEHOLDER
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            # --- OpenTelemetry configuration (used by the agent AND the starter) ---
+            - name: OTEL_SERVICE_NAME
+              value: review-service
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector:4317
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.namespace=otel-demo
+            # --- Lab 2 (part 1): uncomment to activate the Java agent ---
+            # - name: JAVA_TOOL_OPTIONS
+            #   value: "-javaagent:/otel/opentelemetry-javaagent.jar"
+            # --- Database (PostgreSQL of the demo) ---
+            - name: DB_HOST
+              value: postgresql
+            - name: DB_NAME
+              value: otel
+            - name: DB_USER
+              value: root
+            - name: DB_PASSWORD
+              value: otel
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: review-service
+  labels:
+    app: review-service
+spec:
+  selector:
+    app: review-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

@@ -1,0 +1,34 @@
+# Lab 8 reference solution: PII masking at the collector level (safety net).
+# Stack on top of the previous labs values:
+#   helm upgrade otel-demo open-telemetry/opentelemetry-demo --version 0.40.9 -n otel-demo \
+#     -f manifests/values-training.yaml \
+#     -f content/1_Labs/30-otel-collector-values.yaml \
+#     -f content/1_Labs/60-otel-metrics-values.yaml \
+#     -f content/1_Labs/70-otel-traces-values.yaml \
+#     -f content/1_Labs/80-otel-security-values.yaml
+opentelemetry-collector:
+  config:
+    processors:
+      # Drop sensitive span attributes for EVERY service, fixed or not.
+      # (separate instance: the demo already uses 'transform' for span names)
+      transform/pii-spans:
+        error_mode: ignore
+        trace_statements:
+          - context: span
+            statements:
+              - delete_key(span.attributes, "user.email")
+              - delete_key(span.attributes, "http.request.header.authorization")
+      # Mask email addresses in every log body
+      transform/pii-logs:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - replace_pattern(log.body, "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+", "***@***")
+    service:
+      pipelines:
+        traces:
+          # Mask BEFORE tail_sampling/batch so nothing sensitive is exported
+          processors: [memory_limiter, resourcedetection, resource, transform, transform/pii-spans, tail_sampling, batch]
+        logs:
+          processors: [memory_limiter, resourcedetection, resource, transform/pii-logs, batch]

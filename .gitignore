@@ -1,0 +1,12 @@
+.~lock.*
+
+# Hugo
+/public/
+/resources/
+.hugo_build.lock
+
+# Marp generated PDFs
+/slides/*.pdf
+
+# Java / Maven
+/apps/review-service/target/

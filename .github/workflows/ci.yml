@@ -1,0 +1,70 @@
+# OpenTelemetry training CI
+---
+name: "CI"
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+jobs:
+  website:
+    name: Build Hugo site and slides
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: 'latest'
+          extended: true
+      - name: Build Hugo site
+        run: hugo --minify
+      - name: Build slides (marp)
+        run: |
+          for deck in slides/OTEL_*.md; do
+            npx --yes @marp-team/marp-cli@latest "$deck" \
+              --theme-set slides/custom-theme.css --pdf --allow-local-files
+          done
+
+  labs:
+    name: Run OpenTelemetry labs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      # Disable the heaviest demo components to fit in the runner
+      EXTRA_VALUES: "-f manifests/values-ci.yaml"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Stop apparmor
+        run: |
+          sudo /etc/init.d/apparmor stop
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Create k8s/kind cluster
+        run: |
+          go install github.com/k8s-school/ktbx@v1.1.6-rc5
+          ktbx create -s
+          kubectl get nodes
+          kubectl get pods -n kube-system
+      - name: Run lab 1 (observability stack)
+        run: ./content/1_Labs/10-otel-stack-solution.sh
+      - name: Run lab 2 (zero-code instrumentation)
+        run: ./content/1_Labs/20-otel-zero-code-solution.sh
+      - name: Run lab 3 (collector configuration)
+        run: ./content/1_Labs/30-otel-collector-solution.sh
+      - name: Run lab 4 (unified Grafana dashboard)
+        run: ./content/1_Labs/40-otel-grafana-solution.sh
+      - name: Run lab 5 (structured correlated logs)
+        run: ./content/1_Labs/50-otel-logs-solution.sh
+      - name: Run lab 6 (business metrics)
+        run: ./content/1_Labs/60-otel-metrics-solution.sh
+      - name: Run lab 7 (manual traces and tail sampling)
+        run: ./content/1_Labs/70-otel-traces-solution.sh
+      - name: Run lab 8 (PII masking)
+        run: ./content/1_Labs/80-otel-security-solution.sh

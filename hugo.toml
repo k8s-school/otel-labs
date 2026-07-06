@@ -1,0 +1,50 @@
+# Hugo configuration for the OpenTelemetry training site
+# Based on k8s-school-labs (Relearn theme, installed via Go modules)
+
+theme = ["github.com/McShelby/hugo-theme-relearn"]
+
+baseurl = "https://k8s-school.fr/otel"
+title = "K8s-school: OpenTelemetry training"
+contentdir = "content"
+publishdir = "public"
+languageCode = "fr-fr"
+copyright = "Copyright (c) 2026 Fabrice Jammes - Licensed under CC BY-SA 4.0"
+
+defaultContentLanguage = "fr"
+defaultContentLanguageInSubdir = true
+SectionPagesMenu = "main"
+enableRobotsTXT = true
+ignoreLogs = ['warning-goldmark-raw-html']
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+
+[languages]
+  [languages.fr]
+    title = "Formation OpenTelemetry"
+    weight = 1
+    languageName = "Français"
+
+[params]
+author.name = "Fabrice Jammes"
+
+themeVariant = [
+	{ identifier = "retro-auto",    name = "Retro Learn/Neon", auto = [ "learn", "neon" ] },
+	{ identifier = "neon"           },
+	{ identifier = "learn"          },
+	{ identifier = "blue"           },
+	{ identifier = "green"          },
+]
+
+editURL = "https://github.com/k8s-school/otel/tree/main/content/${FilePath}"
+
+disableLandingPageButton = true
+ordersectionsby = "weight"
+collapsibleMenu = true
+showVisitedLinks = true
+disableRootBreadcrumb = true
+disableInlineCopyToClipBoard = true
+highlightWrap = true
+externalLinkTarget = "_self"

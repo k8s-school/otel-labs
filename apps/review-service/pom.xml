@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.3</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>fr.k8sschool</groupId>
+    <artifactId>review-service</artifactId>
+    <version>1.0.0</version>
+    <name>review-service</name>
+    <description>Product review micro-service for the OpenTelemetry training (Astronomy Shop)</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <!-- OpenTelemetry Spring Boot Starter (used by the 'starter' profile only) -->
+        <opentelemetry-instrumentation.version>2.14.0</opentelemetry-instrumentation.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>1.48.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- OpenTelemetry API: no-op unless an SDK (agent or starter) is active.
+             Used for manual spans, attributes and baggage (Lab 7). -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+        <!-- @WithSpan / @SpanAttribute annotations (Lab 7) -->
+        <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-instrumentation-annotations</artifactId>
+            <version>${opentelemetry-instrumentation.version}</version>
+        </dependency>
+        <!-- SDK types used by the PII masking LogRecordProcessor (Lab 8).
+             Only effective with the 'starter' profile: the starter invokes
+             AutoConfigurationCustomizerProvider beans, the agent does not. -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <!-- Default build: no OpenTelemetry dependency in the application.
+             Zero-code instrumentation is done with the Java agent (see Dockerfile). -->
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+        </profile>
+
+        <!-- 'starter' build: the OpenTelemetry Spring Boot Starter is compiled in.
+             Used in Lab 2 (part 2) to compare with the Java agent. -->
+        <profile>
+            <id>starter</id>
+            <dependencies>
+                <dependency>
+                    <groupId>io.opentelemetry.instrumentation</groupId>
+                    <artifactId>opentelemetry-spring-boot-starter</artifactId>
+                </dependency>
+            </dependencies>
+            <dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>io.opentelemetry.instrumentation</groupId>
+                        <artifactId>opentelemetry-instrumentation-bom</artifactId>
+                        <version>${opentelemetry-instrumentation.version}</version>
+                        <type>pom</type>
+                        <scope>import</scope>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
+        </profile>
+    </profiles>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

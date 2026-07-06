@@ -1,0 +1,24 @@
+# Lab 6 reference solution: derive a metric from spans with the count connector.
+# Stack on top of the lab 3 values:
+#   helm upgrade otel-demo open-telemetry/opentelemetry-demo --version 0.40.9 -n otel-demo \
+#     -f manifests/values-training.yaml \
+#     -f content/1_Labs/30-otel-collector-values.yaml \
+#     -f content/1_Labs/60-otel-metrics-values.yaml
+opentelemetry-collector:
+  config:
+    connectors:
+      count:
+        spans:
+          app.spans.errors:
+            description: "Number of spans with ERROR status"
+            conditions:
+              - status.code == STATUS_CODE_ERROR
+    service:
+      pipelines:
+        traces:
+          # A connector is an EXPORTER of the traces pipeline...
+          exporters: [otlp/jaeger, debug, spanmetrics, count]
+        metrics:
+          # ...and a RECEIVER of the metrics pipeline
+          # (re-list everything: lab 3 receivers included)
+          receivers: [otlp, kafkametrics, spanmetrics, hostmetrics, postgresql, count]

@@ -1,0 +1,14 @@
+Je ne sais pas si Aurélie vous l’avait mentionné, mais le client aimerait ajouter un module "Sécurité & conformité" au programme ci-joint.
+
+Objectif du module :
+
+•            Éviter les fuites de données sensibles (Exemples concrets de fuites fréquent avec tokens jwt, headers, password, payload et ce qu’il ne faut pas faire)
+
+•            Rendre l’observabilité exploitable en contexte RGPD / sécurité (PII interdit: Email, nom, téléphone, Masquage applicatif)
+
+•            Donner des réflexes opérationnels aux équipes (LogRecordProcessor, Sampler, SpanProcessor pour filter/masquer
+
+
+
+Blog micrometer vs otel
+)https://itnext.io/distributed-tracing-with-spring-boot-3-micrometer-vs-opentelemetry-b3593546f61b

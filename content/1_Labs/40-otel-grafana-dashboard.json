@@ -1,0 +1,85 @@
+{
+  "uid": "otel-training-service",
+  "title": "Vue service — Formation OTel",
+  "tags": ["otel-training"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-15m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service_name",
+        "label": "Service",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
+        "query": "label_values(calls_total, service_name)",
+        "refresh": 2,
+        "includeAll": false,
+        "current": { "text": "review-service", "value": "review-service" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Débit de requêtes — $service_name",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(calls_total{service_name=~\"$service_name\"}[2m]))",
+          "legendFormat": "req/s"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Latence p95 (ms) — $service_name",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(duration_milliseconds_bucket{service_name=~\"$service_name\"}[2m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Logs — $service_name",
+      "type": "logs",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "webstore-logs" },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "resource.service.name:\"$service_name\"",
+          "queryType": "lucene",
+          "metrics": [{ "id": "1", "type": "logs" }],
+          "bucketAggs": []
+        }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" }
+    },
+    {
+      "id": 4,
+      "title": "Traces récentes — $service_name",
+      "type": "table",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "jaeger", "uid": "webstore-traces" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "search",
+          "service": "$service_name",
+          "limit": 20
+        }
+      ]
+    }
+  ]
+}

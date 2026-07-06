@@ -1,0 +1,95 @@
+---
+marp: true
+theme: custom-theme
+paginate: true
+backgroundColor: #ffffff
+---
+
+# Formation OpenTelemetry
+
+## Chapitre 6 — Métriques
+
+<img src="images/logo.svg" alt="K8s School Logo" width="50%">
+
+---
+
+## Le modèle de données
+
+- Une **métrique** = nom + unité + type + points de données horodatés
+- Chaque point porte des **attributs** (dimensions) : `{method="POST", status="201"}`
+- **Temporalité** : cumulative (Prometheus) ou delta
+- ⚠️ **Cardinalité** : chaque combinaison d'attributs = une série
+  - `user_id` dans une métrique = explosion mémoire garantie
+  - les identifiants vont dans les **traces**, pas dans les métriques
+
+---
+
+## Les types d'instruments
+
+| Type | Usage | Exemple |
+|------|-------|---------|
+| **Counter** | cumul monotone | `reviews.created` |
+| **UpDownCounter** | cumul ± | connexions actives |
+| **Gauge** | valeur instantanée | température, taille de file |
+| **Histogram** | distribution | latence (p50/p95/p99) |
+
+- L'histogramme est le grand gagnant pour les latences :
+  buckets → percentiles calculables a posteriori
+
+---
+
+## Java : Micrometer — rappels
+
+- La façade métriques **standard de Spring** (fournie par Actuator)
+
+```java
+Counter.builder("reviews.created").register(registry);
+Timer.builder("reviews.creation.time")
+     .publishPercentileHistogram()
+     .register(registry);
+```
+
+- L'**agent OTel fait le pont automatiquement** : meter Micrometer → métrique OTLP
+- Alternative SDK natif : `MeterProvider` → `Meter` → `meter.counterBuilder(...)`
+- Annotations : `@Timed`, `@Counted` (Micrometer) — même résultat en déclaratif
+
+---
+
+## Rappels Prometheus
+
+- Le standard de facto des métriques : base de séries temporelles + PromQL
+- Modèle **pull** historique (scrape `/metrics`)... 
+- ...mais Prometheus parle désormais **OTLP natif** (push) — c'est le mode de la démo :
+
+```yaml
+exporters:
+  otlphttp/prometheus:
+    endpoint: http://prometheus:9090/api/v1/otlp
+```
+
+- Traduction des noms : `reviews.created` → `reviews_created_total`
+
+---
+
+## Côté collecteur
+
+- Receiver **`prometheus`** : scraper des `/metrics` existants (compatibilité)
+- Exporter **`prometheus`** : exposer un `/metrics` à scraper
+- Receivers « produit » : `postgresql`, `kafkametrics`, `hostmetrics` (Lab 3)
+- **Connectors** traces → métriques :
+  - **`spanmetrics`** : débit + latence par opération (déjà actif dans la démo)
+  - **`count`** : compter des événements (ex : spans en erreur)
+- Des métriques **sans instrumenter** : dérivées des traces
+
+---
+
+## 🧪 LAB 6 — Métriques métier
+
+- **Partie 1** : compteur + histogramme Micrometer dans `review-service`,
+  export via l'agent, latence p95 en PromQL
+- **Partie 2** : connector **`count`** — compter les spans en erreur,
+  `app_spans_errors_total` sans une ligne de code
+
+➡ [Lab 6 — Métriques métier](https://k8s-school.fr/otel/fr/1_labs/60-otel-metrics/index.html)
+
+*Livrable : graphe de latence + compteur métier + métrique dérivée.*

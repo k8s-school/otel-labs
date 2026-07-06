@@ -1,0 +1,15 @@
+# Values for the OpenTelemetry demo used during the training.
+#
+# The demo chart enables host metrics and PostgreSQL metrics discovery
+# out of the box. We disable them on purpose: adding them back is the goal
+# of Lab 3 (collector configuration).
+opentelemetry-collector:
+  presets:
+    # Re-enabled by participants in Lab 3 (system metrics)
+    hostMetrics:
+      enabled: false
+    # Annotation-based discovery would collect PostgreSQL metrics automatically;
+    # participants configure a postgresql receiver manually in Lab 3 instead
+    annotationDiscovery:
+      metrics:
+        enabled: false

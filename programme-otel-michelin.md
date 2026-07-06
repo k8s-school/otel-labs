@@ -1,0 +1,304 @@
+# Formation OpenTelemetry — Michelin DevOps
+## Programme détaillé formateur (2 jours)
+
+> Run-sheet minuté à usage du formateur. Ratio labs / théorie visé : **~65 % labs**.
+> Base technique : cluster **Kind** + **démo officielle OpenTelemetry** (collecteur, Grafana, Jaeger, Prometheus, OpenSearch, Kafka, PostgreSQL, load generator, Ad Service Java) + **micro-service Spring Boot** custom (`review-service`) pour l'instrumentation manuelle.
+
+---
+
+## Principes d'animation
+
+- **La stack tourne dès le Lab 1.** Tout le reste s'appuie dessus. Si elle casse en salle, la journée s'effondre — d'où un Lab 1 en début de J1, entièrement guidé.
+- **Le load generator tourne en continu** → les participants voient des données réelles dans Grafana/Jaeger sans avoir à générer du trafic à la main.
+- **Chaque lab produit un livrable observable** (un dashboard, une trace, une métrique qui apparaît). On valide visuellement, pas sur du code.
+- **Déploiement en 1 ligne** via `./deploy.sh <service>` (`docker build` → `kind load docker-image` → `kubectl apply` → `kubectl rollout status`). Pas de registry.
+- **Architecture hybride** : la stack d'observabilité vit dans Kind ; les applis Java des participants peuvent tourner en local/Docker et pousser vers le collecteur (port-forward / NodePort) OU être déployées dans Kind via le script — au choix selon le lab.
+
+---
+
+## Répartition des chapitres
+
+| Jour | Chapitres | Labs |
+|------|-----------|------|
+| **J1** | 1. Introduction · 2. Zero-code · 3. Collecteur · 4. Grafana | Labs 1 → 4 |
+| **J2** | 5. Logs · 6. Métriques · 7. Traces · 8. Sécurité & conformité · 9. Spring (facultatif) · 10. Conclusion | Labs 5 → 8 |
+
+> ⚠️ **Point de vigilance J1** : 4 chapitres + 4 labs en une journée, c'est dense (Introduction et Collecteur sont deux gros blocs théoriques). Le planning ci-dessous compresse la théorie au strict nécessaire et bascule un maximum en live-demo pendant les labs. Si le groupe est lent sur le Lab 3 (Collecteur), le Lab 4 (Grafana) peut être raccourci en démo guidée + construction d'un seul dashboard.
+
+---
+
+# JOUR 1 — Fondations & chaîne de collecte
+
+**Horaires : 9h00–12h30 / 14h00–17h30** · Pauses 15 min matin + après-midi
+
+| Créneau | Durée | Type | Contenu |
+|---------|-------|------|---------|
+| 09:00 | 20 | Admin | Accueil, tour de table, rappel des objectifs, auto-positionnement |
+| 09:20 | 40 | 🖥️ Slides | **Ch.1 — Introduction** |
+| 10:00 | 45 | 🧪 **Lab 1** | Démarrage de la stack |
+| 10:45 | 15 | ☕ | Pause |
+| 11:00 | 40 | 🖥️ Slides | **Ch.2 — Instrumentation zero-code** |
+| 11:40 | 50 | 🧪 **Lab 2** | Instrumentation d'un micro-service Java (partie 1) |
+| 12:30 | — | 🍽️ | Déjeuner |
+| 14:00 | 20 | 🧪 **Lab 2** | Instrumentation (partie 2 — Spring Boot Starter) |
+| 14:20 | 55 | 🖥️ Slides | **Ch.3 — Collecteur** |
+| 15:15 | 60 | 🧪 **Lab 3** | Configuration du collecteur |
+| 16:15 | 15 | ☕ | Pause |
+| 16:30 | 25 | 🖥️ Slides | **Ch.4 — Grafana** |
+| 16:55 | 35 | 🧪 **Lab 4** | Dashboard unifié logs/métriques/traces |
+
+**Bilan J1** intégré à la fin du Lab 4. Labs J1 ≈ 3h30 · Théorie ≈ 2h40.
+
+---
+
+## Chapitre 1 — Introduction *(slides, 40 min)*
+
+**Objectif** : poser le vocabulaire commun et situer OpenTelemetry dans le paysage observabilité.
+
+Contenu slides :
+- Observabilité vs monitoring — pourquoi le monitoring classique ne suffit plus
+- Les trois piliers : logs, métriques, traces (et comment ils se complètent)
+- Du monitoring à l'observabilité 2.0 (corrélation, cardinalité, wide events)
+- OpenTelemetry : définition, gouvernance CNCF, ce que le standard couvre / ne couvre pas
+- Écosystème & architecture (SDK → collecteur → backend)
+- Conventions sémantiques (pourquoi c'est le cœur de la valeur d'OTel)
+- Protocole OTLP (gRPC / HTTP, signals unifiés)
+- API vs SDK vs distributions vs fournisseurs
+
+### 🧪 Lab 1 — Démarrage de la stack Grafana *(45 min, entièrement guidé)*
+**But** : chacun a une stack qui tourne et sait accéder aux UIs.
+- Vérifier les prérequis (`kubectl get pods -A`, tous `Running`)
+- Accéder à **Grafana**, **Jaeger**, au **frontend** de la démo (port-forward ou ingress)
+- Observer le trafic généré par le load generator (une première trace dans Jaeger, une métrique dans Grafana)
+- **Livrable** : capture d'une trace de bout en bout dans Jaeger.
+
+---
+
+## Chapitre 2 — Instrumentation zero-code *(slides, 40 min)*
+
+**Objectif** : instrumenter une appli Java sans toucher au code.
+
+Contenu slides :
+- Agent Java : principe (Java agent / bytecode instrumentation), installation (`-javaagent`), configuration (variables d'env `OTEL_*`), fonctionnement (auto-instrumentation des libs)
+- Spring Boot Starter : quand le préférer à l'agent, installation (dépendance), configuration (`application.properties`)
+- Comparaison agent vs starter (couverture, granularité, cas d'usage)
+
+### 🧪 Lab 2 — Instrumentation d'un micro-service Java *(50 + 20 min)*
+**But** : voir la même appli instrumentée par deux voies.
+- **Partie 1** : lancer le micro-service Spring Boot custom avec l'**agent Java** (`-javaagent`), pointer vers le collecteur, générer une requête, retrouver la trace
+- **Partie 2** : reprendre l'appli avec le **Spring Boot Starter** à la place de l'agent, comparer les spans produits
+- **Point d'appui** : le **Ad Service** de la démo est le service Java auto-instrumenté de référence — l'utiliser comme exemple « qui marche » avant de faire manipuler leur propre service
+- **Livrable** : deux traces du même service, une via agent, une via starter.
+
+---
+
+## Chapitre 3 — Collecteur *(slides, 55 min)*
+
+**Objectif** : comprendre le pipeline receivers → processors → exporters et savoir le configurer.
+
+Contenu slides :
+- Concepts : rôle du collecteur, pourquoi ne pas exporter directement depuis le SDK
+- Installation & modes de déploiement (agent / gateway / DaemonSet — celui de la démo)
+- Distributions & fournisseurs (Core, Contrib, distributions vendors)
+- **Receivers** : OTLP, Host metrics
+- **Processors** : Memory limiter, Batch, Attributes/Resources, Filter, Transform, Resource Detection
+- **Langage OTTL** (la brique de transformation — exemples concrets)
+- **Connectors** : Forward, Routing
+- **Exporters** : Debug, File, OTLP
+- **Extensions** : Health check, zPages
+
+### 🧪 Lab 3 — Configuration du collecteur *(60 min)*
+**But** : modifier une config collecteur et voir l'effet.
+- Éditer la ConfigMap du collecteur (pas de rebuild — juste `kubectl apply` + `rollout restart`)
+- Ajouter un receiver **hostmetrics** → collecte des métriques système
+- Ajouter la collecte de **métriques produit** (PostgreSQL et/ou Kafka via receiver dédié)
+- Ajouter un exporter **debug** + consulter **zPages** pour observer le pipeline
+- **Livrable** : métriques système + PostgreSQL visibles dans Prometheus/Grafana.
+
+---
+
+## Chapitre 4 — Grafana *(slides, 25 min)*
+
+**Objectif** : exploiter les données déjà collectées dans un dashboard unifié.
+
+Contenu slides :
+- Datasources (Prometheus, Jaeger, OpenSearch — déjà câblées dans la démo)
+- Types de visualisations (time series, table, logs panel, trace panel)
+- Dashboards (variables, organisation)
+- Alerting (principe, règle simple)
+
+### 🧪 Lab 4 — Dashboard unifié *(35 min)*
+**But** : rassembler les 3 signaux sur un écran.
+- Créer un dashboard avec un panel métriques (Prometheus), un panel logs (OpenSearch), un panel traces (Jaeger)
+- Ajouter une variable (ex : `service.name`)
+- Bonus si le temps : une règle d'alerte simple sur une métrique
+- **Livrable** : un dashboard « vue service » exporté en JSON (à committer dans le repo).
+
+---
+
+# JOUR 2 — Les trois signaux en profondeur
+
+**Horaires : 9h00–12h30 / 14h00–17h30**
+
+| Créneau | Durée | Type | Contenu |
+|---------|-------|------|---------|
+| 09:00 | 15 | Rappel | Réveil / retour sur J1, questions |
+| 09:15 | 30 | 🖥️ Slides | **Ch.5 — Logs** |
+| 09:45 | 55 | 🧪 **Lab 5** | Logs applicatives structurées |
+| 10:40 | 15 | ☕ | Pause |
+| 10:55 | 30 | 🖥️ Slides | **Ch.6 — Métriques** |
+| 11:25 | 55 | 🧪 **Lab 6** | Métriques (partie 1) |
+| 12:20 | — | 🍽️ | Déjeuner |
+| 14:00 | 15 | 🧪 **Lab 6** | Métriques (partie 2) |
+| 14:15 | 30 | 🖥️ Slides | **Ch.7 — Traces** |
+| 14:45 | 55 | 🧪 **Lab 7** | Traces & échantillonnage |
+| 15:40 | 15 | ☕ | Pause |
+| 15:55 | 25 | 🖥️ Slides | **Ch.8 — Sécurité & conformité** |
+| 16:20 | 40 | 🧪 **Lab 8** | Masquage & anti-fuite de données sensibles |
+| 17:00 | 15 | 🖥️ Slides | **Ch.10 — Conclusion** (Ch.9 Spring en démo si le groupe a de l'avance) |
+| 17:15 | 15 | Éval | Questionnaire final + bilan |
+
+Labs J2 ≈ 3h40 · Théorie ≈ 2h25.
+
+**Ratio global sur les 2 jours ≈ 65 % labs.** Pour monter vers 70 %, basculer une partie de la théorie Ch.5/6/7 en live-demo pendant les labs (voir notes formateur des decks).
+
+> ⚠️ **Point de vigilance J2** : l'ajout du module **Sécurité & conformité** (Ch.8 + Lab 8) densifie l'après-midi. La théorie Ch.5/6/7 est légèrement compressée et le **Ch.9 Spring** passe en démo facultative (fondu dans la conclusion). Le Ch.8 arrive volontairement **après les Traces** : il réutilise le collecteur (Lab 3), les logs (Lab 5), les métriques (Lab 6) et les traces + sampling (Lab 7) comme matière à masquer.
+
+---
+
+## Chapitre 5 — Logs *(slides, 35 min)*
+
+Contenu slides :
+- Modèle de données des logs OTel (LogRecord, corrélation trace ↔ log)
+- Librairies Java · rappels **SLF4J / Logback**
+- SDK **LogProvider**
+- Logs structurés (pourquoi, format)
+- **Appender Logback** OTel
+- Agent Java pour les logs
+- Collecteur : receivers **filelog**, **syslog** · processor **Log Transform**
+- ⚠️ *Amorce sécurité* : un log = un canal de fuite fréquent (payload, mot de passe). Le masquage via **LogRecordProcessor** est traité au Ch.8.
+
+### 🧪 Lab 5 — Logs structurées *(60 min)*
+**But** : émettre → collecter → centraliser.
+- Configurer l'appender Logback OTel dans le micro-service
+- Produire des logs structurés corrélés aux traces (trace_id dans le log)
+- Collecter via le collecteur, visualiser dans OpenSearch/Grafana
+- Bonus : receiver **filelog** sur un fichier de log
+- **Livrable** : un log corrélé à sa trace, visible dans Grafana (clic log → trace).
+
+---
+
+## Chapitre 6 — Métriques *(slides, 35 min)*
+
+Contenu slides :
+- Modèle de données des métriques OTel
+- Librairies Java · rappels **Micrometer**
+- Types : jauge, compteur, histogramme
+- SDK **MeterProvider**
+- Annotations
+- Agent Java · rappels **Prometheus**
+- Collecteur : receiver/exporter **Prometheus** · connectors **count**, **signal to metric**
+
+### 🧪 Lab 6 — Métriques *(50 + 20 min)*
+**But** : émettre → collecter → grapher.
+- **Partie 1** : instrumenter le micro-service avec un compteur + un histogramme (Micrometer ou SDK)
+- **Partie 2** : exposer via Prometheus, collecter, grapher dans Grafana ; utiliser un connector **count** pour dériver une métrique depuis des spans
+- **Livrable** : un graphe de latence (histogramme) + un compteur métier dans Grafana.
+
+---
+
+## Chapitre 7 — Traces *(slides, 35 min)*
+
+Contenu slides :
+- Modèle de données (span, trace, attributs, events, liens)
+- SDK **Tracer**
+- Contexte de trace & **bagage** (propagation)
+- Annotations
+- Échantillonnage : **head** vs **tail sampling**, rate limiting
+- Collecteur : processor **tail sampling**
+- ⚠️ *Amorce sécurité* : un attribut de span (header `Authorization`, `user.email`) peut fuiter des données sensibles. **SpanProcessor** et **Sampler** de masquage/filtrage traités au Ch.8.
+
+### 🧪 Lab 7 — Traces & échantillonnage *(65 min)*
+**But** : émettre → collecter → analyser, puis maîtriser le volume.
+- Créer un span manuel + un span enfant, propager le contexte entre deux services
+- Ajouter du bagage, retrouver la trace dans Jaeger
+- Configurer le **tail sampling** dans le collecteur (ex : garder 100 % des traces en erreur, échantillonner le reste)
+- **Livrable** : une trace multi-services analysée + une politique de sampling active.
+
+---
+
+## Chapitre 8 — Sécurité & conformité *(slides, 25 min)*
+
+**Objectif** : éviter les fuites de données sensibles et rendre l'observabilité exploitable en contexte **RGPD / sécurité**. Module transverse qui capitalise sur les 3 signaux vus en J2.
+
+Contenu slides :
+- **Panorama des fuites fréquentes** (« ce qu'il ne faut PAS faire ») :
+  - Tokens **JWT** / header `Authorization` poussés en attribut de span ou dans un log
+  - **Mots de passe** / secrets loggués dans un message ou une exception
+  - **Payloads** bruts (body de requête/réponse) attachés en attribut ou en event
+  - **Headers** HTTP sensibles (`Cookie`, `Set-Cookie`, `Authorization`, `X-Api-Key`)
+  - URLs avec token/PII en **query string** (`http.url` = `?token=…&email=…`)
+- **RGPD & PII** : ce qui est **interdit** (email, nom, téléphone, IP dans certains cas), notions de donnée personnelle, minimisation, rétention, pseudonymisation vs anonymisation
+- **Conventions sémantiques & sécurité** : attributs sensibles connus, ne jamais surcharger un attribut standard avec de la PII
+- **Stratégies de masquage — défense en profondeur** :
+  1. **Masquage applicatif** (à la source, le plus sûr) : ne jamais émettre la donnée
+  2. **Masquage SDK** : **SpanProcessor** (supprimer/hacher des attributs à l'`onEnd`), **LogRecordProcessor** (redaction du message/attributs), **Sampler** (drop conditionnel)
+  3. **Masquage collecteur** (filet de sécurité central) : processors **Filter** / **Transform (OTTL)** / **Redaction**, `delete_key` / `hash` sur les attributs sensibles
+- **Techniques** : suppression vs hachage vs troncature · **allowlist plutôt que denylist** · tests de non-régression anti-fuite · revue des attributs custom
+
+### 🧪 Lab 8 — Masquage & anti-fuite *(40 min)*
+**But** : détecter une fuite, puis la neutraliser à deux niveaux (appli/SDK **et** collecteur).
+- **Provoquer la fuite** : ajouter volontairement un attribut sensible dans le micro-service (header `Authorization` / JWT, `user.email`, un `password`), générer une requête, **constater** la fuite dans Jaeger et OpenSearch
+- **Masquer côté SDK** : implémenter un **SpanProcessor** qui supprime/hache l'attribut sensible + un **LogRecordProcessor** qui redact le message de log
+- **Masquer côté collecteur** : ajouter un processor **redaction** / **transform (OTTL)** (`delete_key`, `hash`) sur `Authorization` et `email` — le filet de sécurité qui protège même les services non corrigés
+- **Vérifier** : la donnée n'apparaît plus dans aucun backend
+- **Bonus** : politique de **sampling** qui drop/conserve selon un attribut (réutilise le tail sampling du Lab 7)
+- **Livrable** : preuve **avant / après** qu'un JWT et un email n'apparaissent plus dans Jaeger/OpenSearch, avec masquage appliqué à **2 niveaux** (SDK + collecteur).
+
+---
+
+## Chapitre 9 — Framework Spring *(slides, facultatif, en démo)*
+
+- Appender Logback dans l'écosystème Spring
+- Micrometer & OTLP
+- Micrometer Tracing & OTLP
+- Comparatif **Micrometer vs OpenTelemetry** (cf. [blog ITNext](https://itnext.io/distributed-tracing-with-spring-boot-3-micrometer-vs-opentelemetry-b3593546f61b))
+> Chapitre **facultatif** : à traiter en démo pendant la conclusion si le groupe a de l'avance, ou à survoler si J2 déborde.
+
+## Chapitre 10 — Conclusion *(slides, 15 min)*
+
+- Synthèse : la chaîne complète SDK → collecteur → backend
+- Bonnes pratiques (conventions sémantiques, coûts, cardinalité, sampling, **masquage PII / RGPD**)
+- Aller plus loin (opérateur K8s, eBPF/OBI, profiles)
+- Ressources (doc, livre *Learning OpenTelemetry*, démo, [Micrometer vs OTel](https://itnext.io/distributed-tracing-with-spring-boot-3-micrometer-vs-opentelemetry-b3593546f61b))
+
+---
+
+## Récapitulatif des 8 exercices
+
+| # | Titre | Chapitre | Durée | Livrable |
+|---|-------|----------|-------|----------|
+| 1 | Démarrage de la stack | Introduction | 45 | Trace de bout en bout dans Jaeger |
+| 2 | Instrumentation micro-service Java | Zero-code | 70 | 2 traces (agent + starter) |
+| 3 | Configuration du collecteur | Collecteur | 60 | Métriques système + produit collectées |
+| 4 | Dashboard unifié | Grafana | 35 | Dashboard 3-signaux exporté |
+| 5 | Logs structurées | Logs | 55 | Log corrélé à sa trace |
+| 6 | Métriques | Métriques | 70 | Graphe latence + compteur métier |
+| 7 | Traces & sampling | Traces | 55 | Trace multi-services + tail sampling |
+| 8 | Masquage & anti-fuite | Sécurité & conformité | 40 | JWT + email masqués (SDK + collecteur) |
+
+---
+
+## Checklist de préparation formateur
+
+- [ ] Stack démo qui redémarre proprement (script `up.sh` / `down.sh` testés)
+- [ ] Script `deploy.sh <service>` validé de bout en bout
+- [ ] Micro-service Spring Boot custom prêt (API REST + accès PostgreSQL)
+- [ ] Repo Git participant structuré (un dossier par lab + corrigés)
+- [ ] Chaque lab testé sur une machine « vierge » (temps réel chronométré)
+- [ ] Dashboards Grafana de secours pré-importés (si un lab échoue, on montre le résultat attendu)
+- [ ] Config collecteur de référence par lab (versions « avant » / « après »)
+- [ ] Plan B réseau : NodePort documenté si le port-forward pose problème en salle
+- [ ] **Lab 8** : attributs sensibles « piégés » prêts à injecter (JWT/`Authorization`, `user.email`, `password`) + config collecteur **redaction/transform (OTTL)** de référence
+- [ ] **Lab 8** : SpanProcessor / LogRecordProcessor de masquage écrits et testés (versions « avant » = fuite visible / « après » = masqué)
+- [ ] Requêtes de vérification anti-fuite prêtes dans Jaeger et OpenSearch (recherche du token/email « avant » vs « après »)

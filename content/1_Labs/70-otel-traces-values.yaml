@@ -1,0 +1,32 @@
+# Lab 7 reference solution: tail sampling policy.
+# Stack on top of the previous labs values:
+#   helm upgrade otel-demo open-telemetry/opentelemetry-demo --version 0.40.9 -n otel-demo \
+#     -f manifests/values-training.yaml \
+#     -f content/1_Labs/30-otel-collector-values.yaml \
+#     -f content/1_Labs/60-otel-metrics-values.yaml \
+#     -f content/1_Labs/70-otel-traces-values.yaml
+opentelemetry-collector:
+  config:
+    processors:
+      tail_sampling:
+        # Hold spans this long to see the whole trace before deciding
+        decision_wait: 5s
+        # Policies are OR-ed: a trace survives if at least one keeps it
+        policies:
+          - name: keep-errors
+            type: status_code
+            status_code:
+              status_codes: [ERROR]
+          - name: keep-slow
+            type: latency
+            latency:
+              threshold_ms: 1000
+          - name: sample-the-rest
+            type: probabilistic
+            probabilistic:
+              sampling_percentage: 25
+    service:
+      pipelines:
+        traces:
+          # Re-list all processors, tail_sampling before batch
+          processors: [memory_limiter, resourcedetection, resource, transform, tail_sampling, batch]

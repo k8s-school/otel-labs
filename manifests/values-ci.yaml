@@ -1,0 +1,9 @@
+# Extra values for CI: disable the heaviest components that are not needed
+# by the lab checks, so the demo fits in a GitHub Actions runner (7 GB RAM).
+components:
+  # LLM-based review summarization: ~700Mi, not used by labs 1-3
+  llm:
+    enabled: false
+  # Depends on the llm service
+  product-reviews:
+    enabled: false

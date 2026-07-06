@@ -1,0 +1,38 @@
+# Lab 3 reference solution: extra collector configuration.
+# Apply on top of manifests/values-training.yaml:
+#   helm upgrade otel-demo open-telemetry/opentelemetry-demo --version 0.40.9 \
+#     -n otel-demo -f manifests/values-training.yaml -f content/1_Labs/30-otel-collector-values.yaml
+opentelemetry-collector:
+  config:
+    receivers:
+      # System metrics of the node hosting the collector (DaemonSet)
+      hostmetrics:
+        collection_interval: 10s
+        scrapers:
+          cpu:
+          memory:
+          load:
+          disk:
+          network:
+      # Product metrics: the PostgreSQL database of the shop
+      # (the same one used by review-service)
+      postgresql:
+        endpoint: postgresql:5432
+        username: root
+        password: otel
+        databases:
+          - otel
+        collection_interval: 10s
+        tls:
+          insecure: true
+    extensions:
+      # Collector debug pages: http://localhost:55679/debug/pipelinez
+      zpages:
+        endpoint: 0.0.0.0:55679
+    service:
+      # A redefined list REPLACES the original one: health_check must be kept
+      extensions: [health_check, zpages]
+      pipelines:
+        metrics:
+          # Same rule: re-list all existing receivers, then add the new ones
+          receivers: [otlp, kafkametrics, spanmetrics, hostmetrics, postgresql]
