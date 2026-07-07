@@ -10,12 +10,12 @@ DIR=$(cd "$(dirname "$0")"; pwd -P)
 cat << EOF
 Opening access to the OpenTelemetry demo UIs (Ctrl+C to stop):
 
-  Astronomy Shop   http://localhost:8080/
-  Grafana          http://localhost:8080/grafana/
-  Jaeger           http://localhost:8080/jaeger/ui/
-  Load generator   http://localhost:8080/loadgen/
-  Feature flags    http://localhost:8080/feature
+  Astronomy Shop   http://localhost:$UI_PORT/
+  Grafana          http://localhost:$UI_PORT/grafana/
+  Jaeger           http://localhost:$UI_PORT/jaeger/ui/
+  Load generator   http://localhost:$UI_PORT/loadgen/
+  Feature flags    http://localhost:$UI_PORT/feature
 
 EOF
 
-kubectl --namespace "$NS" port-forward svc/frontend-proxy 8080:8080
+kubectl --namespace "$NS" port-forward svc/frontend-proxy "$UI_PORT":8080

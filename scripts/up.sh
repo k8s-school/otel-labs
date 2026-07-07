@@ -37,7 +37,8 @@ done
 
 if [ "$CREATE_CLUSTER" = true ]; then
     command -v ktbx > /dev/null || { echo "ERROR: 'ktbx' is required (go install github.com/k8s-school/ktbx@latest)"; exit 1; }
-    ktbx create -s
+    ktbx create -s -n "$CLUSTER_NAME"
+    kubectl config use-context "kind-$CLUSTER_NAME"
 fi
 
 kubectl cluster-info > /dev/null || { echo "ERROR: no reachable Kubernetes cluster"; exit 1; }
@@ -54,7 +55,23 @@ helm upgrade --install "$RELEASE" "$CHART" \
     --timeout 10m
 
 echo "Waiting for all demo pods to be ready (this can take a few minutes)..."
-kubectl wait --for=condition=Ready pods --all -n "$NS" --timeout=600s
+# Only wait for the demo pods (label set by the chart): a participant's
+# review-service left broken must not block the stack check.
+# Retry: pods replaced during the wait (e.g. a rollout in progress) make
+# 'kubectl wait' fail with NotFound even though the stack converges
+ready=false
+for i in 1 2 3; do
+    if kubectl wait --for=condition=Ready pods -l opentelemetry.io/name \
+            -n "$NS" --timeout=600s; then
+        ready=true
+        break
+    fi
+    sleep 10
+done
+if [ "$ready" != true ]; then
+    echo "ERROR: pods not ready"
+    exit 1
+fi
 
 kubectl get pods -n "$NS"
 echo

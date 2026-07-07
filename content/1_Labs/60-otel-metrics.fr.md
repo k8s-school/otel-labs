@@ -34,6 +34,8 @@ Pourquoi **Micrometer** plutôt que le SDK OpenTelemetry directement ?
 {{%expand "Réponse" %}}
 Les deux marchent. Micrometer est la **façade métriques standard de Spring** (fournie par Actuator, déjà dans le classpath) : l'équipe de dev n'apprend pas une nouvelle API, et le code reste neutre. L'**agent OpenTelemetry fait le pont automatiquement** : chaque meter Micrometer devient une métrique OTLP.
 
+⚠️ Le bridge Micrometer de l'agent est **désactivé par défaut** (pour éviter les doublons avec les métriques Spring) : c'est le rôle de `OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true` à l'étape suivante. Sans lui, vos meters restent invisibles — un classique du debug OTel.
+
 L'alternative SDK pur : injecter un `Meter` OTel (`meter.counterBuilder("reviews.created").build()`) — même résultat, API OTel native. Les deux instruments du programme sont là :
 * `Counter` → **compteur** (monotone croissant) ;
 * `Timer` + `publishPercentileHistogram()` → **histogramme** de latence (buckets → percentiles calculables côté Prometheus). Une **jauge** (3ᵉ type) serait par ex. `Gauge.builder("reviews.pending", queue::size)`.
@@ -44,7 +46,8 @@ L'alternative SDK pur : injecter un `Meter` OTel (`meter.counterBuilder("reviews
 ```bash
 ./scripts/deploy.sh
 kubectl set env -n otel-demo deployment/review-service \
-  JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
+  JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar" \
+  OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true
 kubectl rollout status -n otel-demo deployment/review-service
 
 kubectl port-forward -n otel-demo svc/review-service 8090:8080 &
@@ -87,15 +90,20 @@ opentelemetry-collector:
             description: "Number of spans with ERROR status"
             conditions:
               - status.code == STATUS_CODE_ERROR
+    processors:
+      deltatocumulative: {}
     service:
       pipelines:
         traces:
           exporters: [otlp/jaeger, debug, spanmetrics, count]
         metrics:
           receivers: [otlp, kafkametrics, spanmetrics, hostmetrics, postgresql, count]
+          processors: [memory_limiter, resourcedetection, resource, deltatocumulative, batch]
 ```
 
 Un **connector** est à la fois *exporter* d'un pipeline (traces) et *receiver* d'un autre (metrics) — les deux listes doivent le référencer.
+
+Et pourquoi `deltatocumulative` ? Le connector `count` émet ses métriques en temporalité **delta** (chaque export = l'incrément depuis le précédent), or l'endpoint OTLP de Prometheus n'accepte que du **cumulatif** — sans ce processor, il répond HTTP 500 et le collecteur jette les points (`Exporting failed. Dropping data.` dans ses logs, exercice de debug classique).
 {{% /expand%}}
 
 ```bash
@@ -104,7 +112,7 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   -f manifests/values-training.yaml \
   -f content/1_Labs/30-otel-collector-values.yaml \
   -f content/1_Labs/60-otel-metrics-values.yaml
-kubectl rollout status daemonset/otel-collector -n otel-demo
+kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
 
 5.  **Provoquer des erreurs et vérifier :** créez un avis pour un produit inexistant (le service échoue en 500) :

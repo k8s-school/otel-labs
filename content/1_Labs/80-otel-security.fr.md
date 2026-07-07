@@ -112,7 +112,7 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   -f content/1_Labs/60-otel-metrics-values.yaml \
   -f content/1_Labs/70-otel-traces-values.yaml \
   -f content/1_Labs/80-otel-security-values.yaml
-kubectl rollout status daemonset/otel-collector -n otel-demo
+kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 
 # on peut même désactiver le masquage SDK : le collecteur protège seul
 kubectl set env -n otel-demo deployment/review-service MASK_PII-

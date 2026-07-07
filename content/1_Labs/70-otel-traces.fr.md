@@ -117,7 +117,7 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   -f content/1_Labs/30-otel-collector-values.yaml \
   -f content/1_Labs/60-otel-metrics-values.yaml \
   -f content/1_Labs/70-otel-traces-values.yaml
-kubectl rollout status daemonset/otel-collector -n otel-demo
+kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
 
 6.  **Vérifier la politique :**

@@ -23,21 +23,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
-kubectl port-forward -n "$NS" svc/frontend-proxy 8080:8080 &
+kubectl port-forward -n "$NS" svc/frontend-proxy "$UI_PORT":8080 &
 PROXY_PF_PID=$!
-kubectl port-forward -n "$NS" svc/opensearch 9200:9200 &
+kubectl port-forward -n "$NS" svc/opensearch "$OS_PORT":9200 &
 OS_PF_PID=$!
 
 restart_app_pf() {
     [ -n "$APP_PF_PID" ] && kill "$APP_PF_PID" 2>/dev/null || true
-    kubectl port-forward -n "$NS" svc/review-service 8090:8080 &
+    kubectl port-forward -n "$NS" svc/review-service "$APP_PORT":8080 &
     APP_PF_PID=$!
     sleep 3
 }
 
 post_review() {
     local email="$1" comment="$2"
-    curl -sSf -X POST http://localhost:8090/api/reviews \
+    curl -sSf -X POST http://localhost:$APP_PORT/api/reviews \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \
         -d "{\"productId\": \"OLJCESPC7Z\", \"rating\": 5, \"comment\": \"$comment\", \"userEmail\": \"$email\", \"userName\": \"Lab8 User\"}" \
@@ -46,7 +46,7 @@ post_review() {
 
 # Search Jaeger POST traces for a marker, with retries; sets JAEGER_RESULT
 jaeger_traces() {
-    curl -sSf "http://localhost:8080/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&limit=20"
+    curl -sSf "http://localhost:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&limit=20"
 }
 
 # NB: tail sampling (lab 7) keeps only ~25% of successful traces, so we
@@ -65,7 +65,7 @@ wait_in_jaeger() {
 wait_in_opensearch() {
     local marker="$1"
     for i in $(seq 1 24); do
-        if curl -sS "http://localhost:9200/otel-logs-*/_search?q=body:%22${marker}%22" \
+        if curl -sS "http://localhost:$OS_PORT/otel-logs-*/_search?q=body:%22${marker}%22" \
                 | grep -q "$marker"; then return 0; fi
         sleep 5
     done
@@ -93,7 +93,7 @@ post_review "sdk-mask@example.com" "sdk-mask"
 wait_in_jaeger "sdk-mask@example.com" "sdk-mask@example.com" "sdk-mask"
 # ...but the log body is redacted: the marker email never reaches OpenSearch
 sleep 20
-if curl -sS "http://localhost:9200/otel-logs-*/_search?q=body:%22sdk-mask@example.com%22" \
+if curl -sS "http://localhost:$OS_PORT/otel-logs-*/_search?q=body:%22sdk-mask@example.com%22" \
         | grep -q "sdk-mask@example.com"; then
     echo "ERROR: sdk-mask@example.com leaked into OpenSearch despite SDK masking"
     exit 1
@@ -110,25 +110,45 @@ helm upgrade "$RELEASE" "$CHART" \
     -f "$DIR/70-otel-traces-values.yaml" \
     -f "$DIR/80-otel-security-values.yaml" \
     --timeout 10m
-kubectl rollout status daemonset/otel-collector -n "$NS" --timeout=300s
+kubectl rollout status daemonset/otel-collector-agent -n "$NS" --timeout=300s
 
 kubectl set env -n "$NS" deployment/review-service MASK_PII-
 kubectl rollout status -n "$NS" deployment/review-service --timeout=180s
 restart_app_pf
 sleep 5
+
+# Only look at traces created AFTER the masking was applied: the marker
+# email cannot be used to find them anymore - that is the whole point of
+# the masking. Filter by timestamp instead (Jaeger start is microseconds).
+START_US=$(($(date +%s%N) / 1000))
 post_review "collector-mask@example.com" "collector-mask"
 
-# The new trace must exist (find it by its comment marker)...
-wait_in_jaeger "collector-mask" "collector-mask@example.com" "collector-mask"
-# ...but without the sensitive attributes
-TRACES=$(jaeger_traces)
+# A post-masking trace must exist...
+found=""
+for i in $(seq 1 24); do
+    TRACES=$(curl -sSf "http://localhost:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&start=$START_US&limit=20" || true)
+    if echo "$TRACES" | grep -q "traceID"; then
+        found=yes
+        break
+    fi
+    post_review "collector-mask@example.com" "collector-mask" || true
+    sleep 5
+done
+[ "$found" = "yes" ]
+
+# ...but without the sensitive attributes (email and Authorization header
+# both deleted by the collector transform)
 if echo "$TRACES" | grep -q "collector-mask@example.com"; then
     echo "ERROR: collector-mask@example.com leaked into Jaeger despite collector masking"
     exit 1
 fi
+if echo "$TRACES" | grep -q "SECRET-JWT-TOKEN"; then
+    echo "ERROR: the JWT leaked into Jaeger despite collector masking"
+    exit 1
+fi
 # The marker email must never reach OpenSearch either
 sleep 20
-if curl -sS "http://localhost:9200/otel-logs-*/_search?q=body:%22collector-mask@example.com%22" \
+if curl -sS "http://localhost:$OS_PORT/otel-logs-*/_search?q=body:%22collector-mask@example.com%22" \
         | grep -q "collector-mask@example.com"; then
     echo "ERROR: collector-mask@example.com leaked into OpenSearch despite collector masking"
     exit 1

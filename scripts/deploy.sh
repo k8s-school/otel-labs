@@ -40,6 +40,15 @@ esac
 APP_DIR="$DIR/../apps/review-service"
 IMAGE="$APP_NAME:$PROFILE-$IMAGE_TAG"
 
+# Old kind CLIs cannot load images into recent node images (containerd v2):
+# "ERROR: failed to detect containerd snapshotter"
+KIND_MINOR=$(kind version | grep -oE 'v0\.[0-9]+' | cut -d. -f2)
+if [ "${KIND_MINOR:-0}" -lt 27 ]; then
+    echo "ERROR: kind >= v0.27 is required to load images into this cluster"
+    echo "       (found: $(kind version)) - fix: go install sigs.k8s.io/kind@v0.30.0"
+    exit 1
+fi
+
 set -x
 
 # 1. Build the image (multi-stage: maven build + jre runtime)
@@ -48,15 +57,23 @@ docker build --build-arg MAVEN_PROFILE="$PROFILE" -t "$IMAGE" "$APP_DIR"
 # 2. Load it into the kind cluster (no registry needed)
 kind load docker-image "$IMAGE" --name "$CLUSTER_NAME"
 
-# 3. Apply the manifests with the new image tag substituted
+# 3. Remove lab toggles previously added with 'kubectl set env': kubectl
+# apply RETAINS env vars added outside of it (3-way merge), which can mix
+# the agent with the starter build and crash the app. Resetting BEFORE the
+# apply keeps the manifest as the single source of truth.
+kubectl set env -n "$NS" "deployment/$APP_NAME" \
+    JAVA_TOOL_OPTIONS- MASK_PII- OTEL_INSTRUMENTATION_MICROMETER_ENABLED- \
+    2>/dev/null || true
+
+# 4. Apply the manifests with the new image tag substituted
 sed "s|review-service:IMAGE_PLACEHOLDER|$IMAGE|" "$APP_DIR/k8s/review-service.yaml" \
     | kubectl apply -n "$NS" -f -
 
-# 4. Wait for the rollout to complete
+# 5. Wait for the rollout to complete
 kubectl rollout status -n "$NS" "deployment/$APP_NAME" --timeout=180s
 
 set +x
 echo
 echo "review-service deployed with image $IMAGE"
-echo "Try it: kubectl port-forward -n $NS svc/$APP_NAME 8090:8080 &"
-echo "        curl http://localhost:8090/api/reviews"
+echo "Try it: kubectl port-forward -n $NS svc/$APP_NAME $APP_PORT:8080 &"
+echo "        curl http://localhost:$APP_PORT/api/reviews"

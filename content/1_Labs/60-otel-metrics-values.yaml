@@ -13,6 +13,11 @@ opentelemetry-collector:
             description: "Number of spans with ERROR status"
             conditions:
               - status.code == STATUS_CODE_ERROR
+    processors:
+      # The count connector emits DELTA temporality metrics, which the
+      # Prometheus OTLP endpoint rejects (HTTP 500): convert them to
+      # cumulative before export
+      deltatocumulative: {}
     service:
       pipelines:
         traces:
@@ -22,3 +27,4 @@ opentelemetry-collector:
           # ...and a RECEIVER of the metrics pipeline
           # (re-list everything: lab 3 receivers included)
           receivers: [otlp, kafkametrics, spanmetrics, hostmetrics, postgresql, count]
+          processors: [memory_limiter, resourcedetection, resource, deltatocumulative, batch]

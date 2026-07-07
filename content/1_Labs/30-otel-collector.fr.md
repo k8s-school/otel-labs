@@ -102,7 +102,7 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   -f manifests/values-training.yaml \
   -f manifests/values-lab3.yaml
 
-kubectl rollout status daemonset/otel-collector -n otel-demo
+kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
 
 > `helm upgrade` régénère la ConfigMap et redémarre le collecteur. Les values s'empilent : le fichier de la formation, puis le vôtre.
@@ -110,7 +110,7 @@ kubectl rollout status daemonset/otel-collector -n otel-demo
 5.  **Observer le pipeline dans zPages :**
 
 ```bash
-kubectl port-forward -n otel-demo daemonset/otel-collector 55679:55679 &
+kubectl port-forward -n otel-demo daemonset/otel-collector-agent 55679:55679 &
 ```
 
 Ouvrez [http://localhost:55679/debug/pipelinez](http://localhost:55679/debug/pipelinez) : vos deux receivers doivent apparaître dans le pipeline `metrics`.

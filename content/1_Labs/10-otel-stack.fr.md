@@ -16,6 +16,7 @@ Dans ce premier lab, entièrement guidé, vous démarrez la plateforme d'observa
 
 * Docker installé et fonctionnel (`docker ps` ne renvoie pas d'erreur).
 * `kubectl`, `helm` et `ktbx` installés.
+* `kind` **≥ v0.27** (`kind version`) — les versions plus anciennes ne savent pas charger d'images dans les nœuds récents (erreur `failed to detect containerd snapshotter`). Mise à jour : `go install sigs.k8s.io/kind@v0.30.0`.
 * Le dépôt de la formation cloné :
 
 ```bash
@@ -30,6 +31,8 @@ cd otel
 ```bash
 ./scripts/up.sh -c
 ```
+
+> 🏫 **Serveur partagé** : si le formateur vous a fourni un compte sur un serveur commun, votre cluster existe déjà — lancez simplement `./scripts/up.sh` (sans `-c`). Vos ports sont décalés (`echo $PORT_OFFSET`) : utilisez toujours les URLs affichées par `open-ui.sh`.
 
 L'installation prend quelques minutes (téléchargement des images). Pendant ce temps, regardez ce que fait le script : il crée un cluster Kind (`ktbx create -s`), puis installe le chart Helm `open-telemetry/opentelemetry-demo` dans le namespace `otel-demo`.
 

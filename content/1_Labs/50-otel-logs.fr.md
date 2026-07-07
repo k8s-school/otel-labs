@@ -23,16 +23,12 @@ kubectl logs -n otel-demo deployment/review-service --tail=20
 
 > `kubectl logs` lit la sortie console du conteneur : du texte brut, sans contexte, service par service. Impossible de croiser avec une trace.
 
-2.  **Vérifier que l'agent Java est actif** (il capture aussi les logs) :
+2.  **Revenir à la version « agent Java »** (il capture aussi les logs) :
+
+Le Lab 2 s'est terminé avec le build **starter** déployé. Agent et starter ne doivent jamais cohabiter (chacun enregistre son propre SDK → l'application ne démarre pas). On redéploie donc l'image par défaut, puis on active l'agent :
 
 ```bash
-kubectl get deployment review-service -n otel-demo \
-  -o jsonpath='{.spec.template.spec.containers[0].env}' | grep -o javaagent || echo "agent OFF"
-```
-
-S'il est OFF, réactivez-le :
-
-```bash
+./scripts/deploy.sh
 kubectl set env -n otel-demo deployment/review-service \
   JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
 kubectl rollout status -n otel-demo deployment/review-service

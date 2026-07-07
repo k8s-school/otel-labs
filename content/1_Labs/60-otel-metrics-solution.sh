@@ -21,10 +21,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Part 1: deploy the instrumented code with the Java agent (Micrometer bridge)
+# Part 1: deploy the instrumented code with the Java agent.
+# The agent's Micrometer bridge is OPT-IN: it must be enabled explicitly.
 "$DIR/../../scripts/deploy.sh"
 kubectl set env -n "$NS" deployment/review-service \
-    JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
+    JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar" \
+    OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true
 kubectl rollout status -n "$NS" deployment/review-service --timeout=180s
 
 # Part 2: add the count connector to the collector
@@ -36,24 +38,24 @@ helm upgrade "$RELEASE" "$CHART" \
     -f "$DIR/30-otel-collector-values.yaml" \
     -f "$DIR/60-otel-metrics-values.yaml" \
     --timeout 10m
-kubectl rollout status daemonset/otel-collector -n "$NS" --timeout=300s
+kubectl rollout status daemonset/otel-collector-agent -n "$NS" --timeout=300s
 
-kubectl port-forward -n "$NS" svc/review-service 8090:8080 &
+kubectl port-forward -n "$NS" svc/review-service "$APP_PORT":8080 &
 APP_PF_PID=$!
-kubectl port-forward -n "$NS" svc/prometheus 9090:9090 &
+kubectl port-forward -n "$NS" svc/prometheus "$PROM_PORT":9090 &
 PROM_PF_PID=$!
 sleep 3
 
 generate_traffic() {
     # Successful creations feed the counter and the histogram
     for i in $(seq 1 5); do
-        curl -sSf -X POST http://localhost:8090/api/reviews \
+        curl -sSf -X POST http://localhost:$APP_PORT/api/reviews \
             -H "Content-Type: application/json" \
             -d "{\"productId\": \"OLJCESPC7Z\", \"rating\": 5, \"comment\": \"metric $i\", \"userEmail\": \"user$i@example.com\", \"userName\": \"User $i\"}" \
             > /dev/null
     done
     # A failing creation (unknown product -> 500) feeds the error span count
-    curl -s -o /dev/null -X POST http://localhost:8090/api/reviews \
+    curl -s -o /dev/null -X POST http://localhost:$APP_PORT/api/reviews \
         -H "Content-Type: application/json" \
         -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "?", "userEmail": "x@example.com", "userName": "X"}' \
         || true
@@ -62,7 +64,7 @@ generate_traffic() {
 check_metric_prefix() {
     local prefix="$1"
     for i in $(seq 1 24); do
-        if curl -sSf "http://localhost:9090/api/v1/label/__name__/values" \
+        if curl -sSf "http://localhost:$PROM_PORT/api/v1/label/__name__/values" \
                 | grep -q "\"${prefix}"; then
             return 0
         fi

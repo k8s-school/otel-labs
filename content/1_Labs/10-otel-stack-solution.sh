@@ -7,37 +7,37 @@ set -euxo pipefail
 
 DIR=$(cd "$(dirname "$0")"; pwd -P)
 
-# Install the OpenTelemetry demo (idempotent)
+# Install the OpenTelemetry demo (idempotent). up.sh already waits for the
+# demo pods to be ready, with retries.
 "$DIR/../../scripts/up.sh"
 
 NS="otel-demo"
 
-# All pods must be running and ready
-kubectl wait --for=condition=Ready pods --all -n "$NS" --timeout=600s
+. "$DIR/../../scripts/env.sh"
 
 # Access the UIs through the frontend proxy
-kubectl port-forward -n "$NS" svc/frontend-proxy 8080:8080 &
+kubectl port-forward -n "$NS" svc/frontend-proxy "$UI_PORT":8080 &
 PF_PID=$!
 trap 'kill $PF_PID' EXIT
 sleep 3
 
 # The shop frontend answers
-curl -sSf -o /dev/null http://localhost:8080/
+curl -sSf -o /dev/null http://localhost:$UI_PORT/
 
 # Grafana answers
-curl -sSf -o /dev/null http://localhost:8080/grafana/
+curl -sSf -o /dev/null http://localhost:$UI_PORT/grafana/
 
 # The load generator produced traces: Jaeger must know the checkout service
 # (give the pipeline up to 2 minutes to see the first traces)
 for i in $(seq 1 24); do
-    if curl -sSf http://localhost:8080/jaeger/ui/api/services | grep -q "checkout"; then
+    if curl -sSf http://localhost:$UI_PORT/jaeger/ui/api/services | grep -q "checkout"; then
         break
     fi
     sleep 5
 done
-curl -sSf http://localhost:8080/jaeger/ui/api/services | grep -q "checkout"
+curl -sSf http://localhost:$UI_PORT/jaeger/ui/api/services | grep -q "checkout"
 
 # Deliverable check: at least one end-to-end checkout trace exists
-curl -sSf "http://localhost:8080/jaeger/ui/api/traces?service=checkout&limit=1" | grep -q "traceID"
+curl -sSf "http://localhost:$UI_PORT/jaeger/ui/api/traces?service=checkout&limit=1" | grep -q "traceID"
 
 echo "Lab 1 OK: stack is up, traces are flowing into Jaeger"

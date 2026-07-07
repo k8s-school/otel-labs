@@ -14,8 +14,9 @@ d'exercice et scripts d'infrastructure.
 | `content/1_Labs/` | Labs (Hugo/Relearn, fr) + corrections shell (`*-solution.sh`, en) |
 | `slides/` | Slides Marp (fr), build : `slides/md2pdf.sh` |
 | `apps/review-service/` | Micro-service Spring Boot (API avis produits + PostgreSQL) |
-| `scripts/` | `up.sh` / `down.sh` / `deploy.sh` / `open-ui.sh` |
+| `scripts/` | `up.sh` / `down.sh` / `deploy.sh` / `open-ui.sh` / `setup-students.sh` |
 | `manifests/` | Values Helm de la démo (formation, CI) |
+| `docs/` | [Validation formateur](docs/trainer-validation.md) · [Serveur partagé](docs/serveur-partage.md) |
 
 ## Démarrage rapide (parcours participant)
 

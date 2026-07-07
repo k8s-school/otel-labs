@@ -37,6 +37,9 @@ spec:
             # --- Lab 2 (part 1): uncomment to activate the Java agent ---
             # - name: JAVA_TOOL_OPTIONS
             #   value: "-javaagent:/otel/opentelemetry-javaagent.jar"
+            # --- Lab 6: the agent's Micrometer bridge is opt-in ---
+            # - name: OTEL_INSTRUMENTATION_MICROMETER_ENABLED
+            #   value: "true"
             # --- Database (PostgreSQL of the demo) ---
             - name: DB_HOST
               value: postgresql

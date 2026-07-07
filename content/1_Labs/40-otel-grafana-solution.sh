@@ -9,12 +9,14 @@ set -euxo pipefail
 DIR=$(cd "$(dirname "$0")"; pwd -P)
 NS="otel-demo"
 
-kubectl port-forward -n "$NS" svc/frontend-proxy 8080:8080 &
+. "$DIR/../../scripts/env.sh"
+
+kubectl port-forward -n "$NS" svc/frontend-proxy "$UI_PORT":8080 &
 PF_PID=$!
 trap 'kill $PF_PID 2>/dev/null || true' EXIT
 sleep 3
 
-GRAFANA="http://localhost:8080/grafana"
+GRAFANA="http://localhost:$UI_PORT/grafana"
 
 # Grafana is up (anonymous access with Admin role in the demo)
 curl -sSf "$GRAFANA/api/health" | grep -q "ok"

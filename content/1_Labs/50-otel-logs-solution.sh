@@ -5,7 +5,10 @@
 
 set -euxo pipefail
 
+DIR=$(cd "$(dirname "$0")"; pwd -P)
 NS="otel-demo"
+
+. "$DIR/../../scripts/env.sh"
 
 APP_PF_PID=""
 OS_PF_PID=""
@@ -15,20 +18,23 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Make sure the Java agent is active (it also ships the logs)
+# Redeploy the DEFAULT build then activate the Java agent (it also ships
+# the logs). Lab 2 left the starter build deployed: agent and starter must
+# never cohabit (both register the OpenTelemetry SDK).
+"$DIR/../../scripts/deploy.sh"
 kubectl set env -n "$NS" deployment/review-service \
     JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
 kubectl rollout status -n "$NS" deployment/review-service --timeout=180s
 
-kubectl port-forward -n "$NS" svc/review-service 8090:8080 &
+kubectl port-forward -n "$NS" svc/review-service "$APP_PORT":8080 &
 APP_PF_PID=$!
-kubectl port-forward -n "$NS" svc/opensearch 9200:9200 &
+kubectl port-forward -n "$NS" svc/opensearch "$OS_PORT":9200 &
 OS_PF_PID=$!
 sleep 3
 
 # Generate correlated logs
-curl -sSf http://localhost:8090/api/reviews > /dev/null
-curl -sSf -X POST http://localhost:8090/api/reviews \
+curl -sSf http://localhost:$APP_PORT/api/reviews > /dev/null
+curl -sSf -X POST http://localhost:$APP_PORT/api/reviews \
     -H "Content-Type: application/json" \
     -d '{"productId": "OLJCESPC7Z", "rating": 4, "comment": "Nice!", "userEmail": "marie.curie@example.com", "userName": "Marie Curie"}' \
     > /dev/null
@@ -41,7 +47,7 @@ QUERY='{"size": 5, "query": {"bool": {"must": [
 ]}}}'
 
 for i in $(seq 1 24); do
-    RESULT=$(curl -sS "http://localhost:9200/otel-logs-*/_search" \
+    RESULT=$(curl -sS "http://localhost:$OS_PORT/otel-logs-*/_search" \
         -H "Content-Type: application/json" -d "$QUERY" || true)
     if echo "$RESULT" | grep -q "Creating review for product"; then
         break

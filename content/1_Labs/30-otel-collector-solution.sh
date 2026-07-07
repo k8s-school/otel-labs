@@ -23,25 +23,25 @@ helm upgrade "$RELEASE" "$CHART" \
     -f "$DIR/30-otel-collector-values.yaml" \
     --timeout 10m
 
-kubectl rollout status daemonset/otel-collector -n "$NS" --timeout=300s
+kubectl rollout status daemonset/otel-collector-agent -n "$NS" --timeout=300s
 
 # zPages answers and shows the metrics pipeline
-kubectl port-forward -n "$NS" daemonset/otel-collector 55679:55679 &
+kubectl port-forward -n "$NS" daemonset/otel-collector-agent "$ZPAGES_PORT":55679 &
 ZPAGES_PF_PID=$!
-kubectl port-forward -n "$NS" svc/prometheus 9090:9090 &
+kubectl port-forward -n "$NS" svc/prometheus "$PROM_PORT":9090 &
 PROM_PF_PID=$!
 trap 'kill $ZPAGES_PF_PID $PROM_PF_PID 2>/dev/null || true' EXIT
 sleep 3
 
-curl -sSf http://localhost:55679/debug/pipelinez | grep -q "hostmetrics"
-curl -sSf http://localhost:55679/debug/pipelinez | grep -q "postgresql"
+curl -sSf http://localhost:$ZPAGES_PORT/debug/pipelinez | grep -q "hostmetrics"
+curl -sSf http://localhost:$ZPAGES_PORT/debug/pipelinez | grep -q "postgresql"
 
 # Both system and postgresql metrics must reach Prometheus
 # (wait up to 2 minutes for the first scrapes to be exported)
 check_metric_prefix() {
     local prefix="$1"
     for i in $(seq 1 24); do
-        if curl -sSf "http://localhost:9090/api/v1/label/__name__/values" \
+        if curl -sSf "http://localhost:$PROM_PORT/api/v1/label/__name__/values" \
                 | grep -q "\"${prefix}"; then
             return 0
         fi
