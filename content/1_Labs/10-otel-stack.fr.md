@@ -34,13 +34,15 @@ cd otel
 
 > 🏫 **Serveur partagé** : si le formateur vous a fourni un compte sur un serveur commun, votre cluster existe déjà — lancez simplement `./scripts/up.sh` (sans `-c`). Vos ports sont décalés (`echo $PORT_OFFSET`) : utilisez toujours les URLs affichées par `open-ui.sh`.
 
-L'installation prend quelques minutes (téléchargement des images). Pendant ce temps, regardez ce que fait le script : il crée un cluster Kind (`ktbx create -s`), puis installe le chart Helm `open-telemetry/opentelemetry-demo` dans le namespace `otel-demo`.
+L'installation prend quelques minutes (téléchargement des images). Pendant ce temps, regardez ce que fait le script : il crée un cluster Kind (`ktbx create -s`), puis installe le chart Helm `open-telemetry/opentelemetry-demo` dans le namespace `otel-demo` — c'est la [démo officielle OpenTelemetry](https://opentelemetry.io/ecosystem/demo/), l'« Astronomy Shop ».
 
 {{%expand "Que contient le namespace otel-demo ?" %}}
 Le chart Helm déploie :
 * la **boutique** : une vingtaine de micro-services polyglottes (Go, Java, Python, .NET, Rust...), Kafka, PostgreSQL, Valkey ;
 * le **load generator**, qui simule des clients en continu — vous aurez donc toujours des données à observer ;
 * la **chaîne d'observabilité** : collecteur OpenTelemetry (DaemonSet), Jaeger, Prometheus, OpenSearch et Grafana, déjà câblés entre eux.
+
+Le détail service par service (langage, type d'instrumentation utilisée) : [Language feature reference](https://opentelemetry.io/docs/demo/#language-feature-reference).
 {{% /expand%}}
 
 2.  **Vérifier que tous les pods sont démarrés :**
