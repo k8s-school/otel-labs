@@ -1,2 +1,13 @@
 - [x] mettre un pense bete pour les commandes kubectl (content/0_Prereqs/kubectl.fr.md) A VALIDER
+
+k8s-server:
 - [] pour le serveur otel, mettre guacamole et aussi pré-télécharger les images otel avant la création des clusters kind.
+- Le start doit calculer la branch et la passer en paramètre: ● Update(start.sh)
+Added 2 lines, removed 1 line
+    sleep 5
+done
+
+ssh root@"$ip_address" -- "curl  -s https://raw.githubusercontent.com/k8s-school/k8s-server/main/bootstrap/$distrib/0_init.sh | FLAVOR=$FLAVOR bash"
+# TESTING: pinned to the feature branch; revert to /main/ before merging (#1).
+ssh root@"$ip_address" -- "curl  -s https://raw.githubusercontent.com/k8s-school/k8s-server/1-otel-flavor-mutualize-provisioning/bootstrap/$distrib/0_init.s
+h | FLAVOR=$FLAVOR bash"
