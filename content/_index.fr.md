@@ -2,8 +2,6 @@
 title: Formation OpenTelemetry
 ---
 
-# Formation OpenTelemetry
-
 Bienvenue dans la formation **OpenTelemetry** (2 jours).
 
 ## Le fil rouge : l'Astronomy Shop 🔭

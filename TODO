@@ -1,0 +1,2 @@
+- [x] mettre un pense bete pour les commandes kubectl (content/0_Prereqs/kubectl.fr.md) A VALIDER
+- [] pour le serveur otel, mettre guacamole et aussi pré-télécharger les images otel avant la création des clusters kind.

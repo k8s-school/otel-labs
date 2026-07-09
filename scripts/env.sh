@@ -3,7 +3,7 @@
 
 # Kind cluster name (ktbx default cluster is named "kind").
 # Shared server: one cluster per participant, e.g. CLUSTER_NAME=$USER
-CLUSTER_NAME="${CLUSTER_NAME:-kind}"
+CLUSTER_NAME="${CLUSTER_NAME:-otel}"
 
 # Local ports used by port-forwards. On a shared server, give each
 # participant a distinct PORT_OFFSET (e.g. student3 -> 300) so their

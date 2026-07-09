@@ -3,7 +3,7 @@
 Supports de la formation OpenTelemetry (2 jours) : labs, slides, micro-service
 d'exercice et scripts d'infrastructure.
 
-- Programme de référence : `OpenTelemetry (1).rtf` (officiel) · `programme-otel-michelin.md` (run-sheet formateur)
+- Programme de référence : `OpenTelemetry.rtf` (officiel) · `programme-otel-michelin.md` (run-sheet formateur)
 - Fil rouge : rendre observable `review-service`, un micro-service Spring Boot
   ajouté à l'[Astronomy Shop](https://opentelemetry.io/docs/demo/) (démo officielle OpenTelemetry)
 
