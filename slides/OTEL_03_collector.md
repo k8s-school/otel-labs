@@ -171,6 +171,6 @@ service:
 - Activer **zPages** et observer le pipeline
 - Vérifier les nouvelles métriques dans **Prometheus**
 
-➡ [Lab 3 — Configuration du collecteur](https://k8s-school.fr/otel/fr/1_labs/30-otel-collector/index.html)
+➡ [Lab 3 — Configuration du collecteur](https://k8s-school.fr/labs/otel/fr/1_labs/30-otel-collector/index.html)
 
 *Livrable : métriques `system_*` et `postgresql_*` visibles dans Prometheus.*

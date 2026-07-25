@@ -124,6 +124,6 @@ OTEL_RESOURCE_ATTRIBUTES=service.namespace=otel-demo
 - **Partie 2** : reconstruire avec le **Starter** (`deploy.sh -p starter`) et comparer
 - Service de référence « qui marche » : le **Ad Service** (Java + agent) de la démo
 
-➡ [Lab 2 — Instrumentation zero-code](https://k8s-school.fr/otel/fr/1_labs/20-otel-zero-code/index.html)
+➡ [Lab 2 — Instrumentation zero-code](https://k8s-school.fr/labs/otel/fr/1_labs/20-otel-zero-code/index.html)
 
 *Livrable : deux traces du même endpoint, une par agent, une par starter.*

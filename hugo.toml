@@ -3,7 +3,7 @@
 
 theme = ["github.com/McShelby/hugo-theme-relearn"]
 
-baseurl = "https://k8s-school.fr/otel"
+baseurl = "https://k8s-school.fr/labs/otel"
 title = "K8s-school: OpenTelemetry training"
 contentdir = "content"
 publishdir = "public"
@@ -38,7 +38,7 @@ themeVariant = [
 	{ identifier = "green"          },
 ]
 
-editURL = "https://github.com/k8s-school/otel/tree/main/content/${FilePath}"
+editURL = "https://github.com/k8s-school/otel-labs/tree/main/content/${FilePath}"
 
 disableLandingPageButton = true
 ordersectionsby = "weight"

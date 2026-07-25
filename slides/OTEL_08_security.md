@@ -94,6 +94,6 @@ transform/pii-logs:
   → plus rien ne fuit, pour tous les services
 - **Corriger le code** : supprimer les 3 lignes fautives
 
-➡ [Lab 8 — Sécurité & conformité](https://k8s-school.fr/otel/fr/1_labs/80-otel-security/index.html)
+➡ [Lab 8 — Sécurité & conformité](https://k8s-school.fr/labs/otel/fr/1_labs/80-otel-security/index.html)
 
 *Livrable : la preuve avant/après.*

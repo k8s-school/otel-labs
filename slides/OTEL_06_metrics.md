@@ -90,6 +90,6 @@ exporters:
 - **Partie 2** : connector **`count`** — compter les spans en erreur,
   `app_spans_errors_total` sans une ligne de code
 
-➡ [Lab 6 — Métriques métier](https://k8s-school.fr/otel/fr/1_labs/60-otel-metrics/index.html)
+➡ [Lab 6 — Métriques métier](https://k8s-school.fr/labs/otel/fr/1_labs/60-otel-metrics/index.html)
 
 *Livrable : graphe de latence + compteur métier + métrique dérivée.*

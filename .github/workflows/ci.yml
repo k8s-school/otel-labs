@@ -24,11 +24,38 @@ jobs:
       - name: Build Hugo site
         run: hugo --minify
       - name: Build slides (marp)
+        run: ./slides/md2pdf.sh
+
+  publish:
+    name: Publish site to k8s-school.fr/labs/otel
+    needs: website
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: 'latest'
+          extended: true
+      - name: Install htpasswd and yafc
+        run: sudo apt-get install -y apache2-utils yafc
+      - name: Build slides (marp)
+        run: ./slides/md2pdf.sh
+      - name: Ftp site to OVH
         run: |
-          for deck in slides/OTEL_*.md; do
-            npx --yes @marp-team/marp-cli@latest "$deck" \
-              --theme-set slides/custom-theme.css --pdf --allow-local-files
-          done
+          cat <<EOF > "env-creds.sh"
+          SERVER="ftp.cluster021.hosting.ovh.net"
+          SERVER_USER="${{ secrets.SERVER_USER }}"
+          SERVER_PASS="${{ secrets.SERVER_PASS }}"
+          HTACCESS_USER="${{ secrets.HTACCESS_USER }}"
+          HTACCESS_PASS="${{ secrets.HTACCESS_PASS }}"
+          EOF
+          ./sftp.sh
 
   labs:
     name: Run OpenTelemetry labs

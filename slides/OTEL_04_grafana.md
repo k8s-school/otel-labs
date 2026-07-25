@@ -85,4 +85,4 @@ p95(duration_milliseconds) > 500ms pendant 2 minutes
 - Exporter le dashboard en JSON (livrable à committer)
 - Bonus : une règle d'alerte sur la latence p95
 
-➡ [Lab 4 — Dashboard unifié](https://k8s-school.fr/otel/fr/1_labs/40-otel-grafana/index.html)
+➡ [Lab 4 — Dashboard unifié](https://k8s-school.fr/labs/otel/fr/1_labs/40-otel-grafana/index.html)

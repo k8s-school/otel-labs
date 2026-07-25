@@ -102,4 +102,4 @@ filelog:
 - Naviguer **du log à la trace** en un clic dans Grafana
 - Repérer une **PII dans un log**... (à suivre au Lab 8)
 
-➡ [Lab 5 — Logs structurées](https://k8s-school.fr/otel/fr/1_labs/50-otel-logs/index.html)
+➡ [Lab 5 — Logs structurées](https://k8s-school.fr/labs/otel/fr/1_labs/50-otel-logs/index.html)

@@ -8,5 +8,8 @@
 # Marp generated PDFs
 /slides/*.pdf
 
+# Deployment credentials
+/env-creds.sh
+
 # Java / Maven
 /apps/review-service/target/

@@ -117,4 +117,4 @@ tail_sampling:
 - Mettre en place le **tail sampling** : 100 % des erreurs, 25 % du reste
 - Vérifier : les erreurs survivent, le bruit diminue
 
-➡ [Lab 7 — Traces & échantillonnage](https://k8s-school.fr/otel/fr/1_labs/70-otel-traces/index.html)
+➡ [Lab 7 — Traces & échantillonnage](https://k8s-school.fr/labs/otel/fr/1_labs/70-otel-traces/index.html)

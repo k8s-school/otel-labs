@@ -54,7 +54,7 @@ backgroundColor: #ffffff
 - Conventions sémantiques : <https://opentelemetry.io/docs/specs/semconv/>
 - Livre : *Learning OpenTelemetry* (Young & Parker, O'Reilly)
 - Micrometer vs OTel : [article ITNext](https://itnext.io/distributed-tracing-with-spring-boot-3-micrometer-vs-opentelemetry-b3593546f61b)
-- Les labs de cette formation : <https://k8s-school.fr/otel/>
+- Les labs de cette formation : <https://k8s-school.fr/labs/otel/>
 
 ---
 

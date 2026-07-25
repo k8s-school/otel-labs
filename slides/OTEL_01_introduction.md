@@ -135,6 +135,6 @@ Application                     Collecteur                Backends
 - Suivre une commande de bout en bout dans Jaeger
 - Constater que `review-service` est **invisible**
 
-➡ [Lab 1 — Démarrage de la stack d'observabilité](https://k8s-school.fr/otel/fr/1_labs/10-otel-stack/index.html)
+➡ [Lab 1 — Démarrage de la stack d'observabilité](https://k8s-school.fr/labs/otel/fr/1_labs/10-otel-stack/index.html)
 
 *Livrable : une trace de checkout complète dans Jaeger.*
