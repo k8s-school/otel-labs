@@ -14,17 +14,21 @@ d'exercice et scripts d'infrastructure.
 | `content/1_Labs/` | Labs (Hugo/Relearn, fr) + corrections shell (`*-solution.sh`, en) |
 | `slides/` | Slides Marp (fr), build : `slides/md2pdf.sh` |
 | `apps/review-service/` | Micro-service Spring Boot (API avis produits + PostgreSQL) |
-| `scripts/` | `up.sh` / `down.sh` / `deploy.sh` / `open-ui.sh` / `setup-students.sh` |
+| `scripts/` | `up.sh` / `down.sh` / `deploy.sh` / `open-ui.sh` / `preload-images.sh` / `setup-students.sh` |
 | `manifests/` | Values Helm de la démo (formation, CI) |
 | `docs/` | [Validation formateur](docs/trainer-validation.md) · [Serveur partagé](docs/serveur-partage.md) |
 
 ## Démarrage rapide (parcours participant)
 
 ```bash
-./scripts/up.sh -c        # cluster Kind + démo OpenTelemetry (pinnée 0.40.9)
-./scripts/open-ui.sh      # UIs sur http://localhost:8080 (shop, Grafana, Jaeger)
+./scripts/up.sh -c        # cluster Kind + préchargement des images + démo OTel (pinnée 0.40.9)
+./scripts/open-ui.sh      # UIs sur http://localhost:$UI_PORT (8080, ou 808<N> pour student<N>)
 ./scripts/deploy.sh       # build + kind load + deploy du review-service
 ```
+
+`preload-images.sh` télécharge les images de la démo sur la machine puis les
+injecte dans le cluster Kind (`kind load`) : la démo démarre alors sans accès
+réseau, et sur un serveur partagé chaque image n'est téléchargée qu'une fois.
 
 ## Prévisualiser les labs
 

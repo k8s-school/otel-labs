@@ -10,25 +10,33 @@ DIR=$(cd "$(dirname "$0")"; pwd -P)
 
 usage() {
     cat << EOF
-Usage: $(basename "$0") [-c] [-h]
+Usage: $(basename "$0") [-c] [-p] [-h]
 Create a kind cluster and install the OpenTelemetry demo.
 
   -c    also (re)create the kind cluster (default: reuse current kubectl context)
+        and preload the demo images into it
+  -p    preload the demo images into the current cluster (see preload-images.sh)
   -h    this message
 
+Set SKIP_PRELOAD=true to install straight from the internet with -c.
 Additional values files can be passed through EXTRA_VALUES, e.g.:
   EXTRA_VALUES="-f manifests/values-ci.yaml" $(basename "$0")
 EOF
 }
 
 CREATE_CLUSTER=false
-while getopts "ch" opt; do
+PRELOAD=false
+while getopts "cph" opt; do
     case $opt in
-        c) CREATE_CLUSTER=true ;;
+        c) CREATE_CLUSTER=true; PRELOAD=true ;;
+        p) PRELOAD=true ;;
         h) usage; exit 0 ;;
         *) usage; exit 1 ;;
     esac
 done
+if [ "${SKIP_PRELOAD:-false}" = true ]; then
+    PRELOAD=false
+fi
 
 # Check prerequisites
 for cmd in docker kubectl helm; do
@@ -42,6 +50,12 @@ if [ "$CREATE_CLUSTER" = true ]; then
 fi
 
 kubectl cluster-info > /dev/null || { echo "ERROR: no reachable Kubernetes cluster"; exit 1; }
+
+# Pull the demo images once on the host and inject them into the kind node:
+# much faster than letting each cluster download ~5 GB from the internet.
+if [ "$PRELOAD" = true ]; then
+    "$DIR/preload-images.sh" -n "$CLUSTER_NAME"
+fi
 
 # Install the OpenTelemetry demo (version pinned for reproducibility)
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
