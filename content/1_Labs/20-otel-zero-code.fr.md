@@ -19,6 +19,14 @@ Le code du service est dans `apps/review-service/`. Le script `./scripts/deploy.
 
 * Lab 1 terminé : la stack tourne dans le namespace `otel-demo`.
 * Le port-forward des UIs actif (`./scripts/open-ui.sh` dans un terminal séparé).
+* **Le port local du review-service dans `$APP_PORT`.** Les commandes ci-dessous accèdent au service **en direct** (pas via le frontend-proxy), sur un port local propre. Définissez-le une fois en début de session en sourçant `scripts/env.sh` :
+
+```bash
+. ./scripts/env.sh   # exporte APP_PORT (et UI_PORT, PROM_PORT...)
+echo "$APP_PORT"     # 8090 sur un poste individuel ; 809<N> sur le serveur partagé (student<N>)
+```
+
+> `env.sh` calcule `APP_PORT=8090+PORT_OFFSET`. Sur le serveur partagé, `PORT_OFFSET` est déjà positionné pour votre compte `student<N>`, donc `$APP_PORT` vaut `809<N>` (`student3` → `8093`) — c'est aussi le port affiché par `deploy.sh` en fin de déploiement.
 
 ## Étapes
 
@@ -35,10 +43,10 @@ Le code du service est dans `apps/review-service/`. Le script `./scripts/deploy.
 2.  **Générer du trafic vers l'API :**
 
 ```bash
-kubectl port-forward -n otel-demo svc/review-service 8090:8080 &
-curl http://localhost:8090/api/reviews
-curl http://localhost:8090/api/reviews/product/OLJCESPC7Z
-curl -X POST http://localhost:8090/api/reviews \
+kubectl port-forward -n otel-demo svc/review-service $APP_PORT:8080 &
+curl http://localhost:$APP_PORT/api/reviews
+curl http://localhost:$APP_PORT/api/reviews/product/OLJCESPC7Z
+curl -X POST http://localhost:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "Superbe lunette !", "userEmail": "jean.dupont@example.com", "userName": "Jean Dupont"}'
 ```
@@ -64,7 +72,14 @@ Observez aussi les variables `OTEL_*` déjà présentes dans le manifest. À quo
 * `OTEL_SERVICE_NAME=review-service` — le nom sous lequel le service apparaîtra dans Jaeger/Grafana (convention sémantique `service.name`) ;
 * `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` — où envoyer la télémétrie : le collecteur de la démo, en OTLP ;
 * `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` — variante gRPC du protocole OTLP (port 4317 ; le port 4318 sert la variante HTTP) ;
-* `OTEL_RESOURCE_ATTRIBUTES=service.namespace=otel-demo` — attributs de ressource additionnels.
+* `OTEL_RESOURCE_ATTRIBUTES=service.namespace=otel-demo` — attributs de ressource additionnels attachés à *toute* la télémétrie. `service.namespace` **regroupe logiquement** les services : couplé à `service.name`, il range `review-service` avec les autres services de la démo dans Jaeger/Grafana.
+
+> ⚠️ **Pourquoi le fixer à la main, ce n'est pas déductible ?** Attention à ne pas confondre `service.namespace` (OTel) et `k8s.namespace.name` (Kubernetes) :
+> * l'**agent/SDK ne voit que le processus**, pas Kubernetes — il ignore le namespace K8s du pod, donc il ne peut rien déduire seul ;
+> * ce qui *peut* être injecté automatiquement, c'est `k8s.namespace.name` (via le `k8sattributes` processor du collecteur, l'OTel Operator, ou la Downward API `fieldRef: metadata.namespace`). Mais c'est un attribut d'**infrastructure** ;
+> * `service.namespace` est un attribut **logique / métier** : un *choix* de regroupement, pas un fait de l'infra. Ici il vaut `otel-demo` par coïncidence (même nom que le namespace K8s), mais rien ne les oblige à coïncider.
+>
+> D'où l'approche explicite d'une ligne dans le manifest — sans dépendre du collecteur ni de l'Operator.
 
 `JAVA_TOOL_OPTIONS` est lue par la JVM au démarrage : c'est le moyen standard d'injecter `-javaagent` sans modifier ni le code ni la commande de lancement.
 {{% /expand%}}
@@ -74,8 +89,8 @@ Observez aussi les variables `OTEL_*` déjà présentes dans le manifest. À quo
 ```bash
 ./scripts/deploy.sh
 # relancer le port-forward (le pod a changé)
-kubectl port-forward -n otel-demo svc/review-service 8090:8080 &
-curl http://localhost:8090/api/reviews
+kubectl port-forward -n otel-demo svc/review-service $APP_PORT:8080 &
+curl http://localhost:$APP_PORT/api/reviews
 ```
 
 6.  **Retrouver la trace dans Jaeger.**
@@ -94,27 +109,64 @@ Comparez avec le service `ad` de la démo : lui aussi est un service Java instru
 
 ### Partie 2 — Le Spring Boot Starter
 
-7.  **Reconstruire le service avec le Starter :**
+Contrairement à l'agent (un simple flag JVM au *runtime*), le Starter est une **dépendance compilée dans l'application** : il faut donc **rebâtir l'image**. Avant de lancer la commande, suivez la chaîne d'activation — de l'option `deploy.sh` jusqu'au `pom.xml`.
 
-Le `pom.xml` contient un profil Maven `starter` qui ajoute la dépendance `opentelemetry-spring-boot-starter` — regardez-le. **Re-commentez d'abord `JAVA_TOOL_OPTIONS`** dans le manifest (l'agent et le starter ne doivent pas cohabiter), puis :
+7.  **Comprendre comment le profil `starter` s'active.** Ouvrez `scripts/deploy.sh`, `apps/review-service/Dockerfile` et `apps/review-service/pom.xml`, puis répondez :
+
+    a. Dans `pom.xml`, qu'ajoute le profil Maven `starter` que le profil `default` n'a pas ?
+
+    b. Dans le `Dockerfile`, comment le profil est-il choisi au moment du build ? Quelle commande Maven le consomme ?
+
+    c. Dans `deploy.sh`, comment l'option `-p starter` parvient-elle jusqu'au `Dockerfile` ?
+
+{{%expand "Réponse" %}}
+La chaîne d'activation, du plus haut au plus bas niveau :
+
+```text
+./scripts/deploy.sh -p starter
+ └─ docker build --build-arg MAVEN_PROFILE=starter ...
+     └─ Dockerfile : ARG MAVEN_PROFILE → RUN mvn -P ${MAVEN_PROFILE} -DskipTests package
+         └─ pom.xml : le profil <id>starter</id> ajoute la dépendance
+                      opentelemetry-spring-boot-starter (+ le BOM qui fixe sa version)
+```
+
+* **`pom.xml`** — le profil `default` (`activeByDefault`) n'ajoute **rien** : l'appli n'a que l'API OTel, qui reste *no-op* sans SDK. Le profil `starter` ajoute la dépendance `opentelemetry-spring-boot-starter` et importe le `opentelemetry-instrumentation-bom` (qui aligne les versions OTel). C'est cette dépendance qui embarque le **SDK + les auto-configurations Spring**.
+* **`Dockerfile`** — `ARG MAVEN_PROFILE=default` déclare la variable de build, consommée à l'étape de compilation : `RUN mvn -P ${MAVEN_PROFILE} -DskipTests package`. Changer le profil change donc le `.jar` produit → **rebuild obligatoire** (l'agent, lui, ne touchait pas au build).
+* **`deploy.sh`** — `-p starter` positionne `PROFILE=starter`, passé à Docker via `docker build --build-arg MAVEN_PROFILE=starter`. Cette même valeur sert de **tag d'image** (`starter-<user>-<horodatage>`), pour que Kind recharge bien la nouvelle image.
+
+> À retenir : l'agent est **toujours** présent dans l'image mais **inactif** sans `JAVA_TOOL_OPTIONS` ; le Starter, lui, est actif **dès qu'il est compilé**. D'où la règle : jamais les deux ensemble.
+{{% /expand%}}
+
+8.  **Rebâtir avec le Starter.** **Re-commentez d'abord `JAVA_TOOL_OPTIONS`** dans le manifest (sinon agent + starter = deux SDK → l'application ne démarre pas), puis :
 
 ```bash
 ./scripts/deploy.sh -p starter
 ```
 
-8.  **Générer du trafic et comparer les traces.**
+Dans les logs de build, repérez la ligne Maven qui confirme le profil actif, puis re-générez du trafic (mêmes `curl` qu'à l'étape 2).
 
-Reprenez les mêmes `curl` qu'à l'étape 2, puis comparez dans Jaeger une trace `GET /api/reviews` produite par le **starter** avec celle produite par l'**agent**.
+9.  **Comparer les traces.**
+
+Comparez dans Jaeger une trace `GET /api/reviews` produite par le **starter** avec celle produite par l'**agent** (partie 1).
 
 {{%expand "Réponse" %}}
-Les deux produisent le span serveur HTTP et les spans JDBC. Différences notables :
+Les deux produisent le span serveur HTTP et les spans JDBC — mais par des **mécanismes opposés**, et c'est ce qui explique tout le reste :
+
+* **Agent** = un programme **externe** attaché à la JVM (`-javaagent`) qui **réécrit le bytecode** des bibliothèques connues *au chargement*, sans que l'appli ni son build ne le sachent.
+* **Starter** = une **dépendance compilée dans** l'appli, qui se branche sur les **points d'extension de Spring** (auto-configuration) — pas de manipulation de bytecode.
+
+Sur ce lab, le cas courant (Spring MVC + JDBC) est couvert des deux côtés, d'où des traces quasi identiques. La différence n'apparaît qu'**aux extrémités** (libs exotiques, drivers hors Spring) et sur les propriétés opérationnelles :
 
 | | Agent Java | Spring Boot Starter |
 |---|---|---|
 | Mise en œuvre | flag JVM, aucun changement de build | dépendance Maven, rebuild nécessaire |
 | Couverture | ~toutes les libs Java connues (bytecode) | instrumentations Spring + libs principales |
-| Démarrage | plus lent (instrumentation au chargement) | plus rapide, compatible GraalVM native |
+| Démarrage | plus lent (bytecode réécrit au chargement) | plus rapide, compatible GraalVM native |
 | Granularité | très détaillée | plus ciblée Spring |
+
+> **GraalVM native** = compilation *ahead-of-time* de l'appli en exécutable natif (démarrage en millisecondes, faible mémoire). Comme le binaire est figé au build, **aucune réécriture de bytecode n'est possible au runtime** → l'agent ne marche pas, mais le Starter (déjà compilé dedans) oui.
+>
+> ℹ️ **GraalVM n'est pas utilisé dans ce lab** : `review-service` tourne sur une JVM classique (Temurin 21, un simple `.jar`). C'est un *argument* en faveur du Starter pour la prod native, pas quelque chose à activer ici.
 
 **Quand préférer le starter ?** Images natives (GraalVM), maîtrise fine des dépendances, ou politique interdisant les agents JVM. **Quand préférer l'agent ?** Instrumenter un parc existant sans toucher aux builds.
 {{% /expand%}}

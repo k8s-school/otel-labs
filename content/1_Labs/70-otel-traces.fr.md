@@ -12,6 +12,7 @@ L'instrumentation automatique (Lab 2) trace les frontières techniques (HTTP, SQ
 
 * Labs 1 à 6 terminés, agent Java actif sur `review-service`.
 * Port-forward UIs actif (`./scripts/open-ui.sh`).
+* Le port local du review-service dans `$APP_PORT` (accès **direct**, pas via le frontend-proxy). Sourcez `scripts/env.sh` en début de session : `. ./scripts/env.sh` définit `APP_PORT=8090+PORT_OFFSET` (`8090` en solo, `809<N>` sur le serveur partagé).
 
 ## Étapes
 
@@ -48,8 +49,8 @@ Lors du `POST /api/reviews`, le service appelle le **frontend** de la boutique (
 2.  **Générer une trace multi-services :**
 
 ```bash
-kubectl port-forward -n otel-demo svc/review-service 8090:8080 &
-curl -X POST http://localhost:8090/api/reviews \
+kubectl port-forward -n otel-demo svc/review-service $APP_PORT:8080 &
+curl -X POST http://localhost:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "Trace me!", "userEmail": "ada.lovelace@example.com", "userName": "Ada Lovelace"}'
 ```
@@ -70,6 +71,8 @@ POST /api/reviews                (review-service, span serveur)
 
 Deux **services** dans une même trace = la propagation W3C Trace Context a fonctionné. Le bagage `app.review.channel=web` a voyagé dans les headers (il n'apparaît pas sur les spans : c'est un canal de transport, pas une donnée stockée — un processor peut le copier en attribut si besoin).
 {{% /expand%}}
+
+> 💡 Le span `INSERT reviews` est un span **client** (côté `review-service`) : vous ne trouverez **aucun span côté PostgreSQL**. La base n'est pas instrumentée et le protocole SQL ne transporte pas `traceparent` — la trace s'arrête à la base, qui est une **feuille**. La propagation ne marche qu'entre services instrumentés (ici `review-service` → `frontend`).
 
 ### Partie 2 — Tail sampling
 
@@ -124,10 +127,10 @@ kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 
 ```bash
 # ~20 requêtes OK (25 % devraient survivre) :
-for i in $(seq 1 20); do curl -s http://localhost:8090/api/reviews > /dev/null; done
+for i in $(seq 1 20); do curl -s http://localhost:$APP_PORT/api/reviews > /dev/null; done
 # 3 erreurs (100 % doivent survivre) :
 for i in $(seq 1 3); do
-  curl -s -o /dev/null -X POST http://localhost:8090/api/reviews \
+  curl -s -o /dev/null -X POST http://localhost:$APP_PORT/api/reviews \
     -H "Content-Type: application/json" \
     -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "?", "userEmail": "x@example.com", "userName": "X"}'
 done

@@ -12,6 +12,7 @@ tags: ["OpenTelemetry", "logs", "Logback", "OpenSearch"]
 
 * Labs 1 à 3 terminés.
 * Le port-forward des UIs actif (`./scripts/open-ui.sh`).
+* Le port local du review-service dans `$APP_PORT` (accès **direct**, pas via le frontend-proxy). Sourcez `scripts/env.sh` en début de session : `. ./scripts/env.sh` définit `APP_PORT=8090+PORT_OFFSET` (`8090` en solo, `809<N>` sur le serveur partagé).
 
 ## Étapes
 
@@ -43,9 +44,9 @@ Sans agent, on obtient le même résultat en déclarant l'appender explicitement
 3.  **Générer des logs corrélés :**
 
 ```bash
-kubectl port-forward -n otel-demo svc/review-service 8090:8080 &
-curl http://localhost:8090/api/reviews
-curl -X POST http://localhost:8090/api/reviews \
+kubectl port-forward -n otel-demo svc/review-service $APP_PORT:8080 &
+curl http://localhost:$APP_PORT/api/reviews
+curl -X POST http://localhost:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -d '{"productId": "OLJCESPC7Z", "rating": 4, "comment": "Très bon rapport qualité/prix", "userEmail": "marie.curie@example.com", "userName": "Marie Curie"}'
 ```

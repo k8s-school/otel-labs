@@ -12,6 +12,7 @@ Le Lab 3 collectait des métriques d'**infrastructure** (système, PostgreSQL) ;
 
 * Labs 1 à 3 terminés, agent Java actif sur `review-service` (cf. Lab 5, étape 2).
 * Port-forward Prometheus : `kubectl port-forward -n otel-demo svc/prometheus 9090:9090 &`
+* Le port local du review-service dans `$APP_PORT` (accès **direct**, pas via le frontend-proxy). Sourcez `scripts/env.sh` en début de session : `. ./scripts/env.sh` définit `APP_PORT=8090+PORT_OFFSET` (`8090` en solo, `809<N>` sur le serveur partagé).
 
 ## Étapes
 
@@ -50,9 +51,9 @@ kubectl set env -n otel-demo deployment/review-service \
   OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true
 kubectl rollout status -n otel-demo deployment/review-service
 
-kubectl port-forward -n otel-demo svc/review-service 8090:8080 &
+kubectl port-forward -n otel-demo svc/review-service $APP_PORT:8080 &
 for i in $(seq 1 10); do
-  curl -s -X POST http://localhost:8090/api/reviews \
+  curl -s -X POST http://localhost:$APP_PORT/api/reviews \
     -H "Content-Type: application/json" \
     -d "{\"productId\": \"OLJCESPC7Z\", \"rating\": $((RANDOM % 5 + 1)), \"comment\": \"avis $i\", \"userEmail\": \"user$i@example.com\", \"userName\": \"User $i\"}" > /dev/null
 done
@@ -118,7 +119,7 @@ kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 5.  **Provoquer des erreurs et vérifier :** créez un avis pour un produit inexistant (le service échoue en 500) :
 
 ```bash
-curl -s -X POST http://localhost:8090/api/reviews \
+curl -s -X POST http://localhost:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "?", "userEmail": "x@example.com", "userName": "X"}'
 ```

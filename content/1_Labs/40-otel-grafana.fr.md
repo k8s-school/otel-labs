@@ -11,7 +11,7 @@ Vous disposez maintenant des trois signaux : traces (Labs 2), métriques systèm
 ## Prérequis
 
 * Labs 1 à 3 terminés.
-* Le port-forward des UIs actif (`./scripts/open-ui.sh`) — Grafana sur [http://localhost:8080/grafana/](http://localhost:8080/grafana/).
+* Le port-forward des UIs actif (`./scripts/open-ui.sh`) — Grafana sur [http://localhost:8080/grafana/](http://localhost:8080/grafana/) (`808<N>` sur serveur partagé).
 
 ## Étapes
 
