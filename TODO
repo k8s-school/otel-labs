@@ -5,6 +5,20 @@
   system_cpu_load_average_15m, corrige aussi dans 30-otel-collector-solution.sh
 * [FAIT] slides ch.3: "batch toujours en dernier" nuance + slide de synthese
 
+* hostmetrics dans 30-otel-collector-values.yaml: PAS de root_path ni de montage hostfs,
+  contrairement au preset hostMetrics du chart, qui ajoute
+  "root_path: /hostfs" + un volume hostPath "/" monte en lecture seule (verifie par
+  helm template). Ca marche quand meme pour cpu / load / memory / disk parce que
+  /proc/stat, /proc/loadavg, /proc/meminfo et /proc/diskstats ne sont pas cloisonnes
+  par les namespaces Linux. MAIS le reseau l'est, et le DaemonSet est en
+  hostNetwork: false -> system_network_* mesure le pod collecteur, pas le noeud.
+  Meme probleme pour le scraper filesystem (absent de notre liste, tant mieux).
+  A decider: laisser tel quel (le lab reste simple, le livrable est atteint) ou
+  ajouter root_path + extraVolumes/extraVolumeMounts.
+  Aucune correction urgente: le dashboard du lab 4 n'utilise aucune metrique system_*,
+  et la seule mention de system_network_io_bytes_total (lab 3, etape 6) la presente
+  comme une serie deja presente avant l'etape 4, ce qui est exact.
+
 * [VERIFIE SUR student1, 2026-07-30] apres helm upgrade avec 30-otel-collector-values.yaml,
   Prometheus expose bien system_cpu_load_average_1m/_5m/_15m (le discriminant du lab et
   du controle CI est donc bon) et 19 metriques postgresql_*.
