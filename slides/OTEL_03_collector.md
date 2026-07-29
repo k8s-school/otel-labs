@@ -83,23 +83,32 @@ receivers:
 
 ## Processors (1/2)
 
-- Transforment la donnée **entre** réception et export — ordre significatif
-- **`memory_limiter`** : garde-fou mémoire, toujours en premier
-- **`batch`** : regroupe avant export, toujours en dernier
+- Transforment la donnée **entre** réception et export
+- **`memory_limiter`** : garde-fou mémoire
+- **`batch`** : regroupe avant export
 - **`attributes` / `resource`** : ajouter/supprimer/modifier des attributs
 - **`filter`** : jeter des données (spans de healthcheck, métriques inutiles...)
+- **`transform`** : transformations avancées avec le langage **OTTL**
+- **`resourcedetection`** : enrichit avec l'environnement (host, cloud, K8s)
 
 ---
 
-## Processors (2/2)
+## Processors (2/2) — l'ordre compte
 
-- **`transform`** : transformations avancées avec le langage **OTTL**
-- **`resourcedetection`** : enrichit avec l'environnement (host, cloud, K8s)
-- La démo en utilise plusieurs — vous les lirez dans le lab :
+L'ordre de la liste **est** l'ordre d'exécution. Ordre recommandé :
+
+1. **`memory_limiter`** — délester avant d'accumuler
+2. ce qui **jette** de la donnée (`filter`, échantillonnage)
+3. ce qui dépend du contexte de connexion (`k8sattributes`)
+4. ce qui **enrichit** / transforme (`resource`, `transform`)
+5. **`batch`** — inutile de regrouper ce qui sera jeté ou modifié après
 
 ```yaml
 processors: [memory_limiter, resourcedetection, resource, transform, batch]
 ```
+
+⚠️ Le [schéma officiel](https://opentelemetry.io/docs/collector/) place `Batch` en
+tête : c'est une illustration du *concept* de pipeline, pas une prescription.
 
 ---
 
@@ -160,6 +169,28 @@ logs    → opensearch
 service:
   extensions: [health_check, zpages]
 ```
+
+---
+
+## Synthèse : le collecteur de la démo
+
+```
+review-service ─┐                                    ┌─► Jaeger
+frontend, cart ─┼─► otlp ──► TRACES ──────────────────┤
+   (OTLP push)  │            │                       └─► spanmetrics ─┐
+                │            └── k8sattributes, memory_limiter,       │
+                │               resourcedetection, resource,          │
+                │               transform (OTTL), batch               │
+                │                                                     │
+kafka ──────────┼─► kafkametrics ──► METRICS ◄────────────────────────┘
+kubelet ────────┘   kubeletstats      └──────────────────► Prometheus
+   (pull)           k8s_cluster
+                                      LOGS ──────────────► OpenSearch
+```
+
+- **3 pipelines** indépendants, une même config, **zéro modification applicative**
+- Un composant n'existe que s'il est **cité dans `service.pipelines`**
+- Ajouter une source = ajouter un receiver **et** le brancher au pipeline
 
 ---
 

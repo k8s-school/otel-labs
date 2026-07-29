@@ -1,13 +1,46 @@
-- [x] mettre un pense bete pour les commandes kubectl (content/0_Prereqs/kubectl.fr.md) A VALIDER
+* [FAIT] lab3 etape1: chaine Helm -> ConfigMap -> /conf/relay.yaml, lecture via
+  jsonpath, bonus kubectl debug (conteneur ephemere), extrait annote de la conf
+* [FAIT] lab3: $PROM_PORT / $ZPAGES_PORT au lieu des ports en dur
+* [FAIT] lab3: "system_ ... rien" etait faux (SDK Python de la demo) -> discriminant
+  system_cpu_load_average_15m, corrige aussi dans 30-otel-collector-solution.sh
+* [FAIT] slides ch.3: "batch toujours en dernier" nuance + slide de synthese
 
-k8s-server:
-- [] pour le serveur otel, mettre guacamole et aussi pré-télécharger les images otel avant la création des clusters kind.
-- Le start doit calculer la branch et la passer en paramètre: ● Update(start.sh)
-Added 2 lines, removed 1 line
-    sleep 5
-done
+* [VERIFIE SUR student1, 2026-07-30] apres helm upgrade avec 30-otel-collector-values.yaml,
+  Prometheus expose bien system_cpu_load_average_1m/_5m/_15m (le discriminant du lab et
+  du controle CI est donc bon) et 19 metriques postgresql_*.
+  ATTENTION: le lab citait postgresql_tup_inserted et postgresql_blks_hit, qui
+  N'EXISTENT PAS -> ce sont les noms du postgres_exporter Prometheus. Le receiver OTel
+  produit postgresql_commits_total, postgresql_operations_total, postgresql_rows,
+  postgresql_blocks_read_total, postgresql_backends... Corrige a l'etape 6.
 
-ssh root@"$ip_address" -- "curl  -s https://raw.githubusercontent.com/k8s-school/k8s-server/main/bootstrap/$distrib/0_init.sh | FLAVOR=$FLAVOR bash"
-# TESTING: pinned to the feature branch; revert to /main/ before merging (#1).
-ssh root@"$ip_address" -- "curl  -s https://raw.githubusercontent.com/k8s-school/k8s-server/1-otel-flavor-mutualize-provisioning/bootstrap/$distrib/0_init.s
-h | FLAVOR=$FLAVOR bash"
+* [A VERIFIER] etape 6, ligne "count by (job) (system_cpu_time_seconds_total)": verifier
+  quel label job/service_name porte la serie emise par le collecteur (hostmetrics n'a
+  pas de service.name -> probablement unknown_service). Requete coupee par la perte
+  d'acces SSH.
+
+* Acces SSH a student1 intermittent: coupe apres quelques connexions successives
+  (fail2ban ?), puis revient. Espacer les commandes lors des validations a distance.
+
+* [FAIT] convention de nommage des values: <NN>-<libelle>-values.yaml (NN = poids Hugo
+  de la page; 31, 32... si plusieurs fichiers pour un meme lab). MEME basename dans
+  content/1_Labs (la correction) et manifests (le fichier du participant), d'ou
+  "cp content/1_Labs/<NN>-<libelle>-values.yaml manifests/".
+  Les helm upgrade des labs pointent sur manifests/ (fichier du participant);
+  les *-solution.sh et docs/trainer-validation.md sur content/1_Labs (la correction).
+  manifests/[0-9][0-9]-*-values.yaml ajoute au .gitignore.
+  -> content/1_Labs reste homogene: page, solution et values partagent le meme
+     prefixe, et les URLs publiees sur k8s-school.fr ne bougent pas.
+
+* PIEGE VU EN SEANCE: un `kubectl debug --copy-to=otel-debug` laisse un pod orphelin
+  qui squatte les hostPorts du collecteur (4317, 4318, 14250, 14268, 9411). Tant que
+  le DaemonSet tourne il reste Pending sans gener, mais au `helm upgrade` suivant il
+  prend les ports et le nouveau pod ne peut plus etre planifie. -> le lab utilise
+  maintenant un conteneur ephemere (sans --copy-to); penser a nettoyer les pods
+  otel-debug entre deux sessions.
+
+* Meme verification a faire sur les autres labs qui codent les ports en dur:
+  60-otel-metrics.fr.md (9090), 80-otel-security.fr.md (9200)
+
+* Clarifier le fonctionnement du collector dans les slides, ils sont pas trop synthétiques
+https://opentelemetry.io/docs/collector/
+https://opentelemetry.io/docs/demo/collector-data-flow-dashboard/

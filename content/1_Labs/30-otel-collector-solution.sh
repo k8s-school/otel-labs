@@ -51,7 +51,12 @@ check_metric_prefix() {
     return 1
 }
 
-check_metric_prefix "system_"
+# NB: do NOT check "system_" alone. The Python demo services (load-generator,
+# recommendation, product-reviews) are auto-instrumented with
+# opentelemetry-instrumentation-system-metrics and already push system.cpu.time,
+# system.memory.usage... over OTLP, so "system_" is present even without the
+# hostmetrics receiver. Only the "load" scraper produces the node load average.
+check_metric_prefix "system_cpu_load_average"
 check_metric_prefix "postgresql_"
 
 echo "Lab 3 OK: system and PostgreSQL metrics are collected"

@@ -70,10 +70,16 @@ Vérifiez : le **log** est masqué (`***@***` dans OpenSearch)... mais les **att
 
 ### Partie 3 — Le filet de sécurité : masquer au collecteur
 
-6.  **Écrire la règle OTTL** qui : supprime `user.email` et `http.request.header.authorization` de **tous** les spans, et masque les emails dans **tous** les bodies de logs — quel que soit le service, corrigé ou non.
+6.  **Écrire la règle OTTL** dans `manifests/80-otel-security-values.yaml` : elle supprime `user.email` et `http.request.header.authorization` de **tous** les spans, et masque les emails dans **tous** les bodies de logs — quel que soit le service, corrigé ou non.
 
 {{%expand "Réponse" %}}
-Fichier de référence [`80-otel-security-values.yaml`](../80-otel-security-values.yaml) :
+Fichier de référence [`80-otel-security-values.yaml`](../80-otel-security-values.yaml). Pour l'utiliser tel quel :
+
+```bash
+cp content/1_Labs/80-otel-security-values.yaml manifests/
+```
+
+Son contenu :
 
 ```yaml
 opentelemetry-collector:
@@ -109,10 +115,10 @@ Alternatives : le processor **`redaction`** (approche *allowlist* : seuls les at
 helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   --version 0.40.9 -n otel-demo \
   -f manifests/values-training.yaml \
-  -f content/1_Labs/30-otel-collector-values.yaml \
-  -f content/1_Labs/60-otel-metrics-values.yaml \
-  -f content/1_Labs/70-otel-traces-values.yaml \
-  -f content/1_Labs/80-otel-security-values.yaml
+  -f manifests/30-otel-collector-values.yaml \
+  -f manifests/60-otel-metrics-values.yaml \
+  -f manifests/70-otel-traces-values.yaml \
+  -f manifests/80-otel-security-values.yaml
 kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 
 # on peut même désactiver le masquage SDK : le collecteur protège seul

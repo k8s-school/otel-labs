@@ -11,5 +11,11 @@
 # Deployment credentials
 /env-creds.sh
 
+# Values files written by participants during the labs. Same basename as the
+# reference version in content/1_Labs/, so that a plain
+#   cp content/1_Labs/<NN>-<label>-values.yaml manifests/
+# is all it takes. Does not match manifests/values-training.yaml or values-ci.yaml.
+/manifests/[0-9][0-9]-*-values.yaml
+
 # Java / Maven
 /apps/review-service/target/

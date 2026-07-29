@@ -78,10 +78,16 @@ Deux **services** dans une même trace = la propagation W3C Trace Context a fonc
 
 4.  **Le problème :** en production, tracer 100 % du trafic coûte cher. Mais échantillonner **à la source** (head sampling) jette des traces avant de savoir si elles sont intéressantes. Le **tail sampling** décide *après coup*, dans le collecteur : on garde les erreurs et les requêtes lentes, on échantillonne le reste.
 
-**Écrivez la politique** dans un fichier de values : 100 % des traces en erreur, 100 % des traces > 1 s, 25 % du reste.
+**Écrivez la politique** dans `manifests/70-otel-traces-values.yaml` : 100 % des traces en erreur, 100 % des traces > 1 s, 25 % du reste.
 
 {{%expand "Réponse" %}}
-Fichier de référence [`70-otel-traces-values.yaml`](../70-otel-traces-values.yaml) :
+Fichier de référence [`70-otel-traces-values.yaml`](../70-otel-traces-values.yaml). Pour l'utiliser tel quel :
+
+```bash
+cp content/1_Labs/70-otel-traces-values.yaml manifests/
+```
+
+Son contenu :
 
 ```yaml
 opentelemetry-collector:
@@ -117,9 +123,9 @@ opentelemetry-collector:
 helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   --version 0.40.9 -n otel-demo \
   -f manifests/values-training.yaml \
-  -f content/1_Labs/30-otel-collector-values.yaml \
-  -f content/1_Labs/60-otel-metrics-values.yaml \
-  -f content/1_Labs/70-otel-traces-values.yaml
+  -f manifests/30-otel-collector-values.yaml \
+  -f manifests/60-otel-metrics-values.yaml \
+  -f manifests/70-otel-traces-values.yaml
 kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
 

@@ -76,10 +76,16 @@ Chemin parcouru : Micrometer → bridge de l'agent → OTLP → collecteur → e
 
 ### Partie 2 — Dériver une métrique depuis les spans (connector `count`)
 
-4.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values. Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
+4.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values, `manifests/60-otel-metrics-values.yaml`. Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
 
 {{%expand "Réponse" %}}
-Le fichier de référence est [`60-otel-metrics-values.yaml`](../60-otel-metrics-values.yaml) :
+Le fichier de référence est [`60-otel-metrics-values.yaml`](../60-otel-metrics-values.yaml). Pour l'utiliser tel quel :
+
+```bash
+cp content/1_Labs/60-otel-metrics-values.yaml manifests/
+```
+
+Son contenu :
 
 ```yaml
 opentelemetry-collector:
@@ -111,8 +117,8 @@ Et pourquoi `deltatocumulative` ? Le connector `count` émet ses métriques en t
 helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   --version 0.40.9 -n otel-demo \
   -f manifests/values-training.yaml \
-  -f content/1_Labs/30-otel-collector-values.yaml \
-  -f content/1_Labs/60-otel-metrics-values.yaml
+  -f manifests/30-otel-collector-values.yaml \
+  -f manifests/60-otel-metrics-values.yaml
 kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
 
