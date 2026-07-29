@@ -192,7 +192,7 @@ Ouvrez `http://localhost:$PROM_PORT` (avec **votre** `$PROM_PORT`) et cherchez d
 > count by (job) (system_cpu_time_seconds_total)
 > ```
 >
-> Vous n'obtenez que des applications (`otel-demo/load-generator`...). C'est pourquoi le critère du lab est `system_cpu_load_average_15m` : la charge d'une machine, aucune application ne peut la produire.
+> Vous n'obtenez que des applications (`otel-demo/load-generator`...) : dans Prometheus, `job` identifie le service émetteur — c'est `service.namespace/service.name`, les attributs que l'application déclare. C'est pourquoi le critère du lab est `system_cpu_load_average_15m` : la charge d'une machine, aucune application ne peut la produire.
 
 ### 3. Écrire le fichier de values qui ajoute les deux receivers
 
