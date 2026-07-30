@@ -26,15 +26,15 @@ kubectl set env -n "$NS" deployment/review-service \
     JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
 kubectl rollout status -n "$NS" deployment/review-service --timeout=180s
 
-kubectl port-forward -n "$NS" svc/review-service "$APP_PORT":8080 &
+kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/review-service "$APP_PORT":8080 &
 APP_PF_PID=$!
-kubectl port-forward -n "$NS" svc/opensearch "$OS_PORT":9200 &
+kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/opensearch "$OS_PORT":9200 &
 OS_PF_PID=$!
 sleep 3
 
 # Generate correlated logs
-curl -sSf http://localhost:$APP_PORT/api/reviews > /dev/null
-curl -sSf -X POST http://localhost:$APP_PORT/api/reviews \
+curl -sSf http://$PF_HOST:$APP_PORT/api/reviews > /dev/null
+curl -sSf -X POST http://$PF_HOST:$APP_PORT/api/reviews \
     -H "Content-Type: application/json" \
     -d '{"productId": "OLJCESPC7Z", "rating": 4, "comment": "Nice!", "userEmail": "marie.curie@example.com", "userName": "Marie Curie"}' \
     > /dev/null
@@ -47,7 +47,7 @@ QUERY='{"size": 5, "query": {"bool": {"must": [
 ]}}}'
 
 for i in $(seq 1 24); do
-    RESULT=$(curl -sS "http://localhost:$OS_PORT/otel-logs-*/_search" \
+    RESULT=$(curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search" \
         -H "Content-Type: application/json" -d "$QUERY" || true)
     if echo "$RESULT" | grep -q "Creating review for product"; then
         break

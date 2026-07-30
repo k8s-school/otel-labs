@@ -11,7 +11,7 @@ Vous disposez maintenant des trois signaux : traces (Labs 2), métriques systèm
 ## Prérequis
 
 * Labs 1 à 3 terminés.
-* Le port-forward des UIs actif (`./scripts/open-ui.sh`) — Grafana sur [http://localhost:8080/grafana/](http://localhost:8080/grafana/) (`808<N>` sur serveur partagé).
+* Le port-forward des UIs actif (`./scripts/open-ui.sh`) — Grafana sur [http://localhost:8080/grafana/](http://localhost:8080/grafana/).
 
 ## Étapes
 
@@ -65,7 +65,7 @@ resource.service.name:"$service_name"
 Le dashboard de référence est [`40-otel-grafana-dashboard.json`](../40-otel-grafana-dashboard.json). Pour l'importer : *Dashboards → New → Import* et coller le JSON, ou par l'API :
 
 ```bash
-curl -sS -X POST http://localhost:8080/grafana/api/dashboards/db \
+curl -sS -X POST http://$PF_HOST:$UI_PORT/grafana/api/dashboards/db \
   -H "Content-Type: application/json" \
   -d "{\"overwrite\": true, \"dashboard\": $(cat content/1_Labs/40-otel-grafana-dashboard.json)}"
 ```

@@ -2,8 +2,8 @@
 
 # Port-forward the demo frontend proxy and print the UI URLs.
 #
-# The local port is UI_PORT (see env.sh): 8080 for a single user, 808<N> for
-# the account student<N> on a shared server.
+# The port is always 8080 (UI_PORT). On a shared server what differs is the
+# bind address: PF_ADDR/PF_HOST identify the participant (see env.sh).
 
 set -euo pipefail
 
@@ -11,22 +11,23 @@ DIR=$(cd "$(dirname "$0")"; pwd -P)
 . "$DIR/env.sh"
 
 cat << EOF
-Opening access to the OpenTelemetry demo UIs on port $UI_PORT (Ctrl+C to stop):
+Opening access to the OpenTelemetry demo UIs (Ctrl+C to stop):
 
-  Astronomy Shop   http://localhost:$UI_PORT/
-  Grafana          http://localhost:$UI_PORT/grafana/
-  Jaeger           http://localhost:$UI_PORT/jaeger/ui/
-  Load generator   http://localhost:$UI_PORT/loadgen/
-  Feature flags    http://localhost:$UI_PORT/feature
+  Astronomy Shop   http://$PF_HOST:$UI_PORT/
+  Grafana          http://$PF_HOST:$UI_PORT/grafana/
+  Jaeger           http://$PF_HOST:$UI_PORT/jaeger/ui/
+  Load generator   http://$PF_HOST:$UI_PORT/loadgen/
+  Feature flags    http://$PF_HOST:$UI_PORT/feature
 
 EOF
 
-if [ "$PORT_OFFSET" -ne 0 ]; then
+if [ "$PF_ADDR" != "127.0.0.1" ]; then
     cat << EOF
 Shared server: forward the port from your workstation first, e.g.
-  ssh -L $UI_PORT:localhost:$UI_PORT $(id -un)@<server>
+  ssh -L $UI_PORT:$PF_ADDR:$UI_PORT $(id -un)@<server>
+then browse http://localhost:$UI_PORT/
 
 EOF
 fi
 
-kubectl --namespace "$NS" port-forward svc/frontend-proxy "$UI_PORT":8080
+kubectl --namespace "$NS" port-forward --address "$PF_ADDR" svc/frontend-proxy "$UI_PORT":8080

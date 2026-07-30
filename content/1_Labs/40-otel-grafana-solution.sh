@@ -11,12 +11,12 @@ NS="otel-demo"
 
 . "$DIR/../../scripts/env.sh"
 
-kubectl port-forward -n "$NS" svc/frontend-proxy "$UI_PORT":8080 &
+kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/frontend-proxy "$UI_PORT":8080 &
 PF_PID=$!
 trap 'kill $PF_PID 2>/dev/null || true' EXIT
 sleep 3
 
-GRAFANA="http://localhost:$UI_PORT/grafana"
+GRAFANA="http://$PF_HOST:$UI_PORT/grafana"
 
 # Grafana is up (anonymous access with Admin role in the demo)
 curl -sSf "$GRAFANA/api/health" | grep -q "ok"

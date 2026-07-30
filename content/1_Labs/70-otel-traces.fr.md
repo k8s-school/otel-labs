@@ -12,7 +12,7 @@ L'instrumentation automatique (Lab 2) trace les frontières techniques (HTTP, SQ
 
 * Labs 1 à 6 terminés, agent Java actif sur `review-service`.
 * Port-forward UIs actif (`./scripts/open-ui.sh`).
-* Le port local du review-service dans `$APP_PORT` (accès **direct**, pas via le frontend-proxy). Sourcez `scripts/env.sh` en début de session : `. ./scripts/env.sh` définit `APP_PORT=8090+PORT_OFFSET` (`8090` en solo, `809<N>` sur le serveur partagé).
+* Les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) ainsi que `$PF_ADDR` et `$PF_HOST`, l'adresse sur laquelle vos `port-forward` écoutent.
 
 ## Étapes
 
@@ -49,8 +49,8 @@ Lors du `POST /api/reviews`, le service appelle le **frontend** de la boutique (
 2.  **Générer une trace multi-services :**
 
 ```bash
-kubectl port-forward -n otel-demo svc/review-service $APP_PORT:8080 &
-curl -X POST http://localhost:$APP_PORT/api/reviews \
+kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
+curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "Trace me!", "userEmail": "ada.lovelace@example.com", "userName": "Ada Lovelace"}'
 ```
@@ -133,10 +133,10 @@ kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 
 ```bash
 # ~20 requêtes OK (25 % devraient survivre) :
-for i in $(seq 1 20); do curl -s http://localhost:$APP_PORT/api/reviews > /dev/null; done
+for i in $(seq 1 20); do curl -s http://$PF_HOST:$APP_PORT/api/reviews > /dev/null; done
 # 3 erreurs (100 % doivent survivre) :
 for i in $(seq 1 3); do
-  curl -s -o /dev/null -X POST http://localhost:$APP_PORT/api/reviews \
+  curl -s -o /dev/null -X POST http://$PF_HOST:$APP_PORT/api/reviews \
     -H "Content-Type: application/json" \
     -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "?", "userEmail": "x@example.com", "userName": "X"}'
 done

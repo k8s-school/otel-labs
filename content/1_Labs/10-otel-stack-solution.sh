@@ -16,7 +16,7 @@ NS="otel-demo"
 . "$DIR/../../scripts/env.sh"
 
 # Access the UIs through the frontend proxy
-kubectl port-forward -n "$NS" svc/frontend-proxy "$UI_PORT":8080 &
+kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/frontend-proxy "$UI_PORT":8080 &
 PF_PID=$!
 trap 'kill $PF_PID' EXIT
 sleep 3
@@ -37,22 +37,22 @@ wait_for_url() {
 }
 
 # The shop frontend answers
-wait_for_url http://localhost:$UI_PORT/
+wait_for_url http://$PF_HOST:$UI_PORT/
 
 # Grafana answers
-wait_for_url http://localhost:$UI_PORT/grafana/
+wait_for_url http://$PF_HOST:$UI_PORT/grafana/
 
 # The load generator produced traces: Jaeger must know the checkout service
 # (give the pipeline up to 2 minutes to see the first traces)
 for i in $(seq 1 24); do
-    if curl -sSf http://localhost:$UI_PORT/jaeger/ui/api/services | grep -q "checkout"; then
+    if curl -sSf http://$PF_HOST:$UI_PORT/jaeger/ui/api/services | grep -q "checkout"; then
         break
     fi
     sleep 5
 done
-curl -sSf http://localhost:$UI_PORT/jaeger/ui/api/services | grep -q "checkout"
+curl -sSf http://$PF_HOST:$UI_PORT/jaeger/ui/api/services | grep -q "checkout"
 
 # Deliverable check: at least one end-to-end checkout trace exists
-curl -sSf "http://localhost:$UI_PORT/jaeger/ui/api/traces?service=checkout&limit=1" | grep -q "traceID"
+curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=checkout&limit=1" | grep -q "traceID"
 
 echo "Lab 1 OK: stack is up, traces are flowing into Jaeger"

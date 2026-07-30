@@ -1,74 +1,103 @@
 # Mode serveur partagé (formateur)
 
 Un seul serveur héberge **un cluster Kind par participant**. L'isolation
-pédagogique est totale (chacun casse/répare *son* collecteur), mais le cache
-Docker est partagé : le premier build Maven profite à tous.
-
-## Dimensionnement (jusqu'à 9 participants)
-
-| Ressource | Valeur |
-|---|---|
-| RAM | 128 Go (96 Go minimum) — ~6-8 Go/participant |
-| CPU | 32+ vCPU |
-| Disque | 300+ Go SSD/NVMe — ~15-20 Go/participant (images dans les nœuds Kind) |
-| Prérequis | docker, **kind ≥ v0.27**, ktbx, helm, kubectl, git, go |
+pédagogique est totale (chacun casse/répare *son* collecteur), et le cache
+Docker est partagé : les images de la démo ne sont téléchargées qu'une fois
+pour toute la salle.
 
 ## Provisioning
 
+Le serveur n'est **pas** provisionné depuis ce dépôt, mais depuis
+[`k8s-school/k8s-server`](https://github.com/k8s-school/k8s-server)
+(OpenTofu + Ansible) :
+
 ```bash
-sudo ./scripts/setup-students.sh 9
+cd k8s-server/provisioning
+make provision FLAVOR=otel     # = make up (VM Scaleway) + make configure (Ansible)
 ```
 
-Pour chaque `studentN`, le script :
-1. crée le compte Unix (groupe `docker`) ;
-2. exporte `CLUSTER_NAME=studentN` et `PORT_OFFSET=N` dans son `.bashrc`
-   (tous les scripts de la formation lisent ces variables via `scripts/env.sh`) ;
-3. clone le dépôt de la formation dans son home ;
-4. crée son cluster Kind (`ktbx create -s -n studentN`) et installe son kubeconfig ;
-5. précharge les images de la démo dans ce cluster (`scripts/preload-images.sh`) :
-   le téléchargement n'a lieu que pour le premier participant, les suivants
-   réutilisent le cache Docker de la machine.
+Ansible (`ansible/site.yml`, `group_vars/otel.yml`) prépare pour chaque
+`student<N>` :
 
-⚠️ La **stack OpenTelemetry n'est pas installée** : c'est l'objet du lab 1,
-chaque participant lance `./scripts/up.sh` (sans `-c`) sur son cluster. Grâce
-au préchargement, l'installation ne retélécharge rien.
+1. le compte Unix (groupes `docker`, `adm`) et son mot de passe ;
+2. le dépôt de la formation cloné dans `~/.ktbx/homefs/otel` ;
+3. son environnement dans `.bashrc` : `CLUSTER_NAME=student<N>`,
+   `PF_ADDR=127.0.0.<N>`, `PF_HOST=localhost<N>` ;
+4. l'entrée `/etc/hosts` correspondante (`127.0.0.3 localhost3`) ;
+5. l'accès navigateur [Apache Guacamole](https://guacamole.apache.org/)
+   (`guacamole_enabled: true`), une connexion par participant.
 
-## Ports par participant
+Côté cluster, Ansible ne fait qu'installer Helm (`training_action: helm_only`).
 
-`PORT_OFFSET` décale tous les ports locaux du numéro du participant :
-`student3` a l'UI sur `8083` (808**3**), l'API review-service sur `8093`,
-Prometheus sur `9093`, OpenSearch sur `9203`.
-`./scripts/open-ui.sh` affiche toujours les **vraies** URLs du participant.
+⚠️ **Ni le cluster Kind ni la stack OpenTelemetry ne sont créés à l'avance** :
+c'est l'objet du lab 1, où chaque participant lance `./scripts/up.sh -c` sur
+son compte — exactement la même commande que sur un poste individuel. Le
+premier démarrage télécharge les images (~5 Go) ; les suivants réutilisent le
+cache Docker de la machine.
 
-⚠️ Limite à **9 participants** : au-delà, `808<N>` empiéterait sur la plage
-`809x` du review-service. Pour un groupe plus grand, repasser à un offset plus
-large (`PORT_OFFSET=N×100`) dans `setup-students.sh`.
+## Un port pour tous, une adresse par participant
 
-⚠️ Les énoncés des labs utilisent les ports par défaut (8080, 8090...) :
-en mode partagé, demander aux participants de remplacer par les ports
-affichés par `open-ui.sh` (ou d'utiliser `$UI_PORT`, `$APP_PORT`... exportés
-dans leur shell).
+Les énoncés des labs utilisent les mêmes ports pour tout le monde — 8080 pour
+les UIs, 8090 pour le `review-service`, 9090 pour Prometheus, 9200 pour
+OpenSearch, 55679 pour les zPages. Ce qui distingue les participants, c'est
+l'**adresse d'écoute** de leurs `port-forward` : `student3` binde `127.0.0.3`
+(alias `localhost3`), `student4` binde `127.0.0.4`, etc. Tout `127.0.0.0/8`
+est routé vers `lo` sous Linux : rien à configurer, et jusqu'à 199 participants
+sans collision.
+
+D'où le `--address $PF_ADDR` présent dans toutes les commandes des labs :
+
+```bash
+kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus 9090:9090 &
+curl http://$PF_HOST:9090/api/v1/label/__name__/values
+```
+
+`scripts/env.sh` déduit ces deux variables du nom de compte quand elles ne sont
+pas déjà exportées — un shell non interactif (`ssh student3@serveur '…'`) reste
+donc correct. Le compte `trainer` a sa propre adresse, `127.0.0.200`, pour ne
+pas entrer en conflit avec `student1` lors des démonstrations.
 
 ## Accès aux UIs
 
-Tunnel SSH depuis le poste du participant :
+* **Guacamole** : bureau ou terminal dans le navigateur, sur
+  `https://training.k8s-school.fr/` — le participant y ouvre
+  `http://localhost3:8080/` directement.
+* **Tunnel SSH** depuis le poste du participant, l'URL redevient `localhost` :
 
 ```bash
-ssh -L 8081:localhost:8081 student1@<serveur>   # puis http://localhost:8081/
+ssh -L 8080:127.0.0.3:8080 student3@<serveur>   # puis http://localhost:8080/
 ```
 
-(VS Code Remote-SSH forwarde les ports automatiquement.)
+`./scripts/open-ui.sh` affiche les deux (URLs + commande de tunnel).
+
+## Dimensionnement
+
+Mesuré sur un lab en fonctionnement (26 pods de la démo + load generator) :
+
+| Ressource | Par participant |
+|---|---|
+| RAM | ~6,4 Gio (+ ~1 Gio si bureau Guacamole/Firefox) |
+| CPU | ~1,7 vCPU en régime, bien plus pendant le démarrage |
+| Disque | ~11 Go d'images dans le nœud Kind, + la croissance de Prometheus/OpenSearch |
+
+La VM par défaut (`envs/otel.tfvars`) est une **GP1-M : 16 vCPU / 64 Gio /
+100 Go**. Elle tient donc **~8 participants** côté RAM, mais le disque sature
+avant : porter `root_volume_size_gb` à ~250 Go pour une salle complète (GP1-M
+accepte jusqu'à 600 Go). Au-delà d'une dizaine de participants, passer en
+GP1-L (32 vCPU / 128 Gio).
+
+Prérequis logiciels sur le serveur : docker, **kind ≥ v0.27**, ktbx, helm,
+kubectl, git, go — tous cuits dans l'image dorée par Packer
+(`make create-image FLAVOR=otel`).
 
 ## Points d'attention
 
 - **Docker partagé** : un participant peut voir/supprimer les conteneurs des
   autres (`docker rm` malheureux = cluster voisin détruit). Acceptable en
   formation encadrée ; sinon prévoir Docker rootless par compte.
-- **Lab 1 raccourci** : le cluster existe déjà — les participants font
-  `./scripts/up.sh` (sans `-c`), qui installe la démo sur *leur* cluster.
-- Préparer le serveur **la veille** : `setup-students.sh` télécharge et charge
-  toutes les images dans chaque cluster (compter ~5 Go de téléchargement, puis
-  quelques minutes de `kind load` par participant).
-- Vérifier le préchargement d'un cluster : `./scripts/preload-images.sh -n student1`
-  (ré-exécutable, il ne recharge que ce qui manque) ; `-l` affiche la liste des
-  images utilisées.
+- **Démarrages simultanés** : 8 `up.sh -c` en même temps saturent le CPU et le
+  réseau. Faire démarrer le lab 1 par vagues, ou lancer un `up.sh` la veille
+  sur un compte pour amorcer le cache Docker.
+- **Vérifier le préchargement d'un cluster** :
+  `./scripts/preload-images.sh -n student1` (ré-exécutable, il ne charge que ce
+  qui manque) ; `-l` affiche la liste des images utilisées.

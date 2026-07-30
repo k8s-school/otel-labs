@@ -20,14 +20,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-kubectl port-forward -n "$NS" svc/frontend-proxy "$UI_PORT":8080 &
+kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/frontend-proxy "$UI_PORT":8080 &
 PROXY_PF_PID=$!
-kubectl port-forward -n "$NS" svc/review-service "$APP_PORT":8080 &
+kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/review-service "$APP_PORT":8080 &
 APP_PF_PID=$!
 sleep 3
 
 # --- Part 1: multi-service trace (review-service -> frontend) ---
-curl -sSf -X POST http://localhost:$APP_PORT/api/reviews \
+curl -sSf -X POST http://$PF_HOST:$APP_PORT/api/reviews \
     -H "Content-Type: application/json" \
     -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "Trace me!", "userEmail": "ada.lovelace@example.com", "userName": "Ada Lovelace"}' \
     > /dev/null
@@ -35,13 +35,13 @@ curl -sSf -X POST http://localhost:$APP_PORT/api/reviews \
 # A review-service trace must contain the manual span AND a frontend process
 found=""
 for i in $(seq 1 24); do
-    TRACES=$(curl -sSf "http://localhost:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&limit=20" || true)
+    TRACES=$(curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&limit=20" || true)
     if echo "$TRACES" | grep -q "product-catalog.lookup" \
         && echo "$TRACES" | grep -q '"serviceName":"frontend"'; then
         found=yes
         break
     fi
-    curl -sSf -X POST http://localhost:$APP_PORT/api/reviews \
+    curl -sSf -X POST http://$PF_HOST:$APP_PORT/api/reviews \
         -H "Content-Type: application/json" \
         -d '{"productId": "OLJCESPC7Z", "rating": 4, "comment": "retry", "userEmail": "ada.lovelace@example.com", "userName": "Ada Lovelace"}' \
         > /dev/null || true
@@ -63,19 +63,19 @@ kubectl rollout status daemonset/otel-collector-agent -n "$NS" --timeout=300s
 sleep 5
 
 # Error traces must survive the sampling policy (status_code policy)
-curl -s -o /dev/null -X POST http://localhost:$APP_PORT/api/reviews \
+curl -s -o /dev/null -X POST http://$PF_HOST:$APP_PORT/api/reviews \
     -H "Content-Type: application/json" \
     -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "?", "userEmail": "x@example.com", "userName": "X"}' \
     || true
 
 found=""
 for i in $(seq 1 24); do
-    if curl -sSf "http://localhost:$UI_PORT/jaeger/ui/api/traces?service=review-service&tags=%7B%22error%22%3A%22true%22%7D&limit=10" \
+    if curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&tags=%7B%22error%22%3A%22true%22%7D&limit=10" \
             | grep -q "traceID"; then
         found=yes
         break
     fi
-    curl -s -o /dev/null -X POST http://localhost:$APP_PORT/api/reviews \
+    curl -s -o /dev/null -X POST http://$PF_HOST:$APP_PORT/api/reviews \
         -H "Content-Type: application/json" \
         -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "?", "userEmail": "x@example.com", "userName": "X"}' \
         || true

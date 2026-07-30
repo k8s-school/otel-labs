@@ -19,14 +19,14 @@ Le code du service est dans `apps/review-service/`. Le script `./scripts/deploy.
 
 * Lab 1 terminé : la stack tourne dans le namespace `otel-demo`.
 * Le port-forward des UIs actif (`./scripts/open-ui.sh` dans un terminal séparé).
-* **Le port local du review-service dans `$APP_PORT`.** Les commandes ci-dessous accèdent au service **en direct** (pas via le frontend-proxy), sur un port local propre. Définissez-le une fois en début de session en sourçant `scripts/env.sh` :
+* **Les variables de la formation chargées dans votre shell.** Les commandes ci-dessous accèdent au service **en direct** (pas via le frontend-proxy), sur le port local `$APP_PORT`. Sourcez `scripts/env.sh` une fois en début de session :
 
 ```bash
-. ./scripts/env.sh   # exporte APP_PORT (et UI_PORT, PROM_PORT...)
-echo "$APP_PORT"     # 8090 sur un poste individuel ; 809<N> sur le serveur partagé (student<N>)
+. ./scripts/env.sh   # exporte APP_PORT, UI_PORT, PROM_PORT... et PF_ADDR / PF_HOST
+echo "$APP_PORT"     # 8090, pour tout le monde
 ```
 
-> `env.sh` calcule `APP_PORT=8090+PORT_OFFSET`. Sur le serveur partagé, `PORT_OFFSET` est déjà positionné pour votre compte `student<N>`, donc `$APP_PORT` vaut `809<N>` (`student3` → `8093`) — c'est aussi le port affiché par `deploy.sh` en fin de déploiement.
+> `$PF_ADDR` est l'adresse sur laquelle vos `port-forward` écoutent, `$PF_HOST` le nom par lequel vous les joignez. Sur un poste individuel : `127.0.0.1` et `localhost`. Sur le serveur partagé, votre compte a les siens (`student3` → `127.0.0.3`, alias `localhost3`), ce qui permet à tous les participants d'utiliser les mêmes ports sans se marcher dessus. Gardez donc `$PF_ADDR` / `$PF_HOST` dans les commandes plutôt que `localhost` en dur.
 
 ## Étapes
 
@@ -43,10 +43,10 @@ echo "$APP_PORT"     # 8090 sur un poste individuel ; 809<N> sur le serveur part
 2.  **Générer du trafic vers l'API :**
 
 ```bash
-kubectl port-forward -n otel-demo svc/review-service $APP_PORT:8080 &
-curl http://localhost:$APP_PORT/api/reviews
-curl http://localhost:$APP_PORT/api/reviews/product/OLJCESPC7Z
-curl -X POST http://localhost:$APP_PORT/api/reviews \
+kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
+curl http://$PF_HOST:$APP_PORT/api/reviews
+curl http://$PF_HOST:$APP_PORT/api/reviews/product/OLJCESPC7Z
+curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "Superbe lunette !", "userEmail": "jean.dupont@example.com", "userName": "Jean Dupont"}'
 ```
@@ -89,8 +89,8 @@ Observez aussi les variables `OTEL_*` déjà présentes dans le manifest. À quo
 ```bash
 ./scripts/deploy.sh
 # relancer le port-forward (le pod a changé)
-kubectl port-forward -n otel-demo svc/review-service $APP_PORT:8080 &
-curl http://localhost:$APP_PORT/api/reviews
+kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
+curl http://$PF_HOST:$APP_PORT/api/reviews
 ```
 
 6.  **Retrouver la trace dans Jaeger.**

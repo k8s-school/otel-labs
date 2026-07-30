@@ -67,14 +67,17 @@ crée un tunnel entre un port de votre machine et le service :
 
 ```bash
 # http://localhost:8080 -> service grafana, port 80, dans le cluster
-kubectl port-forward -n otel-demo svc/grafana 8080:80
+kubectl port-forward -n otel-demo --address $PF_ADDR svc/grafana 8080:80
 ```
 
 Laissez la commande tournée (elle bloque le terminal), ouvrez le navigateur,
 puis `Ctrl-C` pour couper le tunnel.
 
-> 🏫 Sur un serveur partagé, utilisez toujours les URLs affichées par
-> `./scripts/open-ui.sh` (vos ports sont décalés).
+> `--address $PF_ADDR` choisit l'adresse d'écoute du tunnel : `127.0.0.1`
+> (donc `localhost`) sur un poste individuel, et l'adresse propre à votre
+> compte sur un serveur partagé, pour ne pas entrer en conflit avec les
+> tunnels des autres participants. La variable vient de `scripts/env.sh` :
+> `. ./scripts/env.sh` en début de session.
 
 ## Attendre qu'un déploiement soit prêt
 

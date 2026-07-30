@@ -13,8 +13,8 @@ La télémétrie est un **canal de fuite** : tokens, mots de passe, emails s'y r
 ## Prérequis
 
 * Labs 1 à 7 terminés.
-* Port-forward UIs actif + `kubectl port-forward -n otel-demo svc/opensearch 9200:9200 &`
-* Le port local du review-service dans `$APP_PORT` (accès **direct**, pas via le frontend-proxy). Sourcez `scripts/env.sh` en début de session : `. ./scripts/env.sh` définit `APP_PORT=8090+PORT_OFFSET` (`8090` en solo, `809<N>` sur le serveur partagé).
+* Port-forward UIs actif + `kubectl port-forward -n otel-demo --address $PF_ADDR svc/opensearch 9200:9200 &`
+* Les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) ainsi que `$PF_ADDR` et `$PF_HOST`, l'adresse sur laquelle vos `port-forward` écoutent.
 
 ## Étapes
 
@@ -32,8 +32,8 @@ logger.info("Creating review for product {} by {} <{}>", ...);         // PII da
 
 ```bash
 ./scripts/deploy.sh -p starter
-kubectl port-forward -n otel-demo svc/review-service $APP_PORT:8080 &
-curl -X POST http://localhost:$APP_PORT/api/reviews \
+kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
+curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "fuite", "userEmail": "leak@example.com", "userName": "Leaky User"}'
@@ -60,7 +60,7 @@ Fuites typiques du même genre : payloads complets en attribut, URLs avec `?toke
 kubectl set env -n otel-demo deployment/review-service MASK_PII=true
 kubectl rollout status -n otel-demo deployment/review-service
 # relancer le port-forward puis :
-curl -X POST http://localhost:$APP_PORT/api/reviews \
+curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "sdk-mask", "userEmail": "sdk-mask@example.com", "userName": "Masked User"}'
@@ -125,7 +125,7 @@ kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 kubectl set env -n otel-demo deployment/review-service MASK_PII-
 kubectl rollout status -n otel-demo deployment/review-service
 # relancer le port-forward puis rejouer un POST avec un email marqueur :
-curl -X POST http://localhost:$APP_PORT/api/reviews \
+curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "collector-mask", "userEmail": "collector-mask@example.com", "userName": "Safe User"}'

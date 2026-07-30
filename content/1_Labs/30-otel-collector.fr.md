@@ -14,14 +14,14 @@ Le collecteur OpenTelemetry est le cœur de la chaîne : il **reçoit** (receive
 
 * Labs 1 et 2 terminés (stack + `review-service` déployés).
 * Le port-forward des UIs actif (`./scripts/open-ui.sh`).
-* **Les ports locaux dans votre environnement** — ils sont décalés par participant sur le serveur partagé :
+* **Les variables de la formation chargées dans votre shell** :
 
 ```bash
-. ./scripts/env.sh                 # exporte PROM_PORT, ZPAGES_PORT, APP_PORT...
-echo "$PROM_PORT $ZPAGES_PORT"     # 9090 et 55679 sur un poste individuel
+. ./scripts/env.sh                 # exporte PROM_PORT, ZPAGES_PORT, APP_PORT, PF_ADDR, PF_HOST
+echo "$PROM_PORT $ZPAGES_PORT"     # 9090 et 55679
 ```
 
-> Sur le serveur partagé, `PORT_OFFSET` vaut votre numéro de participant : `student3` obtient `9093` pour Prometheus et `55682` pour zPages. Utilisez **toujours** `$PROM_PORT` et `$ZPAGES_PORT` dans les commandes qui suivent, jamais les valeurs en dur : deux participants sur le même port, et le second `port-forward` échoue.
+> Sur le serveur partagé, gardez `--address $PF_ADDR` dans les `port-forward` et `$PF_HOST` dans les URLs, comme dans les commandes ci-dessous : c'est ce qui donne à chaque participant sa propre adresse d'écoute. Sans lui, deux participants se disputent le même port et le second `port-forward` échoue.
 
 ## Étapes
 
@@ -132,7 +132,15 @@ exporters:
     logs_index: otel-logs
   debug: {}                               # écrit dans les logs du collecteur
 
-# ---------- 5. SERVICE : ce qui est RÉELLEMENT ACTIF ----------
+# ---------- 5. EXTENSIONS : des services rendus HORS du flux de données ----------
+extensions:
+  health_check:                           # sonde HTTP de vivacité, utilisée par Kubernetes
+    endpoint: ${env:MY_POD_IP}:13133
+  k8s_leader_elector/k8s_cluster:         # un seul collecteur interroge l'API Kubernetes
+    auth_type: serviceAccount
+# C'est ici que vous déclarerez zpages à l'étape 3.
+
+# ---------- 6. SERVICE : ce qui est RÉELLEMENT ACTIF ----------
 service:
   extensions: [health_check, k8s_leader_elector/k8s_cluster]
   pipelines:
@@ -150,7 +158,7 @@ service:
       exporters:  [opensearch, debug]
 ```
 
-> 🔑 **La règle d'or** : un composant déclaré dans `receivers`, `processors` ou `exporters` n'est qu'une *définition*. Il ne s'exécute que s'il est **cité dans un pipeline** de `service.pipelines`. C'est là que vous brancherez vos nouveaux receivers à l'étape 3 — et c'est l'oubli n°1 quand on configure un collecteur.
+> 🔑 **La règle d'or** : un composant déclaré dans `receivers`, `processors`, `exporters` ou `extensions` n'est qu'une *définition*. Il ne s'exécute que s'il est **cité dans `service`** — dans un pipeline pour les trois premiers, dans `service.extensions` pour les extensions. C'est l'oubli n°1 quand on configure un collecteur, et vous ferez les deux à l'étape 3 : brancher vos receivers dans le pipeline `metrics`, et activer `zpages` dans `service.extensions`.
 
 Répondez maintenant, configuration sous les yeux :
 * Par quel receiver les traces de `review-service` entrent-elles, et sur quelle **adresse** le collecteur écoute-t-il ?
@@ -174,10 +182,10 @@ Remarquez aussi le processor **`transform`** et ses instructions **OTTL** qui no
 ### 2. Constater ce qui manque dans Prometheus
 
 ```bash
-kubectl port-forward -n otel-demo svc/prometheus $PROM_PORT:9090 &
+kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus $PROM_PORT:9090 &
 ```
 
-Ouvrez `http://localhost:$PROM_PORT` (avec **votre** `$PROM_PORT`) et cherchez dans l'autocomplétion :
+Ouvrez `http://$PF_HOST:$PROM_PORT` (soit `http://localhost:9090` sur un poste individuel) et cherchez dans l'autocomplétion :
 
 | Recherche | Résultat | Pourquoi |
 | --- | --- | --- |
@@ -268,10 +276,10 @@ kubectl get configmap otel-collector-agent -n otel-demo -o jsonpath='{.data.rela
 ### 5. Observer le pipeline dans zPages
 
 ```bash
-kubectl port-forward -n otel-demo daemonset/otel-collector-agent $ZPAGES_PORT:55679 &
+kubectl port-forward -n otel-demo --address $PF_ADDR daemonset/otel-collector-agent $ZPAGES_PORT:55679 &
 ```
 
-Ouvrez `http://localhost:$ZPAGES_PORT/debug/pipelinez` : vos deux receivers doivent apparaître dans le pipeline `metrics`.
+Ouvrez `http://$PF_HOST:$ZPAGES_PORT/debug/pipelinez` : vos deux receivers doivent apparaître dans le pipeline `metrics`.
 
 > zPages affiche les composants **réellement chargés** par le collecteur, là où la ConfigMap ne montre que ce qu'on lui a demandé. Le pipeline `metrics` liste donc aussi `kubeletstats` et `k8s_cluster`, ajoutés par les presets du chart — c'est normal, vous ne les avez pas perdus.
 

@@ -5,25 +5,53 @@
 # Shared server: one cluster per participant, e.g. CLUSTER_NAME=$USER
 CLUSTER_NAME="${CLUSTER_NAME:-otel}"
 
-# Local ports used by port-forwards. On a shared server, each participant
-# needs a distinct PORT_OFFSET so their port-forwards do not collide.
-# Convention: the account student<N> uses the offset N, hence the demo UI
-# on 808<N> (student3 -> 8083). Derived from the login name when unset, so
-# a participant never has to compute it; defaults to 0 for a single user.
-# Single digit only: with N >= 10 the UI range (8080+N) would overlap the
-# review-service range (8090+N). Beyond 9 participants, set PORT_OFFSET
-# explicitly with a wider spacing (e.g. N*100).
-if [ -z "${PORT_OFFSET:-}" ]; then
+# Address the port-forwards bind to, and the name used to reach them.
+# Everybody uses the same ports; on a shared server it is the address that
+# differs, so two participants never fight over a port: student<N> binds
+# 127.0.0.<N> (the whole 127.0.0.0/8 is routed to lo on Linux, nothing to
+# configure), student3 -> 127.0.0.3.
+#
+# Derived from the login name so a participant never has to set it, and so a
+# non-interactive shell (ssh <host> '<command>', a script, a cron job) that
+# never reads ~/.bashrc still binds the right address instead of silently
+# colliding with a neighbour on 127.0.0.1. The training server provisioning
+# (k8s-server, ansible role 'participants') exports both variables anyway,
+# and they win over what is computed here.
+if [ -z "${PF_ADDR:-}" ]; then
     case "$(id -un)" in
-        student[1-9]) PORT_OFFSET=$(id -un | tr -cd '0-9') ;;
-        *) PORT_OFFSET=0 ;;
+        # student1 .. student199: one loopback address per participant.
+        student[1-9]|student[1-9][0-9]|student1[0-9][0-9])
+            PF_ADDR="127.0.0.$(id -un | tr -cd '0-9')" ;;
+        # The instructor demoes on the same server as student1, who owns
+        # 127.0.0.1: give the trainer an address of its own, out of the
+        # participant range.
+        trainer) PF_ADDR="127.0.0.200" ;;
+        *) PF_ADDR="127.0.0.1" ;;
     esac
 fi
-UI_PORT=$((8080 + PORT_OFFSET))       # demo frontend proxy (shop, Grafana, Jaeger)
-APP_PORT=$((8090 + PORT_OFFSET))      # review-service API
-PROM_PORT=$((9090 + PORT_OFFSET))     # Prometheus UI/API
-OS_PORT=$((9200 + PORT_OFFSET))       # OpenSearch API
-ZPAGES_PORT=$((55679 + PORT_OFFSET))  # collector zPages
+# Name used in URLs. The provisioning adds a matching /etc/hosts entry
+# (127.0.0.3 localhost3) - a name that reads like the 'localhost' of the labs,
+# because that is exactly what it is. Nicer to read but not required: without
+# it the address itself does the job.
+if [ -z "${PF_HOST:-}" ]; then
+    PF_HOST="$PF_ADDR"
+    if [ "$PF_ADDR" = "127.0.0.1" ]; then
+        PF_HOST="localhost"
+    else
+        alias_name="localhost${PF_ADDR##*.}"
+        if getent hosts "$alias_name" > /dev/null 2>&1; then
+            PF_HOST="$alias_name"
+        fi
+        unset alias_name
+    fi
+fi
+
+# Local ports used by port-forwards. Same values for everyone.
+UI_PORT=8080       # demo frontend proxy (shop, Grafana, Jaeger)
+APP_PORT=8090      # review-service API
+PROM_PORT=9090     # Prometheus UI/API
+OS_PORT=9200       # OpenSearch API
+ZPAGES_PORT=55679  # collector zPages
 
 # OpenTelemetry demo Helm release
 NS="otel-demo"

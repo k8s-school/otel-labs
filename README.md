@@ -14,7 +14,7 @@ d'exercice et scripts d'infrastructure.
 | `content/1_Labs/` | Labs (Hugo/Relearn, fr) + corrections shell (`*-solution.sh`, en) |
 | `slides/` | Slides Marp (fr), build : `slides/md2pdf.sh` |
 | `apps/review-service/` | Micro-service Spring Boot (API avis produits + PostgreSQL) |
-| `scripts/` | `up.sh` / `down.sh` / `deploy.sh` / `open-ui.sh` / `preload-images.sh` / `setup-students.sh` |
+| `scripts/` | `up.sh` / `down.sh` / `deploy.sh` / `open-ui.sh` / `preload-images.sh` |
 | `manifests/` | Values Helm de la démo (formation, CI) |
 | `docs/` | [Validation formateur](docs/trainer-validation.md) · [Serveur partagé](docs/serveur-partage.md) |
 
@@ -22,7 +22,7 @@ d'exercice et scripts d'infrastructure.
 
 ```bash
 ./scripts/up.sh -c        # cluster Kind + préchargement des images + démo OTel (pinnée 0.40.9)
-./scripts/open-ui.sh      # UIs sur http://localhost:$UI_PORT (8080, ou 808<N> pour student<N>)
+./scripts/open-ui.sh      # UIs sur http://$PF_HOST:8080 (localhost, sauf serveur partagé)
 ./scripts/deploy.sh       # build + kind load + deploy du review-service
 ```
 

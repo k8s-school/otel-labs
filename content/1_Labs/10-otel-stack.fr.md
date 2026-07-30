@@ -32,9 +32,9 @@ cd otel-labs
 ./scripts/up.sh -c
 ```
 
-> 🏫 **Serveur partagé** : si le formateur vous a fourni un compte `student<N>` sur un serveur commun, seul le cluster Kind a été créé pour vous — **la stack OpenTelemetry, c'est vous qui l'installez**, avec `./scripts/up.sh` (sans `-c`, votre cluster existe déjà). Les images sont déjà présentes dans votre cluster, l'installation est donc rapide.
+> 🏫 **Serveur partagé** : si le formateur vous a fourni un compte `student<N>` sur un serveur commun, la commande est **la même** — le cluster et la stack, c'est vous qui les créez, sur votre compte. Ce qui a été préparé pour vous, c'est le compte, le dépôt déjà cloné et votre environnement de travail.
 >
-> Vos ports sont décalés de votre numéro de participant : `student3` a l'UI sur `8083` au lieu de `8080` (`echo $UI_PORT`). Utilisez toujours les URLs affichées par `open-ui.sh`, et ouvrez un tunnel SSH depuis votre poste : `ssh -L 8083:localhost:8083 student3@<serveur>`.
+> Vous partagez la machine avec les autres participants : pour que vos `port-forward` n'entrent pas en conflit avec les leurs, chacun écoute sur **sa propre adresse de boucle locale** au lieu de `localhost` — `student3` sur `127.0.0.3`, alias `localhost3`. Les ports, eux, sont les mêmes pour tout le monde (8080 pour les UIs). Deux variables déjà présentes dans votre shell portent cette adresse : `$PF_ADDR` (celle que vous passez à `--address`) et `$PF_HOST` (celle des URLs). `open-ui.sh` affiche vos URLs et la commande de tunnel SSH à lancer depuis votre poste.
 
 L'installation prend quelques minutes (téléchargement des images). Pendant ce temps, regardez ce que fait le script : il crée un cluster Kind (`ktbx create -s`), pré-télécharge les images de la démo sur la machine et les injecte dans le cluster (`scripts/preload-images.sh`), puis installe le chart Helm `open-telemetry/opentelemetry-demo` dans le namespace `otel-demo` — c'est la [démo officielle OpenTelemetry](https://opentelemetry.io/ecosystem/demo/), l'« Astronomy Shop ».
 
@@ -73,9 +73,7 @@ kubectl get pods -n otel-demo -o wide
 ./scripts/open-ui.sh
 ```
 
-> Ce script fait un `kubectl port-forward` vers le proxy frontal de la démo : toutes les UIs sont alors accessibles sur `http://localhost:$UI_PORT`. Sur un poste individuel `$UI_PORT` vaut `8080` ; sur le serveur partagé, c'est `808<N>` pour le compte `student<N>` (`student3` → `8083`). Le script affiche vos URLs exactes — ce sont celles-là qu'il faut utiliser.
-
-Pour un poste individuel (`$UI_PORT` = 8080) :
+> Ce script fait un `kubectl port-forward` vers le proxy frontal de la démo : toutes les UIs sont alors accessibles sur le port **8080**, derrière lequel le proxy route vers Grafana, Jaeger et le reste. Le script affiche vos URLs exactes.
 
 * La boutique : [http://localhost:8080/](http://localhost:8080/)
 * Grafana : [http://localhost:8080/grafana/](http://localhost:8080/grafana/)
