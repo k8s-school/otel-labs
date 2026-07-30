@@ -1,0 +1,5 @@
+c pas clair:
+
+⚠️ Helm sérialise le YAML par ordre alphabétique : les blocs apparaissent dans l’ordre connectors, exporters, extensions, processors, receivers, service, et non dans l’ordre du flux de données. Ne cherchez pas de logique dans cet ordre — c’est service.pipelines, tout en bas, qui décrit le flux réel.
+
+
