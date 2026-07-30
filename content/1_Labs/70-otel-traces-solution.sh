@@ -36,8 +36,8 @@ curl -sSf -X POST http://$PF_HOST:$APP_PORT/api/reviews \
 found=""
 for i in $(seq 1 24); do
     TRACES=$(curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&limit=20" || true)
-    if echo "$TRACES" | grep -q "product-catalog.lookup" \
-        && echo "$TRACES" | grep -q '"serviceName":"frontend"'; then
+    if grep -q "product-catalog.lookup" <<< "$TRACES" \
+        && grep -q '"serviceName":"frontend"' <<< "$TRACES"; then
         found=yes
         break
     fi
@@ -70,8 +70,10 @@ curl -s -o /dev/null -X POST http://$PF_HOST:$APP_PORT/api/reviews \
 
 found=""
 for i in $(seq 1 24); do
-    if curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&tags=%7B%22error%22%3A%22true%22%7D&limit=10" \
-            | grep -q "traceID"; then
+    # Capture before matching: 'curl | grep -q' lets grep close the pipe on the
+    # first match, curl dies of EPIPE and pipefail fails the script.
+    ERR_TRACES=$(curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&tags=%7B%22error%22%3A%22true%22%7D&limit=10" || true)
+    if grep -q "traceID" <<< "$ERR_TRACES"; then
         found=yes
         break
     fi

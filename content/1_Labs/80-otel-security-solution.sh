@@ -54,7 +54,12 @@ jaeger_traces() {
 wait_in_jaeger() {
     local marker="$1" email="$2" comment="$3"
     for i in $(seq 1 24); do
-        if jaeger_traces | grep -q "$marker"; then return 0; fi
+        # Capture before matching: piping into 'grep -q' makes grep close the
+        # pipe on the first match, the producer dies of EPIPE and pipefail turns
+        # that into a failure -- at random, depending on where the match falls.
+        local traces
+        traces=$(jaeger_traces || true)
+        if grep -q "$marker" <<< "$traces"; then return 0; fi
         post_review "$email" "$comment" || true
         sleep 5
     done
@@ -65,8 +70,9 @@ wait_in_jaeger() {
 wait_in_opensearch() {
     local marker="$1"
     for i in $(seq 1 24); do
-        if curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22${marker}%22" \
-                | grep -q "$marker"; then return 0; fi
+        local hits
+        hits=$(curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22${marker}%22" || true)
+        if grep -q "$marker" <<< "$hits"; then return 0; fi
         sleep 5
     done
     echo "ERROR: $marker not found in OpenSearch"
@@ -93,8 +99,11 @@ post_review "sdk-mask@example.com" "sdk-mask"
 wait_in_jaeger "sdk-mask@example.com" "sdk-mask@example.com" "sdk-mask"
 # ...but the log body is redacted: the marker email never reaches OpenSearch
 sleep 20
-if curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22sdk-mask@example.com%22" \
-        | grep -q "sdk-mask@example.com"; then
+# Capture, then match. Piping into 'grep -q' here would be worse than flaky: a
+# curl killed by EPIPE makes the whole pipeline non-zero, the 'if' false, and the
+# leak check silently passes.
+OS_HITS=$(curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22sdk-mask@example.com%22")
+if grep -q "sdk-mask@example.com" <<< "$OS_HITS"; then
     echo "ERROR: sdk-mask@example.com leaked into OpenSearch despite SDK masking"
     exit 1
 fi
@@ -127,7 +136,7 @@ post_review "collector-mask@example.com" "collector-mask"
 found=""
 for i in $(seq 1 24); do
     TRACES=$(curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&start=$START_US&limit=20" || true)
-    if echo "$TRACES" | grep -q "traceID"; then
+    if grep -q "traceID" <<< "$TRACES"; then
         found=yes
         break
     fi
@@ -138,18 +147,18 @@ done
 
 # ...but without the sensitive attributes (email and Authorization header
 # both deleted by the collector transform)
-if echo "$TRACES" | grep -q "collector-mask@example.com"; then
+if grep -q "collector-mask@example.com" <<< "$TRACES"; then
     echo "ERROR: collector-mask@example.com leaked into Jaeger despite collector masking"
     exit 1
 fi
-if echo "$TRACES" | grep -q "SECRET-JWT-TOKEN"; then
+if grep -q "SECRET-JWT-TOKEN" <<< "$TRACES"; then
     echo "ERROR: the JWT leaked into Jaeger despite collector masking"
     exit 1
 fi
 # The marker email must never reach OpenSearch either
 sleep 20
-if curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22collector-mask@example.com%22" \
-        | grep -q "collector-mask@example.com"; then
+OS_HITS=$(curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22collector-mask@example.com%22")
+if grep -q "collector-mask@example.com" <<< "$OS_HITS"; then
     echo "ERROR: collector-mask@example.com leaked into OpenSearch despite collector masking"
     exit 1
 fi

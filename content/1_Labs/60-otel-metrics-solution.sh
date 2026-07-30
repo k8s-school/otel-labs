@@ -64,8 +64,11 @@ generate_traffic() {
 check_metric_prefix() {
     local prefix="$1"
     for i in $(seq 1 24); do
-        if curl -sSf "http://$PF_HOST:$PROM_PORT/api/v1/label/__name__/values" \
-                | grep -q "\"${prefix}"; then
+        # Capture before matching: 'curl | grep -q' lets grep close the pipe on
+        # the first match, curl dies of EPIPE and pipefail fails the script.
+        local names
+        names=$(curl -sSf "http://$PF_HOST:$PROM_PORT/api/v1/label/__name__/values" || true)
+        if grep -q "\"${prefix}" <<< "$names"; then
             return 0
         fi
         generate_traffic || true

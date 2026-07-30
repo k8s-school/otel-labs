@@ -44,15 +44,21 @@ wait_for_url http://$PF_HOST:$UI_PORT/grafana/
 
 # The load generator produced traces: Jaeger must know the checkout service
 # (give the pipeline up to 2 minutes to see the first traces)
+# Never pipe a command straight into 'grep -q': grep exits on the first match and
+# closes the pipe, the producer dies of EPIPE, and 'set -o pipefail' turns that
+# into a failure -- intermittently, depending on where the match falls in the
+# stream. Capture first, match afterwards.
 for i in $(seq 1 24); do
-    if curl -sSf http://$PF_HOST:$UI_PORT/jaeger/ui/api/services | grep -q "checkout"; then
+    SERVICES=$(curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/services" || true)
+    if grep -q "checkout" <<< "$SERVICES"; then
         break
     fi
     sleep 5
 done
-curl -sSf http://$PF_HOST:$UI_PORT/jaeger/ui/api/services | grep -q "checkout"
+grep -q "checkout" <<< "$SERVICES"
 
 # Deliverable check: at least one end-to-end checkout trace exists
-curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=checkout&limit=1" | grep -q "traceID"
+TRACES=$(curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=checkout&limit=1")
+grep -q "traceID" <<< "$TRACES"
 
 echo "Lab 1 OK: stack is up, traces are flowing into Jaeger"

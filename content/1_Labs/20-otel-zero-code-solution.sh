@@ -49,8 +49,11 @@ generate_traffic() {
 wait_for_traces() {
     local distro="$1"
     for i in $(seq 1 24); do
-        if curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&limit=20" \
-                | grep -q "$distro"; then
+        # Capture before matching: 'curl | grep -q' lets grep close the pipe on
+        # the first match, curl dies of EPIPE and pipefail fails the script.
+        local traces
+        traces=$(curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&limit=20" || true)
+        if grep -q "$distro" <<< "$traces"; then
             return 0
         fi
         generate_traffic || true

@@ -33,16 +33,21 @@ PROM_PF_PID=$!
 trap 'kill $ZPAGES_PF_PID $PROM_PF_PID 2>/dev/null || true' EXIT
 sleep 3
 
-curl -sSf http://$PF_HOST:$ZPAGES_PORT/debug/pipelinez | grep -q "hostmetrics"
-curl -sSf http://$PF_HOST:$ZPAGES_PORT/debug/pipelinez | grep -q "postgresql"
+# Capture before matching: piping into 'grep -q' makes grep close the pipe on the
+# first match, curl then fails with EPIPE (exit 23) and 'set -o pipefail' fails
+# the script -- intermittently, depending on where the match falls in the stream.
+PIPELINEZ=$(curl -sSf "http://$PF_HOST:$ZPAGES_PORT/debug/pipelinez")
+grep -q "hostmetrics" <<< "$PIPELINEZ"
+grep -q "postgresql" <<< "$PIPELINEZ"
 
 # Both system and postgresql metrics must reach Prometheus
 # (wait up to 2 minutes for the first scrapes to be exported)
 check_metric_prefix() {
     local prefix="$1"
     for i in $(seq 1 24); do
-        if curl -sSf "http://$PF_HOST:$PROM_PORT/api/v1/label/__name__/values" \
-                | grep -q "\"${prefix}"; then
+        local names
+        names=$(curl -sSf "http://$PF_HOST:$PROM_PORT/api/v1/label/__name__/values" || true)
+        if grep -q "\"${prefix}" <<< "$names"; then
             return 0
         fi
         sleep 5

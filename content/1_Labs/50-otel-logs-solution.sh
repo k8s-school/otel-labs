@@ -49,14 +49,14 @@ QUERY='{"size": 5, "query": {"bool": {"must": [
 for i in $(seq 1 24); do
     RESULT=$(curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search" \
         -H "Content-Type: application/json" -d "$QUERY" || true)
-    if echo "$RESULT" | grep -q "Creating review for product"; then
+    if grep -q "Creating review for product" <<< "$RESULT"; then
         break
     fi
     sleep 5
 done
 
-echo "$RESULT" | grep -q "Creating review for product"
-echo "$RESULT" | grep -q "review-service"
-echo "$RESULT" | grep -Eq '"traceId":"[0-9a-f]{32}"'
+grep -q "Creating review for product" <<< "$RESULT"
+grep -q "review-service" <<< "$RESULT"
+grep -Eq '"traceId":"[0-9a-f]{32}"' <<< "$RESULT"
 
 echo "Lab 5 OK: structured logs with trace correlation in OpenSearch"
