@@ -21,11 +21,26 @@ PF_PID=$!
 trap 'kill $PF_PID' EXIT
 sleep 3
 
+# A UI can still answer 503 for a few seconds after its pod is Ready, while the
+# frontend-proxy (Envoy) refreshes its upstream endpoints. Retry rather than
+# fail on that race.
+wait_for_url() {
+    local url="$1"
+    for i in $(seq 1 24); do
+        if curl -sSf -o /dev/null "$url"; then
+            return 0
+        fi
+        sleep 5
+    done
+    echo "ERROR: $url still unreachable after 2 minutes"
+    return 1
+}
+
 # The shop frontend answers
-curl -sSf -o /dev/null http://localhost:$UI_PORT/
+wait_for_url http://localhost:$UI_PORT/
 
 # Grafana answers
-curl -sSf -o /dev/null http://localhost:$UI_PORT/grafana/
+wait_for_url http://localhost:$UI_PORT/grafana/
 
 # The load generator produced traces: Jaeger must know the checkout service
 # (give the pipeline up to 2 minutes to see the first traces)

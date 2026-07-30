@@ -87,6 +87,15 @@ if [ "$ready" != true ]; then
     exit 1
 fi
 
+# The label above only covers the shop workloads. The backends and the collector
+# come from subcharts and carry their own labels, so they were not waited for:
+# a lab could then query Grafana or Prometheus before they serve (the
+# frontend-proxy answers 503), and the collector is what every later lab needs.
+for workload in deployment/grafana deployment/jaeger deployment/prometheus \
+                statefulset/opensearch daemonset/otel-collector-agent; do
+    kubectl rollout status "$workload" -n "$NS" --timeout=600s
+done
+
 kubectl get pods -n "$NS"
 echo
 echo "OpenTelemetry demo is up. Run scripts/open-ui.sh to access the UIs."
