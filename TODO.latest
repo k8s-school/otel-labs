@@ -1,5 +1,23 @@
-c pas clair:
+LAB3
 
+- c pas clair:
 ⚠️ Helm sérialise le YAML par ordre alphabétique : les blocs apparaissent dans l’ordre connectors, exporters, extensions, processors, receivers, service, et non dans l’ordre du flux de données. Ne cherchez pas de logique dans cet ordre — c’est service.pipelines, tout en bas, qui décrit le flux réel.
 
 
+
+
+- Dans  c. Les sections qui comptent, il faut mettre les commentaire en début de ligne au dessus de la ligne qu'ils ciblent pour plus de visibilité
+- Comment vérifier cette info??? # utilisé par le frontend web de la boutique 
+- ça veut dire quoi: # auto-surveillance : le collecteur se scrape lui-même
+- ça veut dire quoi: # service.instance.id <- k8s.pod.uid
+- A détailler?? 
+# ---------- 3. CONNECTORS : la sortie d'un pipeline devient l'entrée d'un autre ----------
+connectors:
+  spanmetrics: {}                         # exporter du pipeline traces ET receiver du pipeline metrics
+- , jointe par le service otel-collector que , mettre plutôt exposée que jointe??
+
+A FINIR: 
+2. Constater ce qui manque dans Prometheus
+
+
+- zpages il vient d'où?
