@@ -64,6 +64,10 @@ jobs:
     env:
       # Disable the heaviest demo components to fit in the runner
       EXTRA_VALUES: "-f manifests/values-ci.yaml"
+      # Same name the scripts default to (scripts/env.sh): deploy.sh runs
+      # 'kind load --name "$CLUSTER_NAME"', which fails if the cluster was
+      # created under ktbx's own default name.
+      CLUSTER_NAME: otel
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -76,7 +80,8 @@ jobs:
       - name: Create k8s/kind cluster
         run: |
           go install github.com/k8s-school/ktbx@v1.1.6-rc5
-          ktbx create -s
+          ktbx create -s -n "$CLUSTER_NAME"
+          kubectl config use-context "kind-$CLUSTER_NAME"
           kubectl get nodes
           kubectl get pods -n kube-system
       - name: Run lab 1 (observability stack)
