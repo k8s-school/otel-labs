@@ -17,8 +17,11 @@ Le collecteur OpenTelemetry est le cœur de la chaîne : il **reçoit** (receive
 * **Les variables de la formation chargées dans votre shell** :
 
 ```bash
-. ./scripts/env.sh                 # exporte PROM_PORT, ZPAGES_PORT, APP_PORT, PF_ADDR, PF_HOST
-echo "$PROM_PORT $ZPAGES_PORT"     # 9090 et 55679
+# exporte PROM_PORT, ZPAGES_PORT, APP_PORT, PF_ADDR, PF_HOST
+. ./scripts/env.sh
+
+# doit afficher : 9090 55679
+echo "$PROM_PORT $ZPAGES_PORT"
 ```
 
 > Sur le serveur partagé, gardez `--address $PF_ADDR` dans les `port-forward` et `$PF_HOST` dans les URLs, comme dans les commandes ci-dessous : c'est ce qui donne à chaque participant sa propre adresse d'écoute. Sans lui, deux participants se disputent le même port et le second `port-forward` échoue.
@@ -43,7 +46,7 @@ kubectl get configmap otel-collector-agent -n otel-demo -o jsonpath='{.data.rela
 
 > 💡 `-o yaml` renverrait l'objet ConfigMap complet, avec la configuration noyée dans une longue chaîne YAML échappée. `-o jsonpath='{.data.relay}'` extrait la seule clé utile : son contenu est **exactement** le fichier `/conf/relay.yaml` lu par le collecteur.
 
-> ⚠️ Helm sérialise le YAML **par ordre alphabétique** : les blocs apparaissent dans l'ordre `connectors`, `exporters`, `extensions`, `processors`, `receivers`, `service`, et non dans l'ordre du flux de données. Ne cherchez pas de logique dans cet ordre — c'est `service.pipelines`, tout en bas, qui décrit le flux réel.
+> ⚠️ **Ne cherchez pas de logique dans l'ordre des blocs.** Ce fichier n'a pas été écrit à la main : il est généré automatiquement par Helm. Vous y verrez ainsi la sortie (`exporters`) avant l'entrée (`receivers`). Aucune importance : le collecteur lit un fichier YAML, où l'ordre des blocs ne change rien. Un seul endroit décrit le flux réel de la donnée — `service.pipelines`, tout en bas du fichier. **C'est par lui qu'il faut commencer la lecture**, puis remonter voir la définition de chaque composant qu'il cite.
 
 #### b. Le vérifier depuis l'intérieur du pod (bonus)
 
@@ -60,8 +63,11 @@ kubectl debug -it -n otel-demo "$POD" \
 Puis, dans le shell obtenu :
 
 ```sh
-cat /proc/1/root/conf/relay.yaml                      # le fichier réellement lu
-cat /proc/1/environ | tr '\0' '\n' | grep MY_POD_IP   # les variables du collecteur
+# le fichier de configuration réellement lu par le collecteur
+cat /proc/1/root/conf/relay.yaml
+
+# les variables d'environnement du collecteur
+cat /proc/1/environ | tr '\0' '\n' | grep MY_POD_IP
 ```
 
 > `--profile=sysadmin` partage le namespace PID du pod cible : le processus `1` est le collecteur, et `/proc/1/root` donne accès à **son** système de fichiers depuis busybox. Vous lisez le fichier tel qu'il est monté — la preuve que ConfigMap et configuration effective coïncident.
@@ -74,71 +80,119 @@ Sortez avec `exit`. Le conteneur éphémère ne redémarre pas, mais reste attac
 
 #### c. Les sections qui comptent
 
-Voici la configuration de la démo, **condensée et remise dans l'ordre logique** du flux de données (rappel : le fichier réel est trié alphabétiquement). Les clés sans valeur sont celles dont le détail a été coupé :
+Voici la configuration de la démo, **condensée et remise dans l'ordre logique** du flux de données — de l'entrée vers la sortie (dans le fichier réel, les blocs sont dans un tout autre ordre). Les clés sans valeur sont celles dont le détail a été coupé :
 
 ```yaml
 # ---------- 1. RECEIVERS : par où la donnée ENTRE ----------
 receivers:
-  otlp:                                   # LE receiver standard, en push
+
+  # LE receiver standard : les applications lui POUSSENT leur télémétrie en OTLP
+  otlp:
     protocols:
       grpc:
-        endpoint: ${env:MY_POD_IP}:4317   # <-- la cible de review-service (Lab 2)
+        # la cible de review-service (Lab 2)
+        endpoint: ${env:MY_POD_IP}:4317
       http:
-        endpoint: ${env:MY_POD_IP}:4318   # utilisé par le frontend web de la boutique
+        # le même receiver, en HTTP : utilisé par les applications de la boutique qui
+        # parlent OTLP/HTTP (accounting, ad, email...) et par les traces émises par le
+        # navigateur du client, relayées par frontend-proxy
+        endpoint: ${env:MY_POD_IP}:4318
         cors:
+          # sans cette autorisation, le navigateur refuserait d'envoyer ses traces
           allowed_origins: ["http://*", "https://*"]
-  kafkametrics:                           # receiver « produit », en pull : LE MODÈLE À SUIVRE
+
+  # receiver « produit », en mode PULL : c'est LE MODÈLE À SUIVRE à l'étape 3
+  kafkametrics:
     brokers: [kafka:9092]
     scrapers: [brokers, topics, consumers]
     collection_interval: 10s
-  kubeletstats:                           # métriques des pods du nœud   (preset du chart)
-  k8s_cluster:                            # état des objets Kubernetes   (preset du chart)
-  prometheus:                             # auto-surveillance : le collecteur se scrape lui-même
-  jaeger:                                 # protocoles historiques encore acceptés en entrée
+
+  # métriques des pods du nœud (personne ne l'a écrit : preset du chart)
+  kubeletstats:
+
+  # état des objets Kubernetes (personne ne l'a écrit : preset du chart)
+  k8s_cluster:
+
+  # le collecteur scrape ses propres métriques internes, exposées sur son port 8888
+  # ...mais regardez le bloc `service` : ce receiver n'est cité dans aucun pipeline
+  prometheus:
+
+  # protocoles historiques encore acceptés en entrée
+  jaeger:
   zipkin:
 
 # ---------- 2. PROCESSORS : ce qui est appliqué ENTRE l'entrée et la sortie ----------
 processors:
-  memory_limiter:                         # garde-fou mémoire
+
+  # garde-fou mémoire : jette de la donnée plutôt que de laisser le pod se faire tuer
+  memory_limiter:
     check_interval: 5s
     limit_percentage: 80
     spike_limit_percentage: 25
-  k8sattributes:                          # enrichit avec namespace / pod / deployment...
+
+  # enrichit chaque donnée avec le namespace / pod / deployment... qui l'a émise
+  k8sattributes:
+
+  # ajoute les attributs de la machine et de l'environnement
   resourcedetection:
     detectors: [env, system]
-  resource:                               # service.instance.id <- k8s.pod.uid
-  transform:                              # OTTL : normalise les noms de spans du frontend
+
+  # recopie k8s.pod.uid dans l'attribut standard service.instance.id : les 3 replicas
+  # d'un même service cessent d'être confondus, chacun devient une instance identifiable
+  resource:
+
+  # OTTL : normalise les noms de spans du frontend
+  transform:
     error_mode: ignore
     trace_statements:
       - context: span
         statements:
           - set(span.attributes["http.route"], "/api/cart")
             where IsMatch(span.attributes["http.target"], "\\/api\\/cart")
-  batch:                                  # regroupe juste avant l'export
+
+  # regroupe la donnée en lots, juste avant l'export
+  batch:
 
 # ---------- 3. CONNECTORS : la sortie d'un pipeline devient l'entrée d'un autre ----------
 connectors:
-  spanmetrics: {}                         # exporter du pipeline traces ET receiver du pipeline metrics
+
+  # branché en EXPORTER du pipeline traces et en RECEIVER du pipeline metrics : il compte
+  # les spans et mesure leur durée, puis en publie des métriques (calls_total,
+  # duration_milliseconds) que vous tracerez au Lab 4. `{}` = configuration par défaut.
+  spanmetrics: {}
 
 # ---------- 4. EXPORTERS : par où la donnée SORT ----------
 exporters:
+
+  # les traces, vers Jaeger
   otlp/jaeger:
     endpoint: jaeger:4317
+
+  # les métriques, vers Prometheus
   otlphttp/prometheus:
     endpoint: http://prometheus:9090/api/v1/otlp
+
+  # les logs, vers OpenSearch
   opensearch:
     http:
       endpoint: http://opensearch:9200
     logs_index: otel-logs
-  debug: {}                               # écrit dans les logs du collecteur
+
+  # écrit la donnée dans les logs du collecteur : la mise au point du pauvre
+  debug: {}
 
 # ---------- 5. EXTENSIONS : des services rendus HORS du flux de données ----------
 extensions:
-  health_check:                           # sonde HTTP de vivacité, utilisée par Kubernetes
+
+  # sonde HTTP de vivacité, interrogée par Kubernetes
+  health_check:
     endpoint: ${env:MY_POD_IP}:13133
-  k8s_leader_elector/k8s_cluster:         # un seul collecteur interroge l'API Kubernetes
+
+  # le collecteur est un DaemonSet : ceci désigne celui qui interrogera l'API Kubernetes
+  k8s_leader_elector/k8s_cluster:
     auth_type: serviceAccount
-# C'est ici que vous déclarerez zpages à l'étape 3.
+
+  # C'est ici que vous déclarerez zpages à l'étape 3.
 
 # ---------- 6. SERVICE : ce qui est RÉELLEMENT ACTIF ----------
 service:
@@ -164,13 +218,15 @@ Répondez maintenant, configuration sous les yeux :
 * Par quel receiver les traces de `review-service` entrent-elles, et sur quelle **adresse** le collecteur écoute-t-il ?
 * Vers quels backends partent les traces, les métriques, les logs ? Quel composant apparaît **à la fois** en exporter et en receiver ?
 * Un receiver de « métriques produit » (mode *pull*) est déjà configuré — lequel ?
+* Un receiver est **déclaré mais ne tourne pas** : lequel, et à quoi le voit-on ?
 * Dans le pipeline `traces`, dans quel ordre les processors s'appliquent-ils, et pourquoi `batch` est-il en dernier ?
 
 {{%expand "Réponse" %}}
-* Les traces entrent par le receiver **`otlp`**, sur `${env:MY_POD_IP}:4317` (gRPC) et `:4318` (HTTP) — soit l'IP du pod, jointe par le service `otel-collector` que pointe `OTEL_EXPORTER_OTLP_ENDPOINT` au Lab 2. Les receivers `jaeger` et `zipkin` sont là pour les applications non OTLP.
-* Pipelines : traces → **`otlp/jaeger`**, métriques → **`otlphttp/prometheus`**, logs → **`opensearch`** ; l'exporter `debug` est branché partout pour la mise au point. Le composant présent des deux côtés est le connector **`spanmetrics`** : *exporter* du pipeline `traces`, *receiver* du pipeline `metrics`. Il dérive des métriques de latence et de débit depuis les spans, sans instrumenter les applications.
+* Les traces entrent par le receiver **`otlp`**, sur `${env:MY_POD_IP}:4317` (gRPC) et `:4318` (HTTP) : le collecteur écoute donc sur **l'IP de son pod**. Les applications ne connaissent pas cette IP — elles s'adressent au Service Kubernetes `otel-collector`, qui redirige vers ce pod. C'est lui que pointe `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` au Lab 2. Les receivers `jaeger` et `zipkin` sont là pour les applications non OTLP.
+* Pipelines : traces → **`otlp/jaeger`**, métriques → **`otlphttp/prometheus`**, logs → **`opensearch`** ; l'exporter `debug` est branché partout pour la mise au point. Le composant présent des deux côtés est le connector **`spanmetrics`** : *exporter* du pipeline `traces`, *receiver* du pipeline `metrics`. Chaque span qui sort du pipeline `traces` y entre donc une seconde fois, sous forme de chiffres : `spanmetrics` compte les spans par service et par opération et mesure leur durée, puis publie deux métriques — `calls_total` (le débit) et `duration_milliseconds` (la latence, sous forme d'histogramme). Résultat : tout service tracé obtient gratuitement ses métriques de débit et de latence, sans une ligne d'instrumentation de plus — vous les tracerez dans Grafana au Lab 4.
 * Le receiver **`kafkametrics`** interroge le broker Kafka toutes les 10 s. Sa structure est celle qu'il faudra écrire pour PostgreSQL : un endpoint, des identifiants, un `collection_interval`.
-* Ordre : `k8sattributes` → `memory_limiter` → `resourcedetection` → `resource` → `transform` → `batch`. Enrichissement d'abord, regroupement en dernier.
+* Le receiver **`prometheus`**. Il est bien défini — il scrape le port `8888` du collecteur, celui où le collecteur publie ses propres métriques internes (spans reçus, données refusées, exports en échec) — mais son nom n'apparaît dans **aucun** pipeline de `service`. Il est donc inerte : rien ne le démarre. C'est la règle d'or prise sur le fait, dans une configuration livrée par un chart officiel.
+* Ordre : `k8sattributes` → `memory_limiter` → `resourcedetection` → `resource` → `transform` → `batch`. Soit : le garde-fou mémoire en tête (à une entorse près, voir l'encadré ci-dessous), l'enrichissement ensuite, le regroupement en dernier. Il manque un maillon par rapport à l'ordre recommandé : entre le garde-fou et l'enrichissement viennent normalement les processors qui **jettent** de la donnée — filtrage, échantillonnage — car il est inutile d'enrichir ce qu'on s'apprête à écarter. La démo n'en configure aucun ; vous en ajouterez un au Lab 7 avec `tail_sampling`.
 
 Remarquez aussi le processor **`transform`** et ses instructions **OTTL** qui normalisent les noms de spans du frontend — un exemple réel du langage vu en cours — ainsi que `kubeletstats` et `k8s_cluster` : personne ne les a écrits, ce sont des **presets** du chart Helm qui les ont ajoutés.
 
@@ -209,6 +265,8 @@ Créez `manifests/30-otel-collector-values.yaml`. Il doit ajouter au collecteur 
 * un receiver **`postgresql`** pointé sur la base de la boutique (service `postgresql:5432`, user `root`, mot de passe `otel`) — celle-là même qu'utilise votre `review-service` ;
 * l'extension **`zpages`** (pages de debug du collecteur) ;
 * et il doit **brancher les deux receivers dans le pipeline `metrics`**.
+
+> 💡 **D'où vient `zpages` ?** C'est un composant **déjà embarqué dans le binaire** du collecteur (image `otel/opentelemetry-collector-contrib`), simplement inactif dans la configuration de la démo : il n'y a rien à installer, seulement à déclarer — comme `hostmetrics` et `postgresql`, eux aussi fournis par l'image. Et comme toute extension, `zpages` ne participe pas au traitement de la télémétrie : il expose un serveur HTTP **sur le collecteur lui-même**, dont les pages affichent les composants réellement chargés. Vous l'ouvrirez à l'étape 5.
 
 > ⚠️ En YAML Helm, une liste redéfinie **remplace** la liste d'origine : le pipeline `metrics` doit re-lister *tous* les receivers que vous voulez conserver, pas seulement les nouveaux. (`kubeletstats` et `k8s_cluster` font exception : les presets du chart les ré-ajoutent après votre liste.)
 
