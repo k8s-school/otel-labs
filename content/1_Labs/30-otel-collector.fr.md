@@ -364,14 +364,19 @@ Générez ensuite quelques avis : c'est votre `review-service` du Lab 2 qui écr
 ```bash
 # relancez le port-forward du Lab 2 s'il n'est plus actif
 kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
+```
 
-# 10 avis d'affilée
+Ouvrez `http://$PF_HOST:$APP_PORT/` et postez **une dizaine d'avis** en cliquant sur *Post review*. Chaque clic est un `INSERT` dans la table `reviews` ; le compteur en haut de la liste vous dit combien elle en contient.
+
+{{%expand "Sans navigateur : les mêmes avis en curl" %}}
+```bash
 for i in $(seq 1 10); do
   curl -s -o /dev/null -X POST http://$PF_HOST:$APP_PORT/api/reviews \
     -H "Content-Type: application/json" \
     -d "{\"productId\": \"OLJCESPC7Z\", \"rating\": 5, \"comment\": \"Avis numéro $i\", \"userEmail\": \"jean.dupont@example.com\", \"userName\": \"Jean Dupont\"}"
 done
 ```
+{{% /expand%}}
 
 Une trentaine de secondes plus tard, dans Prometheus :
 
@@ -379,9 +384,13 @@ Une trentaine de secondes plus tard, dans Prometheus :
 postgresql_rows{postgresql_table_name="public.reviews", state="live"}
 ```
 
-La valeur a augmenté de 10 : ce sont vos avis, comptés cette fois **par le collecteur** et non par l'application.
+La valeur a augmenté de 10 : ce sont vos avis, comptés cette fois **par le collecteur** et non par l'application. Le compteur d'écritures de la même table dit la même chose, `ins` par `ins` :
 
-> ⚠️ **Ne guettez pas `postgresql_commits_total`** pour y voir vos `curl` : le load generator de la démo commite en permanence — `rate(postgresql_commits_total[1m])` tourne autour de 3 commits/s — et vos dix écritures s'y noient. Une métrique par table, elle, ne bouge que quand *votre* table bouge. Attention à ne pas confondre les deux tables d'avis de la base : `public.reviews` est celle de **votre** `review-service`, `reviews.productreviews` est celle du service `product-reviews` livré avec la démo.
+```promql
+postgresql_operations_total{postgresql_table_name="public.reviews", operation="ins"}
+```
+
+> ⚠️ **Ne guettez pas `postgresql_commits_total`** pour y voir vos avis : la boutique écrit en base sans discontinuer — le load generator passe des commandes, `accounting` les enregistre — et `rate(postgresql_commits_total[1m])` tourne autour de 3 commits/s. Vos dix écritures s'y noient. Un compteur global ne dit jamais **qui** écrit : c'est le label `postgresql_table_name` qui vous ramène à votre service. Attention à ne pas confondre les deux tables d'avis de la base : `public.reviews` est celle de **votre** `review-service`, `reviews.productreviews` est celle du service `product-reviews` livré avec la démo.
 
 {{%expand "Réponse" %}}
 Les métriques arrivent avec les conventions sémantiques OTel traduites en noms Prometheus :

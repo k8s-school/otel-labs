@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Astronomy Shop — Reviews</title>
+<!-- Empty icon: keeps the browser from firing a /favicon.ico request that
+     would show up as an extra span in every trace. -->
+<link rel="icon" href="data:,"/>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0 auto; padding: 1.5rem 1rem 3rem; max-width: 46rem;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .05em; opacity: .7; margin: 2rem 0 .75rem; }
+  p.lead { margin: 0 0 1.5rem; opacity: .7; font-size: .9rem; }
+  form { display: grid; gap: .75rem; }
+  .row { display: flex; gap: .75rem; flex-wrap: wrap; }
+  .row > label { flex: 1 1 12rem; }
+  label { display: block; font-size: .8rem; font-weight: 600; }
+  input, select, textarea, button {
+    font: inherit; width: 100%; box-sizing: border-box;
+    padding: .45rem .6rem; margin-top: .2rem;
+    border: 1px solid rgba(128,128,128,.5); border-radius: .35rem;
+    background: transparent; color: inherit;
+  }
+  textarea { resize: vertical; min-height: 3.5rem; }
+  button {
+    width: auto; padding: .5rem 1.2rem; cursor: pointer; font-weight: 600;
+    border-color: transparent; background: #2f6f4f; color: #fff;
+  }
+  button:hover { background: #3d8b64; }
+  button:disabled { opacity: .5; cursor: progress; }
+  #status { min-height: 1.4rem; font-size: .9rem; }
+  #status.ok { color: #2f6f4f; }
+  #status.ko { color: #a33; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { padding: .7rem 0; border-top: 1px solid rgba(128,128,128,.3); }
+  .head { display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .stars { color: #d99b28; letter-spacing: .1em; }
+  .product { font-family: ui-monospace, monospace; font-size: .8rem; opacity: .7; }
+  .who { font-size: .8rem; opacity: .6; margin-top: .15rem; }
+  .count { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Astronomy Shop — Product reviews</h1>
+<p class="lead">Every review posted here is an <code>INSERT</code> in the <code>reviews</code> table
+of the demo PostgreSQL database.</p>
+
+<form id="form">
+  <div class="row">
+    <label>Product
+      <select id="productId" required></select>
+    </label>
+    <label>Rating
+      <select id="rating">
+        <option value="5">★★★★★</option>
+        <option value="4">★★★★</option>
+        <option value="3">★★★</option>
+        <option value="2">★★</option>
+        <option value="1">★</option>
+      </select>
+    </label>
+  </div>
+  <label>Comment
+    <textarea id="comment" required>Superbe lunette !</textarea>
+  </label>
+  <div class="row">
+    <label>Your name
+      <input id="userName" value="Jean Dupont" required/>
+    </label>
+    <label>Your email
+      <input id="userEmail" type="email" value="jean.dupont@example.com" required/>
+    </label>
+  </div>
+  <div>
+    <button type="submit" id="submit">Post review</button>
+  </div>
+</form>
+
+<p id="status"></p>
+
+<h2><span class="count" id="count">0</span> reviews in database</h2>
+<ul id="list"></ul>
+
+<script>
+  // Product ids of the Astronomy Shop, as served by the demo frontend.
+  const PRODUCTS = [
+    ["OLJCESPC7Z", "National Park Foundation Explorascope"],
+    ["66VCHSJNUP", "Starsense Explorer Refractor Telescope"],
+    ["1YMWWN1N4O", "Eclipsmart Travel Refractor Telescope"],
+    ["L9ECAV7KIM", "Lens Cleaning Kit"],
+    ["2ZYFJ3GM2N", "Roof Binoculars"],
+    ["0PUK6V6EV0", "Solar System Color Imager"],
+    ["9SIQT8TOJO", "Optical Tube Assembly"],
+    ["6E92ZMYYFZ", "Solar Filter"],
+    ["HQTGWGPNH4", "The Comet Book"],
+    ["LS4PSXUNUM", "Red Flashlight"]
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const names = new Map(PRODUCTS);
+
+  PRODUCTS.forEach(([id, name]) => {
+    const o = document.createElement("option");
+    o.value = id;
+    o.textContent = name;
+    $("productId").appendChild(o);
+  });
+
+  function say(message, ok) {
+    $("status").textContent = message;
+    $("status").className = message ? (ok ? "ok" : "ko") : "";
+  }
+
+  async function refresh() {
+    const reviews = await (await fetch("/api/reviews")).json();
+    $("count").textContent = reviews.length;
+    $("list").innerHTML = "";
+    reviews.slice().reverse().forEach((r) => {
+      const li = document.createElement("li");
+
+      const head = document.createElement("div");
+      head.className = "head";
+      const stars = document.createElement("span");
+      stars.className = "stars";
+      stars.textContent = "★".repeat(r.rating) + "☆".repeat(5 - r.rating);
+      const product = document.createElement("span");
+      product.className = "product";
+      product.textContent = names.get(r.productId) || r.productId;
+      head.append(stars, product);
+
+      const comment = document.createElement("div");
+      comment.textContent = r.comment;
+
+      const who = document.createElement("div");
+      who.className = "who";
+      who.textContent = r.userName + " — " + new Date(r.createdAt).toLocaleString();
+
+      li.append(head, comment, who);
+      $("list").appendChild(li);
+    });
+  }
+
+  $("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    $("submit").disabled = true;
+    say("");
+    try {
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: $("productId").value,
+          rating: Number($("rating").value),
+          comment: $("comment").value,
+          userName: $("userName").value,
+          userEmail: $("userEmail").value
+        })
+      });
+      if (!response.ok) {
+        throw new Error("HTTP " + response.status);
+      }
+      say("Review posted — one more row in the reviews table.", true);
+      await refresh();
+    } catch (error) {
+      say("Failed to post the review: " + error.message, false);
+    } finally {
+      $("submit").disabled = false;
+    }
+  });
+
+  refresh();
+</script>
+
+</body>
+</html>

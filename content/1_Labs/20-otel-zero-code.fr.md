@@ -51,6 +51,8 @@ curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "Superbe lunette !", "userEmail": "jean.dupont@example.com", "userName": "Jean Dupont"}'
 ```
 
+> 💡 **Bonus — la page web du service.** Le même port-forward donne accès à une petite page à la racine, `http://$PF_HOST:$APP_PORT/` : elle liste les avis et permet d'en poster un d'un clic, sans JSON à taper. Vous vous en servirez au Lab 3. Pour **ce** lab, restez-en aux `curl` ci-dessus : la page ajoute ses propres requêtes dans Jaeger, et les traces que vous allez comparer se lisent mieux sans elles.
+
 3.  **Chercher `review-service` dans Jaeger.** Que constatez-vous ?
 
 {{%expand "Réponse" %}}
