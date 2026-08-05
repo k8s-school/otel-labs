@@ -1,9 +1,24 @@
 # Shared environment for the OpenTelemetry training scripts
 # Source this file, do not run it.
 
-# Kind cluster name (ktbx default cluster is named "kind").
-# Shared server: one cluster per participant, e.g. CLUSTER_NAME=$USER
-CLUSTER_NAME="${CLUSTER_NAME:-otel}"
+# Kind cluster name (ktbx default cluster is named "kind"). On the shared
+# server there is one cluster per participant, named after the account:
+# student3 owns the cluster 'student3'.
+#
+# Derived from the login name for the same reason as PF_ADDR below: a
+# non-interactive shell (ssh <host> '<command>', a script, a cron job) never
+# reads ~/.bashrc, where the provisioning exports CLUSTER_NAME. Without this it
+# would fall back to 'otel' and deploy.sh would stop on
+# 'kind load ... no nodes found for cluster "otel"'.
+if [ -z "${CLUSTER_NAME:-}" ]; then
+    case "$(id -un)" in
+        # k8s-server, ansible role 'participants': one cluster per account.
+        student[1-9]|student[1-9][0-9]|student1[0-9][0-9]|trainer)
+            CLUSTER_NAME="$(id -un)" ;;
+        # Individual workstation: the single cluster of the labs.
+        *) CLUSTER_NAME="otel" ;;
+    esac
+fi
 
 # Address the port-forwards bind to, and the name used to reach them.
 # Everybody uses the same ports; on a shared server it is the address that
