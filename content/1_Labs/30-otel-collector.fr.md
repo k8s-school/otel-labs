@@ -266,7 +266,7 @@ Créez `manifests/30-otel-collector-values.yaml`. Il doit ajouter au collecteur 
 * l'extension **`zpages`** (pages de debug du collecteur) ;
 * et il doit **brancher les deux receivers dans le pipeline `metrics`**.
 
-> 💡 **D'où vient `zpages` ?** C'est un composant **déjà embarqué dans le binaire** du collecteur (image `otel/opentelemetry-collector-contrib`), simplement inactif dans la configuration de la démo : il n'y a rien à installer, seulement à déclarer — comme `hostmetrics` et `postgresql`, eux aussi fournis par l'image. Et comme toute extension, `zpages` ne participe pas au traitement de la télémétrie : il expose un serveur HTTP **sur le collecteur lui-même**, dont les pages affichent les composants réellement chargés. Vous l'ouvrirez à l'étape 5.
+> 💡 **D'où vient `zpages` ?** C'est un composant **déjà embarqué dans le binaire** du collecteur (image `otel/opentelemetry-collector-contrib`), simplement inactif dans la configuration de la démo : il n'y a rien à installer, seulement à déclarer — comme `hostmetrics` et `postgresql`, eux aussi fournis par l'image. Et comme toute extension, `zpages` ne participe pas au traitement de la télémétrie : il expose un serveur HTTP **sur le collecteur lui-même**, dont les pages affichent les composants réellement chargés. Vous l'ouvrirez à l'étape 5. Sa documentation officielle : [README de l'extension `zpages`](https://github.com/open-telemetry/opentelemetry-collector/blob/main/extension/zpagesextension/README.md).
 
 > ⚠️ En YAML Helm, une liste redéfinie **remplace** la liste d'origine : le pipeline `metrics` doit re-lister *tous* les receivers que vous voulez conserver, pas seulement les nouveaux. (`kubeletstats` et `k8s_cluster` font exception : les presets du chart les ré-ajoutent après votre liste.)
 
@@ -343,15 +343,45 @@ Ouvrez `http://$PF_HOST:$ZPAGES_PORT/debug/pipelinez` : vos deux receivers doive
 
 ### 6. Vérifier dans Prometheus
 
-Reprenez le tableau de l'étape 2, avec les mêmes recherches :
+Reprenez le tableau de l'étape 2, avec les mêmes recherches — sur l'onglet Prometheus **rechargé**, une trentaine de secondes après la fin du `rollout status` de l'étape 4 : les deux receivers scrutent dès le démarrage du collecteur, mais celui-ci doit d'abord être redéployé.
 
 | Recherche | Avant | Après |
 | --- | --- | --- |
 | `system_cpu_load_average_15m` | rien ✘ | présent ✔ — la charge du **nœud** |
 | `postgresql_` | rien ✘ | présent ✔ |
-| `count by (job) (system_cpu_time_seconds_total)` | uniquement des applications | une série de plus, émise par le **collecteur** |
+| `count by (job) (system_cpu_time_seconds_total)` | uniquement des applications | une ligne de plus, mais **sans nom de job** — c'est le collecteur |
 
-Générez ensuite quelques avis avec `curl` (cf. Lab 2) et observez `postgresql_commits_total` ou `postgresql_operations_total` évoluer.
+> ⚠️ **Pourquoi cette ligne est-elle vide ?** Prometheus l'affiche `{}`, sans étiquette. Rappelez-vous l'étape 2 : `job` vaut `service.namespace/service.name`, deux attributs que **l'application émettrice** déclare. Or `hostmetrics` ne mesure aucune application — il mesure une machine — et le collecteur ne lui prête pas son propre nom. Ces séries n'ont donc pas de `job` du tout, seulement un `host_name` : celui du pod collecteur. Pour les isoler :
+>
+> ```promql
+> system_cpu_time_seconds_total{job=""}
+> ```
+>
+> (en PromQL, un label absent se sélectionne avec la chaîne vide). C'est vrai aussi de vos métriques PostgreSQL : elles n'ont pas de `job`, leur repère d'origine est `instance="postgresql:5432"`.
+
+Générez ensuite quelques avis : c'est votre `review-service` du Lab 2 qui écrit dans cette base.
+
+```bash
+# relancez le port-forward du Lab 2 s'il n'est plus actif
+kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
+
+# 10 avis d'affilée
+for i in $(seq 1 10); do
+  curl -s -o /dev/null -X POST http://$PF_HOST:$APP_PORT/api/reviews \
+    -H "Content-Type: application/json" \
+    -d "{\"productId\": \"OLJCESPC7Z\", \"rating\": 5, \"comment\": \"Avis numéro $i\", \"userEmail\": \"jean.dupont@example.com\", \"userName\": \"Jean Dupont\"}"
+done
+```
+
+Une trentaine de secondes plus tard, dans Prometheus :
+
+```promql
+postgresql_rows{postgresql_table_name="public.reviews", state="live"}
+```
+
+La valeur a augmenté de 10 : ce sont vos avis, comptés cette fois **par le collecteur** et non par l'application.
+
+> ⚠️ **Ne guettez pas `postgresql_commits_total`** pour y voir vos `curl` : le load generator de la démo commite en permanence — `rate(postgresql_commits_total[1m])` tourne autour de 3 commits/s — et vos dix écritures s'y noient. Une métrique par table, elle, ne bouge que quand *votre* table bouge. Attention à ne pas confondre les deux tables d'avis de la base : `public.reviews` est celle de **votre** `review-service`, `reviews.productreviews` est celle du service `product-reviews` livré avec la démo.
 
 {{%expand "Réponse" %}}
 Les métriques arrivent avec les conventions sémantiques OTel traduites en noms Prometheus :
