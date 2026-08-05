@@ -393,13 +393,51 @@ postgresql_operations_total{postgresql_table_name="public.reviews", operation="i
 > ⚠️ **Ne guettez pas `postgresql_commits_total`** pour y voir vos avis : la boutique écrit en base sans discontinuer — le load generator passe des commandes, `accounting` les enregistre — et `rate(postgresql_commits_total[1m])` tourne autour de 3 commits/s. Vos dix écritures s'y noient. Un compteur global ne dit jamais **qui** écrit : c'est le label `postgresql_table_name` qui vous ramène à votre service. Attention à ne pas confondre les deux tables d'avis de la base : `public.reviews` est celle de **votre** `review-service`, `reviews.productreviews` est celle du service `product-reviews` livré avec la démo.
 
 {{%expand "Réponse" %}}
-Les métriques arrivent avec les conventions sémantiques OTel traduites en noms Prometheus :
-* `system_cpu_load_average_1m` / `_5m` / `_15m`, et les séries déjà présentes `system_cpu_time_seconds_total`, `system_memory_usage_bytes`, `system_network_io_bytes_total`...
+#### Les métriques apparues
+
+Les noms suivent les conventions sémantiques OTel, traduites en noms Prometheus :
+* `system_cpu_load_average_1m` / `_5m` / `_15m`, à côté des séries déjà présentes `system_cpu_time_seconds_total`, `system_memory_usage_bytes`, `system_network_io_bytes_total`...
 * `postgresql_backends`, `postgresql_commits_total`, `postgresql_operations_total`, `postgresql_rows`, `postgresql_blocks_read_total`, `postgresql_db_size_bytes`, `postgresql_table_size_bytes`...
 
 Côté système, c'est bien `system_cpu_load_average_15m` qui prouve que votre receiver fonctionne : les autres `system_*` existaient déjà avant l'étape 4 (cf. le piège de l'étape 2).
 
-La chaîne complète : receiver (scrape) → processors du pipeline `metrics` (`k8sattributes`, `memory_limiter`, `resourcedetection`, `resource`, `batch`) → exporter `otlphttp/prometheus` → Prometheus. Aucune application n'a été modifiée.
+#### Lire une série jusqu'au bout
+
+Le nom d'une métrique dit *quoi* ; ce sont les labels qui disent *de quoi* et *par qui*. Cliquez sur une série de `postgresql_operations_total` pour la voir en entier :
+
+```promql
+postgresql_operations_total{operation="ins", postgresql_table_name="public.reviews",
+  postgresql_database_name="otel", instance="postgresql:5432",
+  service_instance_id="postgresql:5432", host_name="otel-collector-agent-XXXXX"}
+```
+
+| Label | Ce qu'il vous apprend |
+| --- | --- |
+| `operation` | le type d'écriture compté : `ins` (insert), `upd`, `del`, `hot_upd` |
+| `postgresql_table_name` | la table — `public.reviews` est celle de **votre** `review-service` |
+| `postgresql_database_name` | la base interrogée |
+| `instance`, `service_instance_id` | **ce qui est mesuré** : l'endpoint que vous avez écrit dans votre fichier de values |
+| `host_name` | **ce qui a mesuré** : le pod du collecteur — pas la base |
+
+Les deux dernières lignes sont la clé : une métrique produite par un receiver *pull* décrit une machine (`instance`) mais est estampillée par celle qui l'a collectée (`host_name`). C'est aussi pourquoi ces séries n'ont **pas** de label `job` : personne ne les a déclarées au nom d'un service.
+
+#### Comment le receiver `postgresql` s'y prend
+
+Il ne lit **aucun log** et n'installe **rien** dans la base. Toutes les 10 s, il ouvre une connexion SQL avec les identifiants de votre fichier de values et interroge les vues statistiques que PostgreSQL tient à jour en permanence pour lui-même (`pg_stat_database`, `pg_stat_user_tables`, `pg_locks`...). Vous pouvez le prendre sur le fait, depuis la base :
+
+```bash
+kubectl exec -n otel-demo deploy/postgresql -- psql -U root -d otel \
+  -c "SELECT client_addr, substring(query,1,55) AS requete FROM pg_stat_activity
+      WHERE backend_type='client backend' AND client_addr IS NOT NULL AND query LIKE '%pg_stat%';"
+```
+
+La ligne dont `client_addr` est l'IP du pod collecteur (`kubectl get pods -n otel-demo -o wide`) montre sa dernière requête : `SELECT datname, xact_commit, xact_rollback, deadlocks, ...`. C'est tout le secret d'un receiver *pull* : du SQL ordinaire, exécuté à intervalle régulier.
+
+#### Ce que vous n'avez pas eu à faire
+
+Ni PostgreSQL ni votre `review-service` n'ont été touchés : pas d'extension installée dans la base, pas d'agent à côté, pas une ligne de code ni une variable d'environnement dans l'application. Le seul fichier modifié est celui de la configuration du collecteur. C'est la contrepartie du mode *pull* : là où une application instrumentée **pousse** ce qu'elle a décidé d'exposer, le collecteur va **chercher** ce qu'un composant tiers publie déjà.
+
+La chaîne complète : receiver (scrape) → processors du pipeline `metrics` (`k8sattributes`, `memory_limiter`, `resourcedetection`, `resource`, `batch`) → exporter `otlphttp/prometheus` → Prometheus.
 {{% /expand%}}
 
 ## Livrable
