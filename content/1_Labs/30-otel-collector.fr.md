@@ -214,26 +214,47 @@ service:
 
 > 🔑 **La règle d'or** : un composant déclaré dans `receivers`, `processors`, `exporters` ou `extensions` n'est qu'une *définition*. Il ne s'exécute que s'il est **cité dans `service`** — dans un pipeline pour les trois premiers, dans `service.extensions` pour les extensions. C'est l'oubli n°1 quand on configure un collecteur, et vous ferez les deux à l'étape 3 : brancher vos receivers dans le pipeline `metrics`, et activer `zpages` dans `service.extensions`.
 
-Répondez maintenant, configuration sous les yeux :
-* Par quel receiver les traces de `review-service` entrent-elles, et sur quelle **adresse** le collecteur écoute-t-il ?
-* Vers quels backends partent les traces, les métriques, les logs ? Quel composant apparaît **à la fois** en exporter et en receiver ?
-* Un receiver de « métriques produit » (mode *pull*) est déjà configuré — lequel ?
-* Un receiver est **déclaré mais ne tourne pas** : lequel, et à quoi le voit-on ?
-* Dans le pipeline `traces`, dans quel ordre les processors s'appliquent-ils, et pourquoi `batch` est-il en dernier ?
+Répondez maintenant, configuration sous les yeux. Chaque question a sa réponse juste en dessous : cherchez d'abord, dépliez ensuite.
+
+**a. Par quel receiver les traces de `review-service` entrent-elles, et sur quelle *adresse* le collecteur écoute-t-il ?**
 
 {{%expand "Réponse" %}}
-* Les traces entrent par le receiver **`otlp`**, sur `${env:MY_POD_IP}:4317` (gRPC) et `:4318` (HTTP) : le collecteur écoute donc sur **l'IP de son pod**. Les applications ne connaissent pas cette IP — elles s'adressent au Service Kubernetes `otel-collector`, qui redirige vers ce pod. C'est lui que pointe `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` au Lab 2. Les receivers `jaeger` et `zipkin` sont là pour les applications non OTLP.
-* Pipelines : traces → **`otlp/jaeger`**, métriques → **`otlphttp/prometheus`**, logs → **`opensearch`** ; l'exporter `debug` est branché partout pour la mise au point. Le composant présent des deux côtés est le connector **`spanmetrics`** : *exporter* du pipeline `traces`, *receiver* du pipeline `metrics`. Chaque span qui sort du pipeline `traces` y entre donc une seconde fois, sous forme de chiffres : `spanmetrics` compte les spans par service et par opération et mesure leur durée, puis publie deux métriques — `calls_total` (le débit) et `duration_milliseconds` (la latence, sous forme d'histogramme). Résultat : tout service tracé obtient gratuitement ses métriques de débit et de latence, sans une ligne d'instrumentation de plus — vous les tracerez dans Grafana au Lab 4.
-* Le receiver **`kafkametrics`** interroge le broker Kafka toutes les 10 s. Sa structure est celle qu'il faudra écrire pour PostgreSQL : un endpoint, des identifiants, un `collection_interval`.
-* Le receiver **`prometheus`**. Il est bien défini — il scrape le port `8888` du collecteur, celui où le collecteur publie ses propres métriques internes (spans reçus, données refusées, exports en échec) — mais son nom n'apparaît dans **aucun** pipeline de `service`. Il est donc inerte : rien ne le démarre. C'est la règle d'or prise sur le fait, dans une configuration livrée par un chart officiel.
-* Ordre : `k8sattributes` → `memory_limiter` → `resourcedetection` → `resource` → `transform` → `batch`. Soit : le garde-fou mémoire en tête (à une entorse près, voir l'encadré ci-dessous), l'enrichissement ensuite, le regroupement en dernier. Il manque un maillon par rapport à l'ordre recommandé : entre le garde-fou et l'enrichissement viennent normalement les processors qui **jettent** de la donnée — filtrage, échantillonnage — car il est inutile d'enrichir ce qu'on s'apprête à écarter. La démo n'en configure aucun ; vous en ajouterez un au Lab 7 avec `tail_sampling`.
+Par le receiver **`otlp`**, sur `${env:MY_POD_IP}:4317` (gRPC) et `:4318` (HTTP) : le collecteur écoute donc sur **l'IP de son pod**. Les applications ne connaissent pas cette IP — elles s'adressent au Service Kubernetes `otel-collector`, qui redirige vers ce pod. C'est lui que pointe `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` au Lab 2. Les receivers `jaeger` et `zipkin` sont là pour les applications non OTLP.
+{{% /expand%}}
 
-Remarquez aussi le processor **`transform`** et ses instructions **OTTL** qui normalisent les noms de spans du frontend — un exemple réel du langage vu en cours — ainsi que `kubeletstats` et `k8s_cluster` : personne ne les a écrits, ce sont des **presets** du chart Helm qui les ont ajoutés.
+**b. Vers quels backends partent les traces, les métriques, les logs ? Quel composant apparaît *à la fois* en exporter et en receiver ?**
+
+{{%expand "Réponse" %}}
+Traces → **`otlp/jaeger`**, métriques → **`otlphttp/prometheus`**, logs → **`opensearch`** ; l'exporter `debug` est branché partout pour la mise au point.
+
+Le composant présent des deux côtés est le connector **`spanmetrics`** : *exporter* du pipeline `traces`, *receiver* du pipeline `metrics`. Chaque span qui sort du pipeline `traces` y entre donc une seconde fois, sous forme de chiffres : `spanmetrics` compte les spans par service et par opération et mesure leur durée, puis publie deux métriques — `calls_total` (le débit) et `duration_milliseconds` (la latence, sous forme d'histogramme). Résultat : tout service tracé obtient gratuitement ses métriques de débit et de latence, sans une ligne d'instrumentation de plus — vous les tracerez dans Grafana au Lab 4.
+{{% /expand%}}
+
+**c. Un receiver de « métriques produit » (mode *pull*) est déjà configuré — lequel ?**
+
+{{%expand "Réponse" %}}
+Le receiver **`kafkametrics`**, qui interroge le broker Kafka toutes les 10 s. Sa structure est celle qu'il faudra écrire pour PostgreSQL à l'étape 3 : un endpoint, des identifiants, un `collection_interval`.
+{{% /expand%}}
+
+**d. Un receiver est *déclaré mais ne tourne pas* : lequel, et à quoi le voit-on ?**
+
+{{%expand "Réponse" %}}
+Le receiver **`prometheus`**. Il est bien défini — il scrape le port `8888` du collecteur, celui où le collecteur publie ses propres métriques internes (spans reçus, données refusées, exports en échec) — mais son nom n'apparaît dans **aucun** pipeline de `service`. Il est donc inerte : rien ne le démarre. C'est la règle d'or prise sur le fait, dans une configuration livrée par un chart officiel.
+{{% /expand%}}
+
+**e. Dans le pipeline `traces`, dans quel ordre les processors s'appliquent-ils, et pourquoi `batch` est-il en dernier ?**
+
+{{%expand "Réponse" %}}
+Ordre : `k8sattributes` → `memory_limiter` → `resourcedetection` → `resource` → `transform` → `batch`. Soit : le garde-fou mémoire en tête (à une entorse près, voir plus bas), l'enrichissement ensuite, le regroupement en dernier.
+
+Il manque un maillon par rapport à l'ordre recommandé : entre le garde-fou et l'enrichissement viennent normalement les processors qui **jettent** de la donnée — filtrage, échantillonnage — car il est inutile d'enrichir ce qu'on s'apprête à écarter. La démo n'en configure aucun ; vous en ajouterez un au Lab 7 avec `tail_sampling`.
 
 > 📌 **`batch` en dernier, vraiment ?** Le [schéma officiel du collecteur](https://opentelemetry.io/docs/collector/img/otel-collector.svg) montre `Batch` **en tête** de la chaîne de processors : c'est une illustration générique de la notion de pipeline, pas une prescription d'ordre. La recommandation est donnée par le [README des processors](https://github.com/open-telemetry/opentelemetry-collector/blob/main/processor/README.md) : `memory_limiter` en premier, puis les processors qui **jettent** de la donnée (filtrage, échantillonnage), puis ceux qui l'**enrichissent**, et **`batch` en dernier** — inutile de dépenser du CPU à regrouper des données qui seront ensuite écartées ou modifiées. Les trois pipelines de la démo respectent cet ordre.
 >
 > Seule entorse : le preset `kubernetesAttributes` du chart insère `k8sattributes` **avant** `memory_limiter`, alors que la recommandation le place après. Sans conséquence ici, ce processor n'accumulant pas de données — mais c'est exactement le genre de détail que la lecture d'une configuration réelle apprend à repérer.
 {{% /expand%}}
+
+Deux détails à ne pas manquer en refermant cette configuration : le processor **`transform`** et ses instructions **OTTL** qui normalisent les noms de spans du frontend — un exemple réel du langage vu en cours — ainsi que `kubeletstats` et `k8s_cluster` : personne ne les a écrits, ce sont des **presets** du chart Helm qui les ont ajoutés.
 
 ### 2. Constater ce qui manque dans Prometheus
 
