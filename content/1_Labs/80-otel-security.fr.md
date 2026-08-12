@@ -13,8 +13,8 @@ La télémétrie est un **canal de fuite** : tokens, mots de passe, emails s'y r
 ## Prérequis
 
 * Labs 1 à 7 terminés.
-* Port-forward UIs actif + `kubectl port-forward -n otel-demo --address $PF_ADDR svc/opensearch 9200:9200 &`
-* Les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) ainsi que `$PF_ADDR` et `$PF_HOST`, l'adresse sur laquelle vos `port-forward` écoutent.
+* **D'abord** les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) ainsi que `$PF_ADDR` et `$PF_HOST`, l'adresse sur laquelle vos `port-forward` écoutent.
+* **Ensuite seulement** le port-forward des UIs, plus celui d'OpenSearch, qui s'appuient sur ces variables : `kubectl port-forward -n otel-demo --address $PF_ADDR svc/opensearch $OS_PORT:9200 &`
 
 ## Étapes
 
@@ -31,6 +31,7 @@ logger.info("Creating review for product {} by {} <{}>", ...);         // PII da
 2.  **Déployer avec le Starter** (nécessaire pour la partie SDK) et générer une requête « authentifiée » :
 
 ```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 ./scripts/deploy.sh -p starter
 kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \

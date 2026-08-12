@@ -43,6 +43,7 @@ echo "$APP_PORT"     # 8090, pour tout le monde
 2.  **Générer du trafic vers l'API :**
 
 ```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
 curl http://$PF_HOST:$APP_PORT/api/reviews
 curl http://$PF_HOST:$APP_PORT/api/reviews/product/OLJCESPC7Z
@@ -89,6 +90,7 @@ Observez aussi les variables `OTEL_*` déjà présentes dans le manifest. À quo
 5.  **Redéployer et re-générer du trafic :**
 
 ```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 ./scripts/deploy.sh
 # relancer le port-forward (le pod a changé)
 kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &

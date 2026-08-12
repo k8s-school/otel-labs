@@ -44,6 +44,7 @@ Sans agent, on obtient le même résultat en déclarant l'appender explicitement
 3.  **Générer des logs corrélés :**
 
 ```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
 curl http://$PF_HOST:$APP_PORT/api/reviews
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \

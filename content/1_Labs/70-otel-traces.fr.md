@@ -49,6 +49,7 @@ Lors du `POST /api/reviews`, le service appelle le **frontend** de la boutique (
 2.  **Générer une trace multi-services :**
 
 ```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \

@@ -11,8 +11,8 @@ Le Lab 3 collectait des métriques d'**infrastructure** (système, PostgreSQL) ;
 ## Prérequis
 
 * Labs 1 à 3 terminés, agent Java actif sur `review-service` (cf. Lab 5, étape 2).
-* Port-forward Prometheus : `kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus 9090:9090 &`
-* Les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) ainsi que `$PF_ADDR` et `$PF_HOST`, l'adresse sur laquelle vos `port-forward` écoutent.
+* **D'abord** les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) ainsi que `$PF_ADDR` et `$PF_HOST`, l'adresse sur laquelle vos `port-forward` écoutent.
+* **Ensuite seulement** le port-forward Prometheus, qui s'appuie sur ces variables : `kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus $PROM_PORT:9090 &`
 
 ## Étapes
 
@@ -45,6 +45,7 @@ L'alternative SDK pur : injecter un `Meter` OTel (`meter.counterBuilder("reviews
 2.  **Déployer et générer du trafic :**
 
 ```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 ./scripts/deploy.sh
 kubectl set env -n otel-demo deployment/review-service \
   JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar" \

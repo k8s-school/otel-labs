@@ -259,6 +259,7 @@ Deux détails à ne pas manquer en refermant cette configuration : le processor 
 ### 2. Constater ce qui manque dans Prometheus
 
 ```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus $PROM_PORT:9090 &
 ```
 
@@ -355,6 +356,7 @@ kubectl get configmap otel-collector-agent -n otel-demo -o jsonpath='{.data.rela
 ### 5. Observer le pipeline dans zPages
 
 ```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 kubectl port-forward -n otel-demo --address $PF_ADDR daemonset/otel-collector-agent $ZPAGES_PORT:55679 &
 ```
 
@@ -383,6 +385,7 @@ Reprenez le tableau de l'étape 2, avec les mêmes recherches — sur l'onglet P
 Générez ensuite quelques avis : c'est votre `review-service` du Lab 2 qui écrit dans cette base.
 
 ```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 # relancez le port-forward du Lab 2 s'il n'est plus actif
 kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
 ```
