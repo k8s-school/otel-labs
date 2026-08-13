@@ -463,12 +463,21 @@ Les deux dernières lignes sont la clé : une métrique produite par un receiver
 Il ne lit **aucun log** et n'installe **rien** dans la base. Toutes les 10 s, il ouvre une connexion SQL avec les identifiants de votre fichier de values et interroge les vues statistiques que PostgreSQL tient à jour en permanence pour lui-même (`pg_stat_database`, `pg_stat_user_tables`, `pg_locks`...). Vous pouvez le prendre sur le fait, depuis la base :
 
 ```bash
-kubectl exec -n otel-demo deploy/postgresql -- psql -U root -d otel \
-  -c "SELECT client_addr, substring(query,1,55) AS requete FROM pg_stat_activity
-      WHERE backend_type='client backend' AND client_addr IS NOT NULL AND query LIKE '%pg_stat%';"
+# l'IP du pod collecteur, pour reconnaître ses lignes
+kubectl get pods -n otel-demo -o wide | grep otel-collector-agent
+
+kubectl exec -n otel-demo deploy/postgresql -- psql -U root -d otel -c "
+SELECT client_addr,
+       date_trunc('second', now() - query_start) AS il_y_a,
+       substring(query, 1, 45) AS derniere_requete
+  FROM pg_stat_activity
+ WHERE backend_type = 'client backend' AND client_addr IS NOT NULL
+ ORDER BY query_start DESC;"
 ```
 
-La ligne dont `client_addr` est l'IP du pod collecteur (`kubectl get pods -n otel-demo -o wide`) montre sa dernière requête : `SELECT datname, xact_commit, xact_rollback, deadlocks, ...`. C'est tout le secret d'un receiver *pull* : du SQL ordinaire, exécuté à intervalle régulier.
+Trois lignes portent l'IP du collecteur, **toutes du même âge** : un scrape, trois connexions qui travaillent de front — typiquement les bases (`pg_stat_database`), les fonctions (`pg_stat_user_functions`) et les verrous (`pg_locks`). Relancez la commande une poignée de secondes plus tard : leur âge est retombé, c'est le `collection_interval: 10s` de votre fichier de values que vous regardez battre. C'est tout le secret d'un receiver *pull* : du SQL ordinaire, exécuté à intervalle régulier.
+
+> 💡 **Pourquoi les voit-on en permanence ?** Le receiver ne se reconnecte pas à chaque collecte : ses connexions sont **persistantes** — ajoutez `pid, state, now()-backend_start` à la requête et vous les retrouverez avec les mêmes PID, ouvertes depuis des heures, `idle` entre deux scrapes. Or `pg_stat_activity` conserve le texte de la **dernière** requête d'une connexion même inactive. C'est donc l'écho du dernier scrape que vous lisez, pas un historique : ce texte change d'une fois sur l'autre selon la requête qui s'est terminée en dernier.
 
 #### Ce que vous n'avez pas eu à faire
 

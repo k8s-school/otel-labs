@@ -4,4 +4,10 @@ Explique la structure de l'appli de démo, plutôt dans les slides?
 LAB3:
 - vérif temps arrivé metrique postgresql_
 - ajoute echo http://.. sur app review gui web
-- Monitoring le nombre d'insert postgresql avant de faire les insert ou parler du graph plutôt??? 
+- Monitoring le nombre d'insert postgresql avant de faire les insert ou parler du graph plutôt???
+- Test stats postgresql à la fin
+
+LAB4:
+- comment récupérer l'UID des datasources???
+- c koi l'examplar..., mieux l'expliquer, c différent des examplars otel??
+- 
