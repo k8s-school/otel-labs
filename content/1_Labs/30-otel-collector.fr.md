@@ -25,6 +25,8 @@ echo "$PROM_PORT $ZPAGES_PORT"
 ```
 
 > Sur le serveur partagé, gardez `--address $PF_ADDR` dans les `port-forward` et `$PF_HOST` dans les URLs, comme dans les commandes ci-dessous : c'est ce qui donne à chaque participant sa propre adresse d'écoute. Sans lui, deux participants se disputent le même port et le second `port-forward` échoue.
+>
+> Les deux ne sont pas interchangeables : `--address` **n'accepte qu'une IP** (`kubectl` répond `localhost3 is not a valid IP`), là où une URL veut un nom. D'où `$PF_ADDR` pour écouter, `$PF_HOST` pour joindre.
 
 ## Étapes
 
@@ -261,24 +263,29 @@ Deux détails à ne pas manquer en refermant cette configuration : le processor 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus $PROM_PORT:9090 &
+
+# l'URL à ouvrir, variables résolues — à copier dans le navigateur
+echo "http://$PF_HOST:$PROM_PORT"
 ```
 
-Ouvrez `http://$PF_HOST:$PROM_PORT` (soit `http://localhost:9090` sur un poste individuel) et cherchez dans l'autocomplétion :
+Ouvrez l'URL affichée (`http://localhost:9090` sur un poste individuel) et cherchez dans l'autocomplétion :
 
 | Recherche | Résultat | Pourquoi |
 | --- | --- | --- |
 | `kafka_` | des métriques ✔ | le receiver `kafkametrics` du collecteur les collecte |
-| `system_` | des métriques ✔ — **mais pas celles du nœud** | voir le piège ci-dessous |
+| `system_` | des métriques ✔ — **mais pas là où vous croyez** | voir le piège ci-dessous |
 | `system_cpu_load_average_15m` | rien ✘ | seul le scraper `load` de `hostmetrics` produit la charge de la machine |
 | `postgresql_` | rien ✘ | aucun receiver n'interroge la base |
 
-> ⚠️ **Le piège du préfixe.** `system_*` n'est pas vide, alors que `hostmetrics` n'est pas configuré : ces séries sont émises par les applications Python de la boutique, qui mesurent **leur propre processus**. Elles ne disent rien de la machine. Le nom d'une métrique ne suffit donc pas — regardez qui l'envoie :
+> ⚠️ **Le piège du préfixe.** `system_*` n'est pas vide, alors que `hostmetrics` n'est pas configuré : ces séries sont émises par trois applications Python de la boutique, dont le SDK embarque une instrumentation « system metrics ». Elles mesurent donc bel et bien la machine — mais **chacune dans son coin, et sous son propre nom**. Le nom d'une métrique ne suffit donc pas — regardez qui l'envoie :
 >
 > ```promql
 > count by (job) (system_cpu_time_seconds_total)
 > ```
 >
-> Vous n'obtenez que des applications (`otel-demo/load-generator`...) : dans Prometheus, `job` identifie le service émetteur — c'est `service.namespace/service.name`, les attributs que l'application déclare. C'est pourquoi le critère du lab est `system_cpu_load_average_15m` : la charge d'une machine, aucune application ne peut la produire.
+> Vous n'obtenez que des applications (`otel-demo/load-generator`...) : dans Prometheus, `job` identifie le service émetteur — c'est `service.namespace/service.name`, les attributs que l'application déclare. Trois applications publient donc **trois copies** de la même mesure, étiquetées à leur nom : rien ne dit au lecteur qu'il s'agit du nœud, et une quatrième application ajouterait une quatrième copie. Comparez `sum by (job) (system_cpu_time_seconds_total{state="idle"})` : les totaux sont identiques à 0,01 % près, c'est bien la même machine mesurée plusieurs fois.
+>
+> Cette mesure de rencontre est en plus **incomplète** : le SDK Python publie 4 états CPU (`idle`, `irq`, `system`, `user`) là où `hostmetrics` en publie 8 (`nice`, `steal`, `wait`... s'y ajoutent), d'où 64 séries par application contre 128 pour le collecteur — 16 CPU × 4 contre 16 × 8. Et surtout, elle ignore la **charge** : c'est pourquoi le critère du lab est `system_cpu_load_average_15m`, qu'aucune de ces applications ne produit.
 
 ### 3. Écrire le fichier de values qui ajoute les deux receivers
 
@@ -358,9 +365,12 @@ kubectl get configmap otel-collector-agent -n otel-demo -o jsonpath='{.data.rela
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 kubectl port-forward -n otel-demo --address $PF_ADDR daemonset/otel-collector-agent $ZPAGES_PORT:55679 &
+
+# l'URL à ouvrir, variables résolues — à copier dans le navigateur
+echo "http://$PF_HOST:$ZPAGES_PORT/debug/pipelinez"
 ```
 
-Ouvrez `http://$PF_HOST:$ZPAGES_PORT/debug/pipelinez` : vos deux receivers doivent apparaître dans le pipeline `metrics`.
+Ouvrez l'URL affichée : vos deux receivers doivent apparaître dans le pipeline `metrics`.
 
 > zPages affiche les composants **réellement chargés** par le collecteur, là où la ConfigMap ne montre que ce qu'on lui a demandé. Le pipeline `metrics` liste donc aussi `kubeletstats` et `k8s_cluster`, ajoutés par les presets du chart — c'est normal, vous ne les avez pas perdus.
 
@@ -388,9 +398,12 @@ Générez ensuite quelques avis : c'est votre `review-service` du Lab 2 qui écr
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 # relancez le port-forward du Lab 2 s'il n'est plus actif
 kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
+
+# l'URL à ouvrir, variables résolues — à copier dans le navigateur
+echo "http://$PF_HOST:$APP_PORT/"
 ```
 
-Ouvrez `http://$PF_HOST:$APP_PORT/` et postez **une dizaine d'avis** en cliquant sur *Post review*. Chaque clic est un `INSERT` dans la table `reviews` ; le compteur en haut de la liste vous dit combien elle en contient.
+Ouvrez l'URL affichée et postez **une dizaine d'avis** en cliquant sur *Post review*. Chaque clic est un `INSERT` dans la table `reviews` ; le compteur en haut de la liste vous dit combien elle en contient.
 
 {{%expand "Sans navigateur : les mêmes avis en curl" %}}
 ```bash
@@ -466,4 +479,14 @@ La chaîne complète : receiver (scrape) → processors du pipeline `metrics` (`
 
 ## Livrable
 
-Un graphe Prometheus montrant une métrique système **et** une métrique PostgreSQL collectées par votre configuration.
+Dans Prometheus, onglet **Graph**, une courbe pour chacun de vos deux receivers :
+
+```promql
+system_cpu_load_average_15m
+```
+
+```promql
+postgresql_rows{postgresql_table_name="public.reviews", state="live"}
+```
+
+La première prouve que `hostmetrics` tourne : c'est la charge du **nœud**, qu'aucune application de la démo ne publie. La seconde prouve que `postgresql` tourne, et elle a la bonne tête pour une capture — un escalier, une marche par avis posté à l'étape 6.

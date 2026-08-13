@@ -1,2 +1,7 @@
 Ajouter au lab1 un TP ou on créé des failures et on voir le résultat, comme dans le livre
 Explique la structure de l'appli de démo, plutôt dans les slides?
+
+LAB3:
+- vérif temps arrivé metrique postgresql_
+- ajoute echo http://.. sur app review gui web
+- Monitoring le nombre d'insert postgresql avant de faire les insert ou parler du graph plutôt??? 
