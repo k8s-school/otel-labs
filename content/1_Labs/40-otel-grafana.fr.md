@@ -20,13 +20,15 @@ Vous disposez maintenant des trois signaux : traces (Labs 2), métriques systèm
 Dans Grafana : ⚙️ *Connections → Data sources*. Trois sources correspondent à nos trois signaux — identifiez-les et notez leur type.
 
 {{%expand "Réponse" %}}
-| Datasource | Type | Signal | Backend |
-|---|---|---|---|
-| **Prometheus** (`webstore-metrics`) | prometheus | métriques | `http://prometheus:9090` |
-| **Jaeger** (`webstore-traces`) | jaeger | traces | `http://jaeger:16686` |
-| **OpenSearch** (`webstore-logs`) | grafana-opensearch-datasource | logs | index `otel-logs-*` |
+| Datasource | UID | Type | Signal | Backend |
+|---|---|---|---|---|
+| **Prometheus** | `webstore-metrics` | prometheus | métriques | `http://prometheus:9090` |
+| **Jaeger** | `webstore-traces` | jaeger | traces | `http://jaeger:16686` |
+| **OpenSearch** | `webstore-logs` | grafana-opensearch-datasource | logs | index `otel-logs-*` |
 
 Le chart Helm de la démo les provisionne automatiquement (ConfigMap `grafana-datasources`). Remarquez dans la config de Prometheus les **exemplars** : un lien direct métrique → trace.
+
+Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par son nom d'affichage. Le dashboard de référence de l'étape 5 contient `"datasource": { "type": "prometheus", "uid": "webstore-metrics" }` — c'est ce qui lui permet de s'importer sans re-câbler un seul panel. Un dashboard récupéré ailleurs (grafana.com, un autre cluster) porte d'autres UID : ses panels arrivent vides tant qu'on ne les a pas repointés.
 {{% /expand%}}
 
 2.  **Créer un dashboard vide** (*Dashboards → New → New dashboard*), puis **ajouter la variable `service_name`** :
