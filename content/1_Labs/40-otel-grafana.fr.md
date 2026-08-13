@@ -27,7 +27,7 @@ Dans Grafana : ⚙️ *Connections → Data sources*. Trois sources corresponden
 | **Jaeger** | `webstore-traces` | jaeger | traces | `http://jaeger:16686` |
 | **OpenSearch** | `webstore-logs` | grafana-opensearch-datasource | logs | index `otel-logs-*` |
 
-Le chart Helm de la démo les provisionne automatiquement (ConfigMap `grafana-datasources`). Remarquez dans la config de Prometheus les **exemplars** : un lien direct métrique → trace.
+Le chart Helm de la démo les provisionne automatiquement (ConfigMap `grafana-datasources`). Ouvrez la configuration de Prometheus : elle contient un bloc `exemplars` qui la relie à Jaeger — c'est le sujet de l'étape 9.
 
 Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par son nom d'affichage. Le dashboard de référence de l'étape 5 contient `"datasource": { "type": "prometheus", "uid": "webstore-metrics" }` — c'est ce qui lui permet de s'importer sans re-câbler un seul panel. Un dashboard récupéré ailleurs (grafana.com, un autre cluster) porte d'autres UID : ses panels arrivent vides tant qu'on ne les a pas repointés.
 {{% /expand%}}
@@ -39,6 +39,8 @@ Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par
 > En ligne de commande (la démo autorise l'accès anonyme avec le rôle Admin : aucun jeton à créer) :
 >
 > ```bash
+> . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+>
 > # les UID des trois datasources
 > curl -s http://$PF_HOST:$UI_PORT/grafana/api/datasources | grep -o '"uid":"[^"]*"'
 >
@@ -46,7 +48,7 @@ Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par
 > curl -s http://$PF_HOST:$UI_PORT/grafana/api/datasources/name/Prometheus | grep -o '"uid":"[^"]*"'
 > ```
 >
-> Cette même API montre l'UID à l'œuvre entre datasources : la configuration de Prometheus contient `"exemplarTraceIdDestinations": [{"datasourceUid": "webstore-traces", "name": "trace_id"}]`. C'est ce câblage — Prometheus → l'UID de Jaeger — qui fait qu'un exemplar sur un graphe de latence ouvre la trace correspondante.
+> Cette même API montre l'UID à l'œuvre **entre** datasources : la configuration de Prometheus contient `"exemplarTraceIdDestinations": [{"datasourceUid": "webstore-traces", "name": "trace_id"}]`. Traduction : « quand tu rencontres un `trace_id`, va ouvrir la trace dans la datasource dont l'UID est `webstore-traces` » — c'est-à-dire Jaeger. Sans cet UID, Grafana saurait qu'il tient un identifiant de trace, mais pas où aller la chercher. C'est le mécanisme des **exemplars**, à l'étape 9.
 
 2.  **Créer un dashboard vide** (*Dashboards → New → New dashboard*), puis **ajouter la variable `service_name`** :
 
@@ -93,6 +95,47 @@ curl -sS -X POST http://$PF_HOST:$UI_PORT/grafana/api/dashboards/db \
 {{% /expand%}}
 
 8.  **Bonus — une règle d'alerte :** *Alerting → New alert rule* sur la latence p95 de `$service_name` (> 500 ms pendant 2 min). Observez l'état `Pending` → `Firing` en chargeant la boutique via le load generator.
+
+9.  **Bonus (avancé) — les exemplars : du point sur la courbe à la trace.**
+
+Une métrique est une **agrégation** : « 30 requêtes, p95 à 400 ms » ne dit pas *quelles* requêtes. Un **exemplar** est une mesure individuelle conservée à côté de l'agrégat, avec le `trace_id` de la requête qui l'a produite :
+
+```text
+série    : http_client_duration_milliseconds_bucket{service_name="load-generator", net_peer_name="flagd"}
+exemplar : value = 6 (ms)   labels = {trace_id: "114a5fc9…", span_id: "2b9ec640…"}
+```
+
+Grafana pose alors de petits marqueurs sur la courbe de latence : cliquer sur l'un d'eux ouvre **la trace de cette requête précise**, celle qui a fait le pic. Au lieu de chercher dans Jaeger une trace qui ressemblerait au symptôme, c'est le symptôme qui vous donne son identifiant.
+
+Essayez dans *Explore*, datasource **Prometheus**, en activant les exemplars dans les options de la requête :
+
+```promql
+histogram_quantile(0.95, sum(rate(http_client_duration_milliseconds_bucket[5m])) by (le))
+```
+
+{{%expand "Pourquoi ça marche ici — et pas sur vos panels" %}}
+Il faut réunir trois conditions ; les deux premières sont remplies par la démo :
+
+* **Prometheus stocke les exemplars** — il est démarré avec `--enable-feature=exemplar-storage` (visible dans `/api/v1/status/flags`) ; sans ce drapeau, il les jette à l'ingestion ;
+* **la datasource sait où ouvrir la trace** — c'est le `"exemplarTraceIdDestinations": [{"datasourceUid": "webstore-traces"}]` de l'étape 1 : l'UID de Jaeger, et rien d'autre, fait le lien ;
+* **la métrique doit en porter** — et c'est là que ça coince pour le dashboard que vous venez de construire.
+
+Les métriques `traces_span_metrics_*` du connector `spanmetrics` n'ont **aucun** exemplar : sa configuration `{}` ne les produit pas (il faut le lui demander explicitement). Ceux de la démo viennent des **SDK des applications**, sur `http_client_duration_milliseconds_bucket` et `rpc_server_duration_milliseconds_bucket`.
+
+Vous pouvez le constater par l'API, sans Grafana :
+
+```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus $PROM_PORT:9090 &
+
+curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
+  --data-urlencode 'query=http_client_duration_milliseconds_bucket' \
+  --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" \
+  | head -c 400
+```
+
+Remplacez le nom par `traces_span_metrics_duration_milliseconds_bucket` : la réponse est `{"status":"success","data":[]}`.
+{{% /expand%}}
 
 ## Livrable
 
