@@ -13,7 +13,7 @@
         "label": "Service",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
-        "query": "label_values(calls_total, service_name)",
+        "query": "label_values(traces_span_metrics_calls_total, service_name)",
         "refresh": 2,
         "includeAll": false,
         "current": { "text": "review-service", "value": "review-service" }
@@ -30,7 +30,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(calls_total{service_name=~\"$service_name\"}[2m]))",
+          "expr": "sum(rate(traces_span_metrics_calls_total{service_name=~\"$service_name\"}[2m]))",
           "legendFormat": "req/s"
         }
       ]
@@ -44,7 +44,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum(rate(duration_milliseconds_bucket{service_name=~\"$service_name\"}[2m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service_name\"}[2m])) by (le))",
           "legendFormat": "p95"
         }
       ]

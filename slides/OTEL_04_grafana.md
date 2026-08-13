@@ -55,7 +55,7 @@ backgroundColor: #ffffff
 - **Variables** (`$service_name`...) : un dashboard générique pour N services
 
 ```promql
-label_values(calls_total, service_name)
+label_values(traces_span_metrics_calls_total, service_name)
 ```
 
 - Export/import **JSON** : versionnable dans Git — c'est le livrable du lab
@@ -68,7 +68,7 @@ label_values(calls_total, service_name)
 - Une règle = une requête + une condition + une durée
 
 ```text
-p95(duration_milliseconds) > 500ms pendant 2 minutes
+p95(traces_span_metrics_duration_milliseconds) > 500ms pendant 2 minutes
 ```
 
 - États : `Normal` → `Pending` → `Firing`

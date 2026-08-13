@@ -159,8 +159,9 @@ processors:
 connectors:
 
   # branché en EXPORTER du pipeline traces et en RECEIVER du pipeline metrics : il compte
-  # les spans et mesure leur durée, puis en publie des métriques (calls_total,
-  # duration_milliseconds) que vous tracerez au Lab 4. `{}` = configuration par défaut.
+  # les spans et mesure leur durée, puis en publie des métriques que vous tracerez au
+  # Lab 4. `{}` = configuration par défaut, d'où le préfixe traces_span_metrics_ des
+  # noms produits (voir la réponse ci-dessous).
   spanmetrics: {}
 
 # ---------- 4. EXPORTERS : par où la donnée SORT ----------
@@ -229,7 +230,9 @@ Par le receiver **`otlp`**, sur `${env:MY_POD_IP}:4317` (gRPC) et `:4318` (HTTP)
 {{%expand "Réponse" %}}
 Traces → **`otlp/jaeger`**, métriques → **`otlphttp/prometheus`**, logs → **`opensearch`** ; l'exporter `debug` est branché partout pour la mise au point.
 
-Le composant présent des deux côtés est le connector **`spanmetrics`** : *exporter* du pipeline `traces`, *receiver* du pipeline `metrics`. Chaque span qui sort du pipeline `traces` y entre donc une seconde fois, sous forme de chiffres : `spanmetrics` compte les spans par service et par opération et mesure leur durée, puis publie deux métriques — `calls_total` (le débit) et `duration_milliseconds` (la latence, sous forme d'histogramme). Résultat : tout service tracé obtient gratuitement ses métriques de débit et de latence, sans une ligne d'instrumentation de plus — vous les tracerez dans Grafana au Lab 4.
+Le composant présent des deux côtés est le connector **`spanmetrics`** : *exporter* du pipeline `traces`, *receiver* du pipeline `metrics`. Chaque span qui sort du pipeline `traces` y entre donc une seconde fois, sous forme de chiffres : `spanmetrics` compte les spans par service et par opération et mesure leur durée, puis publie deux métriques — le débit et la latence (sous forme d'histogramme). Résultat : tout service tracé obtient gratuitement ses métriques de débit et de latence, sans une ligne d'instrumentation de plus — vous les tracerez dans Grafana au Lab 4.
+
+Leurs noms dans Prometheus sont `traces_span_metrics_calls_total` et `traces_span_metrics_duration_milliseconds_bucket` / `_count` / `_sum`. Le préfixe surprend, et il est instructif : `spanmetrics: {}` signifie « configuration par défaut », or ce défaut comprend un **namespace**, `traces.span.metrics`, que le connector colle devant chaque nom. Cherchez `calls_total` seul dans Prometheus et vous ne trouverez rien — c'est le genre de détail qu'aucune documentation ne remplace : listez les noms réels avant d'écrire une requête.
 {{% /expand%}}
 
 **c. Un receiver de « métriques produit » (mode *pull*) est déjà configuré — lequel ?**
