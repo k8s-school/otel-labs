@@ -48,7 +48,20 @@ Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par
 > curl -s http://$PF_HOST:$UI_PORT/grafana/api/datasources/name/Prometheus | grep -o '"uid":"[^"]*"'
 > ```
 >
-> Cette même API montre l'UID à l'œuvre **entre** datasources : la configuration de Prometheus contient `"exemplarTraceIdDestinations": [{"datasourceUid": "webstore-traces", "name": "trace_id"}]`. Traduction : « quand tu rencontres un `trace_id`, va ouvrir la trace dans la datasource dont l'UID est `webstore-traces` » — c'est-à-dire Jaeger. Sans cet UID, Grafana saurait qu'il tient un identifiant de trace, mais pas où aller la chercher. C'est le mécanisme des **exemplars**, à l'étape 9.
+> Cette même API montre l'UID à l'œuvre **entre** datasources. La configuration d'une datasource se lit dans le champ `jsonData` de la réponse ; isolons-en une ligne, celle de Prometheus :
+>
+> ```bash
+> curl -s http://$PF_HOST:$UI_PORT/grafana/api/datasources/name/Prometheus \
+>   | grep -o '"exemplarTraceIdDestinations":\[[^]]*\]'
+> ```
+>
+> ```json
+> "exemplarTraceIdDestinations":[{"datasourceUid":"webstore-traces","name":"trace_id"}, ...]
+> ```
+>
+> Traduction : « quand tu rencontres un `trace_id`, va ouvrir la trace dans la datasource dont l'UID est `webstore-traces` » — c'est-à-dire Jaeger. Sans cet UID, Grafana saurait qu'il tient un identifiant de trace, mais pas où aller la chercher. C'est le mécanisme des **exemplars**, à l'étape 9.
+>
+> La même configuration se lit à deux autres endroits : dans l'interface, sur la page de la datasource Prometheus ; et à la source, dans la ConfigMap qui la provisionne — `kubectl get configmap grafana-datasources -n otel-demo -o yaml`.
 
 2.  **Créer un dashboard vide** (*Dashboards → New → New dashboard*), puis **ajouter la variable `service_name`** :
 
@@ -136,6 +149,32 @@ curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
 
 Remplacez le nom par `traces_span_metrics_duration_milliseconds_bucket` : la réponse est `{"status":"success","data":[]}`.
 {{% /expand%}}
+
+> 💡 **Et pour en avoir sur *vos* panels ?** `spanmetrics` sait produire des exemplars — il faut simplement le lui demander, l'option étant désactivée par défaut. Sur le modèle du Lab 3, créez `manifests/40-otel-grafana-values.yaml` :
+>
+> ```yaml
+> opentelemetry-collector:
+>   config:
+>     connectors:
+>       spanmetrics:
+>         exemplars:
+>           enabled: true
+> ```
+>
+> puis empilez-le sur les values des labs précédents :
+>
+> ```bash
+> helm upgrade otel-demo open-telemetry/opentelemetry-demo \
+>   --version 0.40.9 -n otel-demo \
+>   -f manifests/values-training.yaml \
+>   -f manifests/30-otel-collector-values.yaml \
+>   -f manifests/40-otel-grafana-values.yaml
+> kubectl rollout status daemonset/otel-collector-agent -n otel-demo
+> ```
+>
+> Deux minutes plus tard, `calls_total` **et** l'histogramme de latence portent leurs exemplars — et votre panel « Latence p95 » devient cliquable jusqu'à la trace. C'est le `{}` de la configuration par défaut qui vous en privait, pas une limite du connector.
+>
+> Deux réserves à connaître : un exemplar n'est gardé **que le temps d'un cycle d'export** (il n'est pas rejoué indéfiniment), et `max_per_data_point` en limite le nombre à 5 par point de mesure.
 
 ## Livrable
 
