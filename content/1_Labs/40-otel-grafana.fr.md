@@ -104,7 +104,12 @@ Le dashboard de référence est [`40-otel-grafana-dashboard.json`](../40-otel-gr
 curl -sS -X POST http://$PF_HOST:$UI_PORT/grafana/api/dashboards/db \
   -H "Content-Type: application/json" \
   -d "{\"overwrite\": true, \"dashboard\": $(cat content/1_Labs/40-otel-grafana-dashboard.json)}"
+
+# l'URL du dashboard importé, à ouvrir directement
+echo "http://$PF_HOST:$UI_PORT/grafana/d/otel-training-service"
 ```
+
+Il s'intitule **« Vue service — Formation OTel »** et arrive à la racine, sans dossier : dans *Dashboards*, il se retrouve mêlé aux neuf dashboards livrés par la démo. Plutôt que de le chercher, ouvrez l'URL ci-dessus — c'est l'`uid` du dashboard (`otel-training-service`), pas son titre, qui la détermine.
 {{% /expand%}}
 
 8.  **Bonus — une règle d'alerte :** *Alerting → New alert rule* sur la latence p95 de `$service_name` (> 500 ms pendant 2 min). Observez l'état `Pending` → `Firing` en chargeant la boutique via le load generator.
@@ -120,7 +125,17 @@ exemplar : value = 6 (ms)   labels = {trace_id: "114a5fc9…", span_id: "2b9ec64
 
 Grafana pose alors de petits marqueurs sur la courbe de latence : cliquer sur l'un d'eux ouvre **la trace de cette requête précise**, celle qui a fait le pic. Au lieu de chercher dans Jaeger une trace qui ressemblerait au symptôme, c'est le symptôme qui vous donne son identifiant.
 
-Essayez dans *Explore*, datasource **Prometheus**, en activant les exemplars dans les options de la requête :
+Le plus rapide est d'ouvrir un dashboard que la démo livre exprès pour ça, **« Cart Service Exemplars »** :
+
+```bash
+echo "http://$PF_HOST:$UI_PORT/grafana/d/ce6sd46kfkglca"
+```
+
+Ses panels tracent la latence du panier (heatmap et p95) avec l'option *Exemplars* activée, sur des métriques qui en produisent vraiment : `app_cart_get_cart_latency_seconds_bucket` en porte plusieurs dizaines par demi-heure. Les marqueurs apparaissent le long de la courbe — cliquez sur l'un d'eux, puis sur le lien de la trace.
+
+> Cet UID est le même sur tous les clusters de la formation : il n'est pas tiré au hasard à l'installation, il est écrit dans la ConfigMap `grafana-dashboard-exemplars-dashboard` que le chart livre — et le chart est épinglé à la version `0.40.9`. Vous pouvez le vérifier : `kubectl get configmap grafana-dashboard-exemplars-dashboard -n otel-demo -o yaml | grep -o '"uid": *"[^"]*"'`.
+
+Pour le faire vous-même, dans *Explore*, datasource **Prometheus**, en activant les exemplars dans les options de la requête :
 
 ```promql
 histogram_quantile(0.95, sum(rate(http_client_duration_milliseconds_bucket[5m])) by (le))
