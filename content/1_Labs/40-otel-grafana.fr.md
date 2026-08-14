@@ -83,20 +83,9 @@ Ajoutez un second panel « Latence p95 » :
 histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~"$service_name"}[2m])) by (le))
 ```
 
-4.  **Panel 2 — logs (OpenSearch) :** un panel de type *Logs*, datasource **OpenSearch**, requête Lucene :
+**Arrêtez-vous ici un instant : l'essentiel du lab est fait.** Une variable alimentée par les données, une requête qui s'y adapte — les deux panels suivants n'ajoutent aucune idée nouvelle, seulement la syntaxe propre à chaque datasource. Prenez donc le résultat complet tout de suite, et construisez la suite seulement s'il vous reste du temps.
 
-```text
-resource.service.name:"$service_name"
-```
-
-5.  **Panel 3 — traces (Jaeger) :** un panel *Table* (ou *Traces*), datasource **Jaeger**, query type *Search*, service `$service_name`, limit 20.
-
-6.  **Tester la variable :** basculez `service_name` entre `frontend`, `checkout` et `review-service` — les trois panels doivent suivre.
-
-7.  **Exporter le dashboard en JSON** (*Share → Export → Save to file*) : c'est le **livrable**, à committer dans votre dépôt.
-
-{{%expand "Réponse (dashboard complet)" %}}
-Le dashboard de référence est [`40-otel-grafana-dashboard.json`](../40-otel-grafana-dashboard.json). Pour l'importer : *Dashboards → New → Import* et coller le JSON, ou par l'API :
+4.  **Importer le dashboard de référence** — il arrive **à côté du vôtre**, sans l'écraser : son `uid` (`otel-training-service`) n'est pas celui de votre création.
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
@@ -109,12 +98,48 @@ curl -sS -X POST http://$PF_HOST:$UI_PORT/grafana/api/dashboards/db \
 echo "http://$PF_HOST:$UI_PORT/grafana/d/otel-training-service"
 ```
 
-Il s'intitule **« Vue service — Formation OTel »** et arrive à la racine, sans dossier : dans *Dashboards*, il se retrouve mêlé aux neuf dashboards livrés par la démo. Plutôt que de le chercher, ouvrez l'URL ci-dessus — c'est l'`uid` du dashboard (`otel-training-service`), pas son titre, qui la détermine.
-{{% /expand%}}
+Il s'intitule **« Vue service — Formation OTel »** et arrive à la racine, sans dossier : dans *Dashboards*, il se retrouve mêlé aux neuf dashboards livrés par la démo. Plutôt que de le chercher, ouvrez l'URL ci-dessus — c'est l'`uid` du dashboard, pas son titre, qui la détermine.
 
-8.  **Bonus — une règle d'alerte :** *Alerting → New alert rule* sur la latence p95 de `$service_name` (> 500 ms pendant 2 min). Observez l'état `Pending` → `Firing` en chargeant la boutique via le load generator.
+Vous avez maintenant sous les yeux les trois signaux d'un même service, pilotés par une seule variable : c'est l'objectif du lab. Gardez-le ouvert dans un onglet, il sert de **corrigé** pour la suite.
 
-9.  **Bonus (avancé) — les exemplars : du point sur la courbe à la trace.**
+5.  **Panel 3 — logs (OpenSearch)** *(si le temps le permet)* **:** de retour dans **votre** dashboard, ajoutez un panel de type *Logs*, datasource **OpenSearch**, requête Lucene :
+
+```text
+resource.service.name:"$service_name"
+```
+
+> 💡 **Panels vides sur `review-service` ?** C'est normal, et instructif : les services de la boutique reçoivent du trafic en permanence — le load generator s'en charge — mais **le vôtre n'en reçoit que si vous lui en envoyez**. Ses derniers logs peuvent dater de votre session précédente. Réveillez-le :
+>
+> ```bash
+> . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+> kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
+>
+> for i in $(seq 1 10); do curl -s -o /dev/null http://$PF_HOST:$APP_PORT/api/reviews; done
+> ```
+>
+> (ou postez quelques avis depuis sa page web, `http://$PF_HOST:$APP_PORT/`). Une vingtaine de secondes plus tard, les logs `Listing all reviews` remplissent le panel — et les deux panels Prometheus se garnissent de la même façon, sans requêtes il n'y a ni débit ni latence à tracer.
+>
+> Si le panel reste vide malgré le trafic, vérifiez quelle instrumentation tourne : c'est elle qui capture les logs de l'application.
+>
+> ```bash
+> kubectl set env deploy/review-service -n otel-demo --list | grep JAVA_TOOL_OPTIONS
+> ```
+>
+> Pas de ligne en retour, pas d'agent Java — donc pas de logs, quel que soit le trafic ; c'est le sujet du Lab 5.
+>
+> Pour voir à quoi ressemblent des logs applicatifs sans attendre, ouvrez le **Demo Dashboard** livré par la démo, `http://$PF_HOST:$UI_PORT/grafana/d/W2gX2zHVk` : sa rangée *Application Log Records* montre, pour le service choisi dans sa propre variable, les 100 derniers logs et leur répartition par sévérité. Son UID vient lui aussi du chart, il est donc le même sur tous les clusters.
+
+6.  **Panel 4 — traces (Jaeger)** *(si le temps le permet)* **:** un panel *Table* (ou *Traces*), datasource **Jaeger**, query type *Search*, service `$service_name`, limit 20.
+
+> 💡 Bloqué sur l'un de ces deux panels ? Ouvrez le même dans le dashboard importé, puis *Panel → Inspect → Panel JSON* : vous y lisez la configuration exacte attendue, datasource et requête comprises.
+
+7.  **Tester la variable :** basculez `service_name` entre `frontend`, `checkout` et `review-service` — vos panels doivent suivre. Faites-en autant sur le dashboard importé, qui a les trois signaux.
+
+8.  **Exporter votre dashboard en JSON** (*Share → Export → Save to file*) : c'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et les panels Prometheus.
+
+9.  **Bonus — une règle d'alerte :** *Alerting → New alert rule* sur la latence p95 de `$service_name` (> 500 ms pendant 2 min). Observez l'état `Pending` → `Firing` en chargeant la boutique via le load generator.
+
+10. **Bonus (avancé) — les exemplars : du point sur la courbe à la trace.**
 
 Une métrique est une **agrégation** : « 30 requêtes, p95 à 400 ms » ne dit pas *quelles* requêtes. Un **exemplar** est une mesure individuelle conservée à côté de l'agrégat, avec le `trace_id` de la requête qui l'a produite :
 
@@ -193,4 +218,4 @@ Remplacez le nom par `traces_span_metrics_duration_milliseconds_bucket` : la ré
 
 ## Livrable
 
-Le dashboard « vue service » exporté en JSON, avec ses 3 panels pilotés par la variable `service_name`.
+Votre dashboard « vue service » exporté en JSON, avec sa variable `service_name` et au moins un panel qu'elle pilote. Le dashboard de référence importé à l'étape 4 montre la cible complète — les trois signaux d'un même service côte à côte.
