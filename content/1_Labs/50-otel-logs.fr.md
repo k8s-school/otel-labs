@@ -24,9 +24,11 @@ kubectl logs -n otel-demo deployment/review-service --tail=20
 
 > `kubectl logs` lit la sortie console du conteneur : du texte brut, sans contexte, service par service. Impossible de croiser avec une trace.
 
-2.  **Revenir à la version « agent Java »** (il capture aussi les logs) :
+2.  **Revenir à la version « agent Java » :**
 
-Le Lab 2 s'est terminé avec le build **starter** déployé. Agent et starter ne doivent jamais cohabiter (chacun enregistre son propre SDK → l'application ne démarre pas). On redéploie donc l'image par défaut, puis on active l'agent :
+Le Lab 2 s'est terminé avec le build **starter** déployé. Notez-le : lui aussi capture les logs, vous en verriez donc dans Grafana sans rien changer. On revient à l'agent parce que c'est **l'approche que suivent les labs suivants** — le Lab 6 active son pont Micrometer (`OTEL_INSTRUMENTATION_MICROMETER_ENABLED`), une option qui n'existe que chez lui.
+
+Agent et starter sont deux alternatives : les laisser ensemble installerait deux SDK dans la même JVM. On redéploie donc l'image par défaut — celle qui ne contient pas le starter — puis on active l'agent :
 
 ```bash
 ./scripts/deploy.sh
@@ -38,7 +40,9 @@ kubectl rollout status -n otel-demo deployment/review-service
 {{%expand "Comment l'agent capture-t-il les logs ?" %}}
 L'agent détecte Logback et y **injecte l'équivalent de l'appender OpenTelemetry** (`io.opentelemetry.instrumentation:opentelemetry-logback-appender`). Chaque événement Logback devient un **LogRecord** OTel : timestamp, sévérité, body, attributs... et surtout le **`trace_id`/`span_id` courant** si le log est émis pendant une requête tracée.
 
-Sans agent, on obtient le même résultat en déclarant l'appender explicitement dans `logback.xml` + le SDK (`LoggerProvider`) — c'est l'approche « SDK » vue en cours.
+Le **Spring Boot Starter** de la partie 2 du Lab 2 fait la même chose, autrement : l'appender est une dépendance compilée dans l'application, qu'il branche sur Logback au démarrage. D'où le constat de l'étape 2 — les deux approches produisent des logs corrélés, et le Lab 4 les affiche indifféremment.
+
+Et sans ni l'un ni l'autre ? On déclare l'appender à la main dans `logback.xml` et on construit le SDK (`LoggerProvider`) — c'est l'approche « SDK » vue en cours.
 {{% /expand%}}
 
 3.  **Générer des logs corrélés :**

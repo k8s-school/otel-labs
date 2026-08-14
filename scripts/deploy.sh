@@ -58,9 +58,10 @@ docker build --build-arg MAVEN_PROFILE="$PROFILE" -t "$IMAGE" "$APP_DIR"
 kind load docker-image "$IMAGE" --name "$CLUSTER_NAME"
 
 # 3. Remove lab toggles previously added with 'kubectl set env': kubectl
-# apply RETAINS env vars added outside of it (3-way merge), which can mix
-# the agent with the starter build and crash the app. Resetting BEFORE the
-# apply keeps the manifest as the single source of truth.
+# apply RETAINS env vars added outside of it (3-way merge), which would leave
+# the agent enabled on a starter build - two SDKs in one JVM, and no telling
+# which one produced what. Resetting BEFORE the apply keeps the manifest as
+# the single source of truth.
 kubectl set env -n "$NS" "deployment/$APP_NAME" \
     JAVA_TOOL_OPTIONS- MASK_PII- OTEL_INSTRUMENTATION_MICROMETER_ENABLED- \
     2>/dev/null || true

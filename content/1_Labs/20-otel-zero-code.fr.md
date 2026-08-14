@@ -141,7 +141,7 @@ La chaîne d'activation, du plus haut au plus bas niveau :
 > À retenir : l'agent est **toujours** présent dans l'image mais **inactif** sans `JAVA_TOOL_OPTIONS` ; le Starter, lui, est actif **dès qu'il est compilé**. D'où la règle : jamais les deux ensemble.
 {{% /expand%}}
 
-8.  **Rebâtir avec le Starter.** **Re-commentez d'abord `JAVA_TOOL_OPTIONS`** dans le manifest (sinon agent + starter = deux SDK → l'application ne démarre pas), puis :
+8.  **Rebâtir avec le Starter.** **Re-commentez d'abord `JAVA_TOOL_OPTIONS`** dans le manifest : agent et starter sont deux **alternatives**, pas deux compléments. Les laisser ensemble installe deux SDK dans la même JVM — l'application démarre malgré tout, mais vous ne sauriez plus lequel des deux produit la télémétrie que vous observez, et la comparaison qui suit n'aurait plus de sens. Puis :
 
 ```bash
 ./scripts/deploy.sh -p starter

@@ -119,13 +119,18 @@ resource.service.name:"$service_name"
 >
 > (ou postez quelques avis depuis sa page web, `http://$PF_HOST:$APP_PORT/`). Une vingtaine de secondes plus tard, les logs `Listing all reviews` remplissent le panel — et les deux panels Prometheus se garnissent de la même façon, sans requêtes il n'y a ni débit ni latence à tracer.
 >
-> Si le panel reste vide malgré le trafic, vérifiez quelle instrumentation tourne : c'est elle qui capture les logs de l'application.
+> Si le panel reste vide malgré le trafic, vérifiez qu'une **instrumentation** tourne : c'est elle qui transforme les logs de l'application en LogRecords envoyés au collecteur. Deux le font, et **toutes deux capturent les logs** — l'agent Java du Lab 2 (partie 1) comme le Spring Boot Starter (partie 2, celui que vous avez déployé en dernier).
 >
 > ```bash
+> # l'agent Java est-il actif ?
 > kubectl set env deploy/review-service -n otel-demo --list | grep JAVA_TOOL_OPTIONS
+>
+> # sinon, l'image embarque-t-elle le starter ? (tag « starter-… »)
+> kubectl get deploy review-service -n otel-demo \
+>   -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
 > ```
 >
-> Pas de ligne en retour, pas d'agent Java — donc pas de logs, quel que soit le trafic ; c'est le sujet du Lab 5.
+> Ni l'un ni l'autre — une image `default-…` sans `JAVA_TOOL_OPTIONS` — et l'application n'émet **rien du tout** : ni logs, ni traces, ni métriques. C'est l'état du tout début du Lab 2, celui où Jaeger restait désespérément vide.
 >
 > Pour voir à quoi ressemblent des logs applicatifs sans attendre, ouvrez le **Demo Dashboard** livré par la démo, `http://$PF_HOST:$UI_PORT/grafana/d/W2gX2zHVk` : sa rangée *Application Log Records* montre, pour le service choisi dans sa propre variable, les 100 derniers logs et leur répartition par sévérité. Son UID vient lui aussi du chart, il est donc le même sur tous les clusters.
 
