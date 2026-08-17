@@ -254,7 +254,11 @@ histogram_quantile(0.95, sum by(le) (rate(app_cart_get_cart_latency_seconds_buck
 
 **La seule différence avec vos panels tient en une case cochée** : dans les options de la requête, *Exemplars*. Elle vaut `"exemplar": true` dans le JSON du panel — allez le vérifier, *Panel → Inspect → Panel JSON*.
 
-**Comment les lire.** Les exemplars apparaissent comme de petits **losanges**, posés **au-dessus de la courbe** et non dessus : ce sont des requêtes individuelles, souvent plus lentes que le p95, ce qui est bien leur intérêt. Survolez-en un : une infobulle donne la valeur, le `trace_id`, et un lien. Cliquez : **Jaeger s'ouvre sur cette requête précise**. Au lieu de chercher dans Jaeger une trace qui ressemblerait au symptôme, c'est le symptôme qui vous donne son identifiant.
+**Comment les lire.** Les exemplars ne sont pas sur la courbe : ce sont des marqueurs à part, de petits **losanges verts** sur la courbe du p95, de petits **carrés magenta** sur la heatmap. Chacun est posé à **sa propre valeur** — le plus souvent *sous* la courbe, parfois au-dessus. Rien d'anormal : la courbe est un p95, donc dans le haut de la distribution, tandis qu'un exemplar est une requête tirée au hasard, généralement plus rapide.
+
+Attention à l'échelle en passant : cette métrique est en `_seconds`, l'axe affiche donc `0.00476` — soit 4,8 ms, et non 4,8 s.
+
+Survolez un losange : une infobulle donne la valeur, le `trace_id` et un lien. Cliquez : **Jaeger s'ouvre sur cette requête précise**. Au lieu de chercher dans Jaeger une trace qui ressemblerait au symptôme, c'est le symptôme qui vous donne son identifiant.
 
 **Pourquoi celle-ci en porte.** `app_cart_get_cart_latency_seconds_bucket` est produite par le **SDK OpenTelemetry du service `cart`** : au moment où il enregistre la durée, le SDK a le `trace_id` du span en cours sous la main, et l'attache à la mesure. Vos panels, eux, affichent `traces_span_metrics_*`, que le **collecteur** recalcule après coup à partir des spans — il ne joint aucun `trace_id`, sauf si on le lui demande.
 
