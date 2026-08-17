@@ -27,7 +27,7 @@ Dans Grafana : ⚙️ *Connections → Data sources*. Trois sources corresponden
 | **Jaeger** | `webstore-traces` | jaeger | traces | `http://jaeger:16686` |
 | **OpenSearch** | `webstore-logs` | grafana-opensearch-datasource | logs | index `otel-logs-*` |
 
-Le chart Helm de la démo les provisionne automatiquement (ConfigMap `grafana-datasources`). Ouvrez la configuration de Prometheus : elle contient un bloc `exemplars` qui la relie à Jaeger — c'est le sujet de l'étape 10.
+Le chart Helm de la démo les provisionne automatiquement (ConfigMap `grafana-datasources`). Ouvrez la configuration de Prometheus : elle contient un bloc `exemplars` qui la relie à Jaeger — c'est le sujet de l'étape 9.
 
 Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par son nom d'affichage. Le dashboard de référence de l'étape 5 contient `"datasource": { "type": "prometheus", "uid": "webstore-metrics" }` — c'est ce qui lui permet de s'importer sans re-câbler un seul panel. Un dashboard récupéré ailleurs (grafana.com, un autre cluster) porte d'autres UID : ses panels arrivent vides tant qu'on ne les a pas repointés.
 {{% /expand%}}
@@ -63,7 +63,7 @@ Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par
 > "exemplarTraceIdDestinations":[{"datasourceUid":"webstore-traces","name":"trace_id"}, ...]
 > ```
 >
-> Traduction : « quand tu rencontres un `trace_id` dans une métrique, va ouvrir la trace dans la datasource dont l'UID est `webstore-traces` » — c'est-à-dire Jaeger. Concrètement, c'est cette ligne qui permet de passer **d'un point sur une courbe Prometheus à la trace correspondante dans Jaeger**, en un clic. Sans elle, Grafana saurait qu'il tient un identifiant de trace, mais pas où aller la chercher. C'est le mécanisme des **exemplars**, à l'étape 10.
+> Traduction : « quand tu rencontres un `trace_id` dans une métrique, va ouvrir la trace dans la datasource dont l'UID est `webstore-traces` » — c'est-à-dire Jaeger. Concrètement, c'est cette ligne qui permet de passer **d'un point sur une courbe Prometheus à la trace correspondante dans Jaeger**, en un clic. Sans elle, Grafana saurait qu'il tient un identifiant de trace, mais pas où aller la chercher. C'est le mécanisme des **exemplars**, à l'étape 9.
 >
 > La même configuration se lit à deux autres endroits : dans l'interface, sur la page de la datasource Prometheus ; et à la source, dans la ConfigMap qui la provisionne — `kubectl get configmap grafana-datasources -n otel-demo -o yaml`.
 
@@ -127,7 +127,7 @@ Deux détails que le tableau simplifie : un vrai `rate[2m]` étale ce pic sur la
 >
 > Ces cinq lignes se lisent : 500 spans observés, dont 450 sous 100 ms et 495 sous 500 ms. Or le p95, c'est la durée du **475e span** (95 % de 500) une fois triés du plus rapide au plus lent. Il tombe donc entre le 450e et le 495e, c'est-à-dire **entre 100 et 500 ms**. Sa valeur exacte, en revanche, n'est nulle part dans `traces_span_metrics_duration_milliseconds_bucket` : cette métrique ne retient que des **comptages par seau**, jamais les durées individuelles. Il faudra donc la **reconstituer**.
 >
-> *« Et pourquoi ne pas aller lire la durée du 475e span dans Jaeger, tout simplement ? »* Parce qu'il n'y est peut-être pas — au Lab 7, le tail sampling ne gardera qu'un quart des traces — et parce qu'un service réel produit des millions de spans par minute : les trier à chaque rafraîchissement du panel, sur six heures de fenêtre, n'est pas tenable. Les traces vivent d'ailleurs quelques jours, les métriques des mois. Chaque signal fait donc son métier : la métrique dit **qu'il y a** un problème et depuis quand, pour trois fois rien et sur la longue durée ; la trace dit **laquelle** des requêtes a souffert. L'étape 10 montrera comment passer de l'une à l'autre.
+> *« Et pourquoi ne pas aller lire la durée du 475e span dans Jaeger, tout simplement ? »* Parce qu'il n'y est peut-être pas — au Lab 7, le tail sampling ne gardera qu'un quart des traces — et parce qu'un service réel produit des millions de spans par minute : les trier à chaque rafraîchissement du panel, sur six heures de fenêtre, n'est pas tenable. Les traces vivent d'ailleurs quelques jours, les métriques des mois. Chaque signal fait donc son métier : la métrique dit **qu'il y a** un problème et depuis quand, pour trois fois rien et sur la longue durée ; la trace dit **laquelle** des requêtes a souffert. L'étape 9 montrera comment passer de l'une à l'autre.
 >
 > Ce détour a une raison précise : **un percentile ne s'additionne pas**. La moyenne du p95 de deux pods n'est pas le p95 de l'ensemble, c'est un nombre sans signification. Des seaux, eux, s'additionnent sans difficulté : 120 spans sous 10 ms ici, 200 là, cela fait bien 320. On renonce donc aux durées exactes pour gagner le droit d'agréger, quitte à recalculer le percentile au moment de l'affichage.
 >
@@ -189,7 +189,7 @@ Il s'intitule **« Vue service — Formation OTel »** et arrive à la racine, s
 
 Vous avez maintenant sous les yeux les trois signaux d'un même service, pilotés par une seule variable : c'est l'objectif du lab. Gardez-le ouvert dans un onglet, il sert de **corrigé** pour la suite.
 
-Deux panels supplémentaires l'attendent tout en bas, préfixés **« Bonus 1 »** et **« Bonus 2 »** : ils servent aux étapes 9 et 10, où il n'y aura rien à construire — seulement à lire.
+Un panel supplémentaire l'attend tout en bas, préfixé **« Bonus »** : il sert à l'étape 10, où il n'y aura rien à construire — seulement à lire.
 
 5.  **Panel 3 — logs (OpenSearch)** *(si le temps le permet)* **:** de retour dans **votre** dashboard, ajoutez un panel de type *Logs*, datasource **OpenSearch**, requête Lucene :
 
@@ -233,9 +233,65 @@ resource.service.name:"$service_name"
 
 8.  **Exporter votre dashboard en JSON** (*Share → Export → Save to file*) : c'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et les panels Prometheus.
 
-**Les deux bonus qui suivent ne demandent rien à construire** : leurs panels sont déjà dans le dashboard importé à l'étape 4, en bas. On les lit ensemble.
+9.  **Les exemplars : du point sur la courbe à la trace.** Rien à construire ici — on lit un dashboard que la démo livre exprès pour ça, **« Cart Service Exemplars »** :
 
-9.  **Bonus 1 — la règle d'alerte, lue sur son panel :** ouvrez **« Bonus 1 — Seuil d'alerte : p95 > 500 ms »**.
+```bash
+echo "http://$PF_HOST:$UI_PORT/grafana/d/ce6sd46kfkglca"
+```
+
+Une métrique est une **agrégation** : « 30 requêtes, p95 à 400 ms » ne dit pas *quelles* requêtes. Un **exemplar** est une mesure individuelle conservée à côté de l'agrégat, avec le `trace_id` de la requête qui l'a produite :
+
+```text
+série    : app_cart_get_cart_latency_seconds_bucket{service_name="cart"}
+exemplar : value = 0.001026 (s)   labels = {trace_id: "7d241ae2…", span_id: "81f9a94c…"}
+```
+
+**Ce que montre le dashboard.** Deux rangées, une par opération du panier (*GetCart*, *AddItem*), et dans chacune deux vues de la même mesure : une **heatmap** de la distribution des latences, et la courbe du **p95** — celle-là même que vous avez écrite à l'étape 3, à la métrique près :
+
+```promql
+histogram_quantile(0.95, sum by(le) (rate(app_cart_get_cart_latency_seconds_bucket[$__rate_interval])))
+```
+
+**La seule différence avec vos panels tient en une case cochée** : dans les options de la requête, *Exemplars*. Elle vaut `"exemplar": true` dans le JSON du panel — allez le vérifier, *Panel → Inspect → Panel JSON*.
+
+**Comment les lire.** Les exemplars apparaissent comme de petits **losanges**, posés **au-dessus de la courbe** et non dessus : ce sont des requêtes individuelles, souvent plus lentes que le p95, ce qui est bien leur intérêt. Survolez-en un : une infobulle donne la valeur, le `trace_id`, et un lien. Cliquez : **Jaeger s'ouvre sur cette requête précise**. Au lieu de chercher dans Jaeger une trace qui ressemblerait au symptôme, c'est le symptôme qui vous donne son identifiant.
+
+**Pourquoi celle-ci en porte.** `app_cart_get_cart_latency_seconds_bucket` est produite par le **SDK OpenTelemetry du service `cart`** : au moment où il enregistre la durée, le SDK a le `trace_id` du span en cours sous la main, et l'attache à la mesure. Vos panels, eux, affichent `traces_span_metrics_*`, que le **collecteur** recalcule après coup à partir des spans — il ne joint aucun `trace_id`, sauf si on le lui demande.
+
+> 💡 **Ce qui manque pour que vos panels en aient.** Trois conditions doivent être réunies ; la démo en remplit deux :
+>
+> 1. **Prometheus doit les stocker** — il est démarré avec `--enable-feature=exemplar-storage` (visible dans `/api/v1/status/flags`) ; sans ce drapeau, il les jette à l'ingestion. ✔
+> 2. **La datasource doit savoir où ouvrir la trace** — c'est le `"exemplarTraceIdDestinations": [{"datasourceUid": "webstore-traces"}]` vu à l'étape 1 : l'UID de Jaeger, et rien d'autre, fait le lien. ✔
+> 3. **La métrique doit en porter** — et c'est là que ça coince : `spanmetrics` est configuré avec `{}`, et cette configuration par défaut ne produit **aucun** exemplar. ✘
+>
+> Rien n'est cassé, il manque une ligne. Le connector sait le faire, l'option est simplement désactivée par défaut :
+>
+> ```yaml
+> opentelemetry-collector:
+>   config:
+>     connectors:
+>       spanmetrics:
+>         exemplars:
+>           enabled: true
+> ```
+>
+> Appliquée sur le modèle du Lab 3 (un fichier de values de plus, empilé sur les précédents), elle rend votre panel « Latence p95 » cliquable jusqu'à la trace, pour le service de votre choix. Deux réserves alors : un exemplar n'est gardé **que le temps d'un cycle d'export**, et `max_per_data_point` en limite le nombre à 5 par point de mesure.
+>
+> Vous pouvez constater l'absence par l'API, sans Grafana :
+>
+> ```bash
+> . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+> kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus $PROM_PORT:9090 &
+>
+> curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
+>   --data-urlencode 'query=app_cart_get_cart_latency_seconds_bucket' \
+>   --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" \
+>   | head -c 400
+> ```
+>
+> Remplacez le nom par `traces_span_metrics_duration_milliseconds_bucket` : la réponse est `{"status":"success","data":[]}`.
+
+10. **Bonus — la règle d'alerte, lue sur son panel :** ouvrez **« Bonus — Seuil d'alerte : p95 > 500 ms »**, tout en bas du dashboard importé à l'étape 4.
 
 C'est le p95 de l'étape 3, avec le seuil matérialisé en rouge. Tout ce qui fait une alerte Grafana s'y lit :
 
@@ -245,72 +301,26 @@ C'est le p95 de l'étape 3, avec le seuil matérialisé en rouge. Tout ce qui fa
 
 Pour en faire une vraie règle, *Panel → More → New alert rule* : Grafana reprend la requête du panel, il ne reste qu'à saisir le seuil et la durée. À faire avec le formateur s'il reste du temps.
 
-10. **Bonus 2 (avancé) — les exemplars : du point sur la courbe à la trace.** Ouvrez **« Bonus 2 — Exemplars : p95 gRPC serveur »**.
-
-Une métrique est une **agrégation** : « 30 requêtes, p95 à 400 ms » ne dit pas *quelles* requêtes. Un **exemplar** est une mesure individuelle conservée à côté de l'agrégat, avec le `trace_id` de la requête qui l'a produite :
-
-```text
-série    : rpc_server_duration_milliseconds_bucket{service_name="checkout", rpc_method="PlaceOrder"}
-exemplar : value = 75.1 (ms)   labels = {trace_id: "900ad5ea…", span_id: "08efb94d…"}
-```
-
-Grafana pose de petits marqueurs le long de la courbe : **cliquez sur l'un d'eux, puis sur le lien de la trace** — Jaeger s'ouvre sur *cette* requête précise. Au lieu de chercher dans Jaeger une trace qui ressemblerait au symptôme, c'est le symptôme qui vous donne son identifiant.
-
-Une chose à remarquer : ce panel **ne suit pas la variable `$service_name`**, contrairement à tous les autres. Ce n'est pas un oubli.
-
-{{%expand "Pourquoi ce panel-là, et pas ceux que vous avez construits" %}}
-Il faut réunir trois conditions ; les deux premières sont remplies par la démo :
-
-* **Prometheus stocke les exemplars** — il est démarré avec `--enable-feature=exemplar-storage` (visible dans `/api/v1/status/flags`) ; sans ce drapeau, il les jette à l'ingestion ;
-* **la datasource sait où ouvrir la trace** — c'est le `"exemplarTraceIdDestinations": [{"datasourceUid": "webstore-traces"}]` de l'étape 1 : l'UID de Jaeger, et rien d'autre, fait le lien ;
-* **la métrique doit en porter** — et c'est là que ça coince pour le dashboard que vous venez de construire.
-
-Les métriques `traces_span_metrics_*` du connector `spanmetrics` n'ont **aucun** exemplar : sa configuration `{}` ne les produit pas (il faut le lui demander explicitement). Ceux de la démo viennent des **SDK des applications**, sur `rpc_server_duration_milliseconds_bucket` et `http_client_duration_milliseconds_bucket`.
-
-Et voilà pourquoi le panel ignore `$service_name` : ces métriques n'existent que pour les services dont le SDK les exporte — sur ce cluster, `checkout`, `ad` et `product-catalog` en portent, `review-service` non. Filtrer par la variable donnerait un panel vide la plupart du temps ; sans filtre, il montre toujours quelque chose à cliquer.
-
-Vous pouvez le constater par l'API, sans Grafana :
-
-```bash
-. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
-kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus $PROM_PORT:9090 &
-
-curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
-  --data-urlencode 'query=http_client_duration_milliseconds_bucket' \
-  --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" \
-  | head -c 400
-```
-
-Remplacez le nom par `traces_span_metrics_duration_milliseconds_bucket` : la réponse est `{"status":"success","data":[]}`.
-{{% /expand%}}
-
-{{%expand "Avancé — en obtenir sur *vos* panels (hors temps de lab)" %}}
-`spanmetrics` sait produire des exemplars ; l'option est simplement désactivée par défaut. Sur le modèle du Lab 3, créez `manifests/40-otel-grafana-values.yaml` :
-
-```yaml
-opentelemetry-collector:
-  config:
-    connectors:
-      spanmetrics:
-        exemplars:
-          enabled: true
-```
-
-puis empilez-le sur les values des labs précédents :
-
-```bash
-helm upgrade otel-demo open-telemetry/opentelemetry-demo \
-  --version 0.40.9 -n otel-demo \
-  -f manifests/values-training.yaml \
-  -f manifests/30-otel-collector-values.yaml \
-  -f manifests/40-otel-grafana-values.yaml
-kubectl rollout status daemonset/otel-collector-agent -n otel-demo
-```
-
-Deux minutes plus tard, `calls_total` **et** l'histogramme de latence portent leurs exemplars — et votre panel « Latence p95 » devient cliquable jusqu'à la trace, pour le service de votre choix. C'est le `{}` de la configuration par défaut qui vous en privait, pas une limite du connector.
-
-Deux réserves à connaître : un exemplar n'est gardé **que le temps d'un cycle d'export** (il n'est pas rejoué indéfiniment), et `max_per_data_point` en limite le nombre à 5 par point de mesure.
-{{% /expand%}}
+> 💡 **En production, cette alerte ne vivrait probablement pas dans Grafana.** On l'écrirait côté **Prometheus**, en YAML versionné dans Git :
+>
+> ```yaml
+> groups:
+>   - name: service-slo
+>     rules:
+>       - alert: HighLatencyP95
+>         expr: histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket[2m])) by (le, service_name)) > 500
+>         for: 2m
+>         labels:
+>           severity: warning
+>         annotations:
+>           summary: "p95 > 500 ms sur {{ $labels.service_name }}"
+> ```
+>
+> Vous y retrouvez exactement les trois éléments lus sur le panel : `expr` est la condition, `for` la durée, et les états `Pending` → `Firing` sont les mêmes. Seul l'endroit change — et cela change trois choses : la règle est **revue en PR comme du code**, elle est **évaluée par Prometheus même si Grafana est éteint**, et **Alertmanager** prend en charge ce que Grafana ne fait qu'en partie : déduplication, groupement, silences pendant une maintenance, routage vers Slack ou PagerDuty.
+>
+> L'alerting Grafana garde un avantage que Prometheus ne peut pas avoir : il est **multi-datasources**. Une règle Grafana peut croiser une métrique Prometheus et des logs OpenSearch dans la même condition ; une règle Prometheus ne voit que du PromQL.
+>
+> Pourquoi ce lab ne la déploie pas : la démo désactive `alertmanager` (aucune notification à recevoir) **et** `configmapReload` (Prometheus ne relit pas sa configuration à chaud). Il faudrait donc un `helm upgrade` **et** un redémarrage de Prometheus pour voir passer trois lignes de YAML — pour le même cycle d'états que le panel ci-dessus vous montre en trois clics.
 
 ## Livrable
 

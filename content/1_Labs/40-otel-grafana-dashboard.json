@@ -1,22 +1,33 @@
 {
   "uid": "otel-training-service",
   "title": "Vue service — Formation OTel",
-  "tags": ["otel-training"],
+  "tags": [
+    "otel-training"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "refresh": "30s",
-  "time": { "from": "now-15m", "to": "now" },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
         "name": "service_name",
         "label": "Service",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "webstore-metrics"
+        },
         "query": "label_values(traces_span_metrics_calls_total, service_name)",
         "refresh": 2,
         "includeAll": false,
-        "current": { "text": "review-service", "value": "review-service" }
+        "current": {
+          "text": "review-service",
+          "value": "review-service"
+        }
       }
     ]
   },
@@ -25,8 +36,16 @@
       "id": 1,
       "title": "Débit de requêtes — $service_name",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
       "targets": [
         {
           "refId": "A",
@@ -39,8 +58,16 @@
       "id": 2,
       "title": "Latence p95 (ms) — $service_name",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
       "targets": [
         {
           "refId": "A",
@@ -53,25 +80,50 @@
       "id": 3,
       "title": "Logs — $service_name",
       "type": "logs",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 8 },
-      "datasource": { "type": "grafana-opensearch-datasource", "uid": "webstore-logs" },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "grafana-opensearch-datasource",
+        "uid": "webstore-logs"
+      },
       "targets": [
         {
           "refId": "A",
           "query": "resource.service.name:\"$service_name\"",
           "queryType": "lucene",
-          "metrics": [{ "id": "1", "type": "logs" }],
+          "metrics": [
+            {
+              "id": "1",
+              "type": "logs"
+            }
+          ],
           "bucketAggs": []
         }
       ],
-      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" }
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      }
     },
     {
       "id": 4,
       "title": "Traces récentes — $service_name",
       "type": "table",
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 8 },
-      "datasource": { "type": "jaeger", "uid": "webstore-traces" },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "datasource": {
+        "type": "jaeger",
+        "uid": "webstore-traces"
+      },
       "targets": [
         {
           "refId": "A",
@@ -83,11 +135,19 @@
     },
     {
       "id": 5,
-      "title": "Bonus 1 — Seuil d'alerte : p95 > 500 ms — $service_name",
+      "title": "Bonus — Seuil d'alerte : p95 > 500 ms — $service_name",
       "description": "Le même p95 que le panel 2, avec le seuil d'alerte matérialisé. C'est de ce panel que part 'New alert rule' : la ligne rouge est la condition, la durée du dépassement est le 'for' de la règle.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
-      "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
       "targets": [
         {
           "refId": "A",
@@ -98,34 +158,27 @@
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
-          "custom": { "thresholdsStyle": { "mode": "dashed+area" } },
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "dashed+area"
+            }
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 500 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
             ]
           }
         },
         "overrides": []
       }
-    },
-    {
-      "id": 6,
-      "title": "Bonus 2 — Exemplars : p95 gRPC serveur (métriques SDK, tous services)",
-      "description": "Ne suit pas la variable $service_name, et c'est volontaire : les exemplars viennent des SDK des applications, que tous les services n'exposent pas. Les métriques traces_span_metrics_* de spanmetrics n'en portent aucun. Cliquez un marqueur sous la courbe pour ouvrir la trace dans Jaeger.",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
-      "datasource": { "type": "prometheus", "uid": "webstore-metrics" },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by(le) (rate(rpc_server_duration_milliseconds_bucket[$__rate_interval])))",
-          "legendFormat": "p95 (SDK)",
-          "exemplar": true
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
     }
   ]
 }
