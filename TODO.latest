@@ -8,6 +8,11 @@ LAB3:
 - Test stats postgresql à la fin
 
 LAB4:
-- comment récupérer l'UID des datasources???
-- c koi l'examplar..., mieux l'expliquer, c différent des examplars otel??
-- 
+- label_values ne renvoie que les valeurs vues dans la fenêtre de temps du
+  dashboard : un service silencieux depuis longtemps sort du menu service_name.
+  Détail volontairement laissé hors de la note du lab — à mentionner à l'oral si
+  quelqu'un voit son service disparaître.
+
+
+- pourquoi ./scripts/open-ui.sh n'expose pas prometheus??
+- Le pod accounting reste à 451 redémarrages,

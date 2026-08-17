@@ -13,3 +13,22 @@ opentelemetry-collector:
     annotationDiscovery:
       metrics:
         enabled: false
+
+# Jaeger stores traces in memory, and the chart caps the container at 600Mi.
+# Under the demo's continuous load generator that ceiling is reached after two
+# to three hours (measured: ~40Mi at startup, then ~4Mi/min), the container is
+# OOMKilled, and every trace collected so far is lost -- including the ones a
+# participant produced in Lab 2 and comes back to read later in Lab 4.
+#
+# Only the limit is raised: the request stays at 600Mi so the scheduler still
+# reserves the same amount on a server hosting one cluster per participant.
+# The extra gigabyte is consumed only if Jaeger actually grows into it, which
+# now takes about a full training day. MEMORY_MAX_TRACES (25000, set by the
+# chart) still bounds what is kept.
+jaeger:
+  jaeger:
+    resources:
+      requests:
+        memory: 600Mi
+      limits:
+        memory: 1536Mi
