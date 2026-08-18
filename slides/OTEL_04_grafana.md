@@ -80,9 +80,10 @@ p95(traces_span_metrics_duration_milliseconds) > 500ms pendant 2 minutes
 ## 🧪 LAB 4 — Dashboard unifié
 
 - Explorer les 3 datasources provisionnées
-- Construire la « vue service » : métriques + logs + traces sur un écran
+- Construire deux panels (métriques, traces), importer le reste
 - Variable `service_name` pour basculer entre les services
+- Une règle d'alerte sur la latence p95
 - Exporter le dashboard en JSON (livrable à committer)
-- Bonus : une règle d'alerte sur la latence p95
+- Lab 4.1 : les exemplars, du point de métrique à la trace
 
 ➡ [Lab 4 — Dashboard unifié](https://k8s-school.fr/labs/otel/fr/1_labs/40-otel-grafana/index.html)

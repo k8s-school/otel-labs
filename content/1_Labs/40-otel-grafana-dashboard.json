@@ -74,7 +74,32 @@
           "expr": "histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service_name\"}[2m])) by (le))",
           "legendFormat": "p95"
         }
-      ]
+      ],
+      "description": "Seuil d'alerte à 500 ms, matérialisé en rouge. C'est de ce panel que part « Panel → More → New alert rule » : la ligne rouge est la condition, la durée du dépassement est le « for » de la règle.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "dashed+area"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
     },
     {
       "id": 3,
@@ -132,53 +157,6 @@
           "limit": 20
         }
       ]
-    },
-    {
-      "id": 5,
-      "title": "Bonus — Seuil d'alerte : p95 > 500 ms — $service_name",
-      "description": "Le même p95 que le panel 2, avec le seuil d'alerte matérialisé. C'est de ce panel que part 'New alert rule' : la ligne rouge est la condition, la durée du dépassement est le 'for' de la règle.",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 17
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "webstore-metrics"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service_name\"}[2m])) by (le))",
-          "legendFormat": "p95"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "custom": {
-            "thresholdsStyle": {
-              "mode": "dashed+area"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 500
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
     }
   ]
 }

@@ -55,9 +55,11 @@ Things the scripts cannot judge, watch for them explicitly:
   (lab 8), zPages content (lab 3)
 - **Wording**: are the instructions unambiguous for a DevOps discovering
   OpenTelemetry? Are the "Réponse" blocks at the right depth?
-- **Manual steps**: build the Grafana dashboard by hand (lab 4 steps 2-6);
-  the solution script imports the reference JSON, which validates nothing
-  about the UI workflow
+- **Manual steps**: build the two panels by hand (lab 4 steps 2-4) and
+  create the alert rule (step 7); the solution script imports the reference
+  JSON, which validates nothing about the UI workflow
+- **Lab 4.1 is read-only**: check what the demo dashboard actually renders —
+  heatmap axes, magenta squares, green diamonds, the click through to Jaeger
 - **Failure modes**: try a wrong YAML indent in lab 3, a forgotten
   re-listed receiver — are the error messages recoverable in classroom
   conditions?
@@ -73,7 +75,8 @@ recalibrated with real ones:
 | 1 — Stack           | 45 min | | |
 | 2 — Zero-code       | 70 min | | |
 | 3 — Collector       | 60 min | | |
-| 4 — Grafana         | 35 min | | |
+| 4 — Grafana         | 25 min | | |
+| 4.1 — Exemplars     | 10 min | | |
 | 5 — Logs            | 55 min | | |
 | 6 — Metrics         | 70 min | | |
 | 7 — Traces          | 55 min | | |
@@ -107,8 +110,10 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
 - **Tail sampling (lab 7) drops ~75% of successful traces afterwards**:
   when hunting for a specific trace in labs 7-8, re-send the request until
   one survives, or look for error traces (kept at 100%)
-- `kubectl port-forward` binds a **single pod**: restart it after every
-  rollout of review-service
+- `kubectl port-forward` binds a **single pod** and dies on every rollout:
+  `scripts/open-ui.sh` supervises the forwards and reopens them, so the labs
+  never ask for a restart. If an URL stays dead, check
+  `~/.cache/otel-labs/port-forward.log`
 
 ## Reporting
 

@@ -23,7 +23,7 @@
 | **J1** | 1. Introduction · 2. Zero-code · 3. Collecteur · 4. Grafana | Labs 1 → 4 |
 | **J2** | 5. Logs · 6. Métriques · 7. Traces · 8. Sécurité & conformité · 9. Spring (facultatif) · 10. Conclusion | Labs 5 → 8 |
 
-> ⚠️ **Point de vigilance J1** : 4 chapitres + 4 labs en une journée, c'est dense (Introduction et Collecteur sont deux gros blocs théoriques). Le planning ci-dessous compresse la théorie au strict nécessaire et bascule un maximum en live-demo pendant les labs. Si le groupe est lent sur le Lab 3 (Collecteur), le Lab 4 (Grafana) peut être raccourci en démo guidée + construction d'un seul dashboard.
+> ⚠️ **Point de vigilance J1** : 4 chapitres + 4 labs en une journée, c'est dense (Introduction et Collecteur sont deux gros blocs théoriques). Le planning ci-dessous compresse la théorie au strict nécessaire et bascule un maximum en live-demo pendant les labs. Si le groupe est lent sur le Lab 3 (Collecteur), le Lab 4.1 (Exemplars) est la variable d'ajustement : c'est de la lecture guidée, il se fait en démo au tableau ou se reporte au Jour 2.
 
 ---
 
@@ -45,9 +45,10 @@
 | 15:15 | 60 | 🧪 **Lab 3** | Configuration du collecteur |
 | 16:15 | 15 | ☕ | Pause |
 | 16:30 | 25 | 🖥️ Slides | **Ch.4 — Grafana** |
-| 16:55 | 35 | 🧪 **Lab 4** | Dashboard unifié logs/métriques/traces |
+| 16:55 | 25 | 🧪 **Lab 4** | Dashboard unifié logs/métriques/traces |
+| 17:20 | 10 | 🧪 **Lab 4.1** | Exemplars : du point de métrique à la trace (lecture guidée) |
 
-**Bilan J1** intégré à la fin du Lab 4. Labs J1 ≈ 3h30 · Théorie ≈ 2h40.
+**Bilan J1** intégré à la fin du Lab 4.1. Labs J1 ≈ 3h30 · Théorie ≈ 2h40.
 
 ---
 
@@ -127,12 +128,18 @@ Contenu slides :
 - Dashboards (variables, organisation)
 - Alerting (principe, règle simple)
 
-### 🧪 Lab 4 — Dashboard unifié *(35 min)*
+### 🧪 Lab 4 — Dashboard unifié *(25 min)*
 **But** : rassembler les 3 signaux sur un écran.
-- Créer un dashboard avec un panel métriques (Prometheus), un panel logs (OpenSearch), un panel traces (Jaeger)
-- Ajouter une variable (ex : `service.name`)
-- Bonus si le temps : une règle d'alerte simple sur une métrique
+- Ajouter une variable (`service_name`) alimentée par les données
+- Construire **deux** panels : métriques (Prometheus) et traces (Jaeger)
+- Importer le dashboard de référence, qui apporte le p95 et les logs (OpenSearch)
+- Créer une règle d'alerte sur le panel de latence p95
 - **Livrable** : un dashboard « vue service » exporté en JSON (à committer dans le repo).
+
+### 🧪 Lab 4.1 — Exemplars *(10 min, lecture guidée)*
+**But** : montrer le chaînon entre métrique et trace, sur le dashboard « Cart Service Exemplars » livré par la démo. Rien à construire : on lit une heatmap, on survole un exemplar, on clique jusqu'à Jaeger.
+
+> 📖 **Lab 4 bonus** (hors séance) : le PromQL des histogrammes — d'où sort un p95, ce qu'il cache, et ce qu'une heatmap montre de plus.
 
 ---
 
@@ -281,7 +288,8 @@ Contenu slides :
 | 1 | Démarrage de la stack | Introduction | 45 | Trace de bout en bout dans Jaeger |
 | 2 | Instrumentation micro-service Java | Zero-code | 70 | 2 traces (agent + starter) |
 | 3 | Configuration du collecteur | Collecteur | 60 | Métriques système + produit collectées |
-| 4 | Dashboard unifié | Grafana | 35 | Dashboard 3-signaux exporté |
+| 4 | Dashboard unifié | Grafana | 25 | Dashboard 3-signaux exporté + alerte p95 |
+| 4.1 | Exemplars (lecture) | Grafana | 10 | — |
 | 5 | Logs structurées | Logs | 55 | Log corrélé à sa trace |
 | 6 | Métriques | Métriques | 70 | Graphe latence + compteur métier |
 | 7 | Traces & sampling | Traces | 55 | Trace multi-services + tail sampling |
