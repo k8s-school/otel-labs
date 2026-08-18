@@ -34,7 +34,7 @@ cd otel-labs
 
 > 🏫 **Serveur partagé** : si le formateur vous a fourni un compte `student<N>` sur un serveur commun, la commande est **la même** — le cluster et la stack, c'est vous qui les créez, sur votre compte. Ce qui a été préparé pour vous, c'est le compte, le dépôt déjà cloné et votre environnement de travail.
 >
-> Vous partagez la machine avec les autres participants : pour que vos `port-forward` n'entrent pas en conflit avec les leurs, chacun écoute sur **sa propre adresse de boucle locale** au lieu de `localhost` — `student3` sur `127.0.0.3`, alias `localhost3`. Les ports, eux, sont les mêmes pour tout le monde (8080 pour les UIs). Deux variables déjà présentes dans votre shell portent cette adresse : `$PF_ADDR` (celle que vous passez à `--address`) et `$PF_HOST` (celle des URLs). `open-ui.sh` affiche vos URLs et la commande de tunnel SSH à lancer depuis votre poste.
+> Vous partagez la machine avec les autres participants : pour que vos accès n'entrent pas en conflit avec les leurs, chacun écoute sur **sa propre adresse de boucle locale** au lieu de `localhost` — `student3` sur `127.0.0.3`, alias `localhost3`. Les ports, eux, sont les mêmes pour tout le monde (8080 pour les UIs). Une variable déjà présente dans votre shell porte ce nom : `$PF_HOST`, celui de vos URLs. `open-ui.sh` les affiche — ouvrez-les depuis le navigateur du serveur (Guacamole).
 
 L'installation prend quelques minutes (téléchargement des images). Pendant ce temps, regardez ce que fait le script : il crée un cluster Kind (`ktbx create -s`), pré-télécharge les images de la démo sur la machine et les injecte dans le cluster (`scripts/preload-images.sh`), puis installe le chart Helm `open-telemetry/opentelemetry-demo` dans le namespace `otel-demo` — c'est la [démo officielle OpenTelemetry](https://opentelemetry.io/ecosystem/demo/), l'« Astronomy Shop ».
 
@@ -73,7 +73,9 @@ kubectl get pods -n otel-demo -o wide
 ./scripts/open-ui.sh
 ```
 
-> Ce script fait un `kubectl port-forward` vers le proxy frontal de la démo : toutes les UIs sont alors accessibles sur le port **8080**, derrière lequel le proxy route vers Grafana, Jaeger et le reste. Le script affiche vos URLs exactes.
+> Ce script ouvre **tous les accès** dont les labs ont besoin — les UIs sur le port **8080** (derrière le proxy frontal : la boutique, Grafana, Jaeger...), Prometheus, OpenSearch, les zPages du collecteur et votre `review-service` — puis rend la main : il travaille en arrière-plan et vous affiche vos URLs exactes. Il les rouvre tout seul à chaque redéploiement, et `./scripts/open-ui.sh -s` les ferme.
+>
+> Un accès qui n'existe pas encore n'est pas une erreur : le `review-service` est celui que vous déploierez au Lab 2, son URL répondra à ce moment-là.
 
 * La boutique : [http://localhost:8080/](http://localhost:8080/)
 * Grafana : [http://localhost:8080/grafana/](http://localhost:8080/grafana/)

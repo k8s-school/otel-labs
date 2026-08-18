@@ -40,15 +40,16 @@ cache Docker de la machine.
 Les énoncés des labs utilisent les mêmes ports pour tout le monde — 8080 pour
 les UIs, 8090 pour le `review-service`, 9090 pour Prometheus, 9200 pour
 OpenSearch, 55679 pour les zPages. Ce qui distingue les participants, c'est
-l'**adresse d'écoute** de leurs `port-forward` : `student3` binde `127.0.0.3`
+l'**adresse d'écoute** de leurs port-forwards : `student3` binde `127.0.0.3`
 (alias `localhost3`), `student4` binde `127.0.0.4`, etc. Tout `127.0.0.0/8`
 est routé vers `lo` sous Linux : rien à configurer, et jusqu'à 199 participants
 sans collision.
 
-D'où le `--address $PF_ADDR` présent dans toutes les commandes des labs :
+Les participants ne tapent aucun `port-forward` : `scripts/open-ui.sh` les
+ouvre tous avec le bon `--address $PF_ADDR`, et les énoncés ne parlent que
+d'URLs bâties sur `$PF_HOST` :
 
 ```bash
-kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus 9090:9090 &
 curl http://$PF_HOST:9090/api/v1/label/__name__/values
 ```
 
@@ -68,7 +69,12 @@ pas entrer en conflit avec `student1` lors des démonstrations.
 ssh -L 8080:127.0.0.3:8080 student3@<serveur>   # puis http://localhost:8080/
 ```
 
-`./scripts/open-ui.sh` affiche les deux (URLs + commande de tunnel).
+`./scripts/open-ui.sh` ouvre tous les accès d'un coup — proxy frontal (UIs),
+Prometheus, `review-service`, OpenSearch, zPages du collecteur — puis rend la
+main. Il libère d'abord les ports de votre adresse, travaille en arrière-plan
+et rouvre chaque accès quand son pod est remplacé ; `./scripts/open-ui.sh -s`
+ferme tout, et `scripts/down.sh` le fait avant de supprimer le cluster.
+Journal : `~/.cache/otel-labs/port-forward.log`.
 
 ## Dimensionnement
 

@@ -22,7 +22,7 @@ d'exercice et scripts d'infrastructure.
 
 ```bash
 ./scripts/up.sh -c        # cluster Kind + préchargement des images + démo OTel (pinnée 0.40.9)
-./scripts/open-ui.sh      # UIs sur http://$PF_HOST:8080 (localhost, sauf serveur partagé)
+./scripts/open-ui.sh      # ouvre tous les accès en tâche de fond (-s pour les fermer)
 ./scripts/deploy.sh       # build + kind load + deploy du review-service
 ```
 

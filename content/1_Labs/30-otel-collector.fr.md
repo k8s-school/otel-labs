@@ -13,20 +13,18 @@ Le collecteur OpenTelemetry est le cœur de la chaîne : il **reçoit** (receive
 ## Prérequis
 
 * Labs 1 et 2 terminés (stack + `review-service` déployés).
-* Le port-forward des UIs actif (`./scripts/open-ui.sh`).
+* Les accès ouverts (`./scripts/open-ui.sh`) : UIs, Prometheus, `review-service` et zPages du collecteur.
 * **Les variables de la formation chargées dans votre shell** :
 
 ```bash
-# exporte PROM_PORT, ZPAGES_PORT, APP_PORT, PF_ADDR, PF_HOST
+# exporte PROM_PORT, ZPAGES_PORT, APP_PORT, PF_HOST
 . ./scripts/env.sh
 
 # doit afficher : 9090 55679
 echo "$PROM_PORT $ZPAGES_PORT"
 ```
 
-> Sur le serveur partagé, gardez `--address $PF_ADDR` dans les `port-forward` et `$PF_HOST` dans les URLs, comme dans les commandes ci-dessous : c'est ce qui donne à chaque participant sa propre adresse d'écoute. Sans lui, deux participants se disputent le même port et le second `port-forward` échoue.
->
-> Les deux ne sont pas interchangeables : `--address` **n'accepte qu'une IP** (`kubectl` répond `localhost3 is not a valid IP`), là où une URL veut un nom. D'où `$PF_ADDR` pour écouter, `$PF_HOST` pour joindre.
+> Sur le serveur partagé, gardez `$PF_HOST` dans les URLs comme dans les commandes ci-dessous : chaque participant a son propre nom (`student3` → `localhost3`), ce qui permet à tous d'utiliser les mêmes ports sans se marcher dessus.
 
 ## Étapes
 
@@ -265,7 +263,6 @@ Deux détails à ne pas manquer en refermant cette configuration : le processor 
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
-kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus $PROM_PORT:9090 &
 
 # l'URL à ouvrir, variables résolues — à copier dans le navigateur
 echo "http://$PF_HOST:$PROM_PORT"
@@ -367,11 +364,12 @@ kubectl get configmap otel-collector-agent -n otel-demo -o jsonpath='{.data.rela
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
-kubectl port-forward -n otel-demo --address $PF_ADDR daemonset/otel-collector-agent $ZPAGES_PORT:55679 &
 
 # l'URL à ouvrir, variables résolues — à copier dans le navigateur
 echo "http://$PF_HOST:$ZPAGES_PORT/debug/pipelinez"
 ```
+
+> Le collecteur vient d'être redéployé, donc son pod a changé — l'accès aux zPages a été rouvert tout seul par `open-ui.sh`.
 
 Ouvrez l'URL affichée : vos deux receivers doivent apparaître dans le pipeline `metrics`.
 
@@ -399,8 +397,6 @@ Générez ensuite quelques avis : c'est votre `review-service` du Lab 2 qui écr
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
-# relancez le port-forward du Lab 2 s'il n'est plus actif
-kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
 
 # l'URL à ouvrir, variables résolues — à copier dans le navigateur
 echo "http://$PF_HOST:$APP_PORT/"

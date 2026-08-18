@@ -76,5 +76,5 @@ kubectl rollout status -n "$NS" "deployment/$APP_NAME" --timeout=180s
 set +x
 echo
 echo "review-service deployed with image $IMAGE"
-echo "Try it: kubectl port-forward -n $NS --address $PF_ADDR svc/$APP_NAME $APP_PORT:8080 &"
-echo "        curl http://$PF_HOST:$APP_PORT/api/reviews"
+# scripts/open-ui.sh keeps the access open across this rollout
+echo "Try it: curl http://$PF_HOST:$APP_PORT/api/reviews"

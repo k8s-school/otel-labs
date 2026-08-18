@@ -11,8 +11,8 @@ Le Lab 3 collectait des métriques d'**infrastructure** (système, PostgreSQL) ;
 ## Prérequis
 
 * Labs 1 à 3 terminés, agent Java actif sur `review-service` (cf. Lab 5, étape 2).
-* **D'abord** les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) ainsi que `$PF_ADDR` et `$PF_HOST`, l'adresse sur laquelle vos `port-forward` écoutent.
-* **Ensuite seulement** le port-forward Prometheus, qui s'appuie sur ces variables : `kubectl port-forward -n otel-demo --address $PF_ADDR svc/prometheus $PROM_PORT:9090 &`
+* **D'abord** les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) et `$PF_HOST`, le nom par lequel vous le joignez.
+* Les accès ouverts (`./scripts/open-ui.sh`) : Prometheus est sur `http://$PF_HOST:$PROM_PORT/`.
 
 ## Étapes
 
@@ -52,7 +52,6 @@ kubectl set env -n otel-demo deployment/review-service \
   OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true
 kubectl rollout status -n otel-demo deployment/review-service
 
-kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
 for i in $(seq 1 10); do
   curl -s -X POST http://$PF_HOST:$APP_PORT/api/reviews \
     -H "Content-Type: application/json" \

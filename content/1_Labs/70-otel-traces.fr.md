@@ -11,8 +11,8 @@ L'instrumentation automatique (Lab 2) trace les frontières techniques (HTTP, SQ
 ## Prérequis
 
 * Labs 1 à 6 terminés, agent Java actif sur `review-service`.
-* Port-forward UIs actif (`./scripts/open-ui.sh`).
-* Les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) ainsi que `$PF_ADDR` et `$PF_HOST`, l'adresse sur laquelle vos `port-forward` écoutent.
+* Les accès ouverts (`./scripts/open-ui.sh`).
+* Les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) et `$PF_HOST`, le nom par lequel vous le joignez.
 
 ## Étapes
 
@@ -50,7 +50,6 @@ Lors du `POST /api/reviews`, le service appelle le **frontend** de la boutique (
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
-kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "Trace me!", "userEmail": "ada.lovelace@example.com", "userName": "Ada Lovelace"}'

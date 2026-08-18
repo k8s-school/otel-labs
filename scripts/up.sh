@@ -98,4 +98,4 @@ done
 
 kubectl get pods -n "$NS"
 echo
-echo "OpenTelemetry demo is up. Run scripts/open-ui.sh to access the UIs."
+echo "OpenTelemetry demo is up. Run scripts/open-ui.sh to open the accesses."

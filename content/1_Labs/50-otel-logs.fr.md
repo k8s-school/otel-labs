@@ -11,8 +11,8 @@ tags: ["OpenTelemetry", "logs", "Logback", "OpenSearch"]
 ## Prérequis
 
 * Labs 1 à 3 terminés.
-* Le port-forward des UIs actif (`./scripts/open-ui.sh`).
-* Les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) ainsi que `$PF_ADDR` et `$PF_HOST`, l'adresse sur laquelle vos `port-forward` écoutent.
+* Les accès ouverts (`./scripts/open-ui.sh`).
+* Les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) et `$PF_HOST`, le nom par lequel vous le joignez.
 
 ## Étapes
 
@@ -49,7 +49,6 @@ Et sans ni l'un ni l'autre ? On déclare l'appender à la main dans `logback.xml
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
-kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
 curl http://$PF_HOST:$APP_PORT/api/reviews
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \

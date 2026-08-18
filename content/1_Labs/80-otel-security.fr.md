@@ -13,8 +13,8 @@ La télémétrie est un **canal de fuite** : tokens, mots de passe, emails s'y r
 ## Prérequis
 
 * Labs 1 à 7 terminés.
-* **D'abord** les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) ainsi que `$PF_ADDR` et `$PF_HOST`, l'adresse sur laquelle vos `port-forward` écoutent.
-* **Ensuite seulement** le port-forward des UIs, plus celui d'OpenSearch, qui s'appuient sur ces variables : `kubectl port-forward -n otel-demo --address $PF_ADDR svc/opensearch $OS_PORT:9200 &`
+* **D'abord** les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) et `$PF_HOST`, le nom par lequel vous le joignez.
+* Les accès ouverts (`./scripts/open-ui.sh`) : l'API OpenSearch est sur `http://$PF_HOST:$OS_PORT/`.
 
 ## Étapes
 
@@ -33,7 +33,6 @@ logger.info("Creating review for product {} by {} <{}>", ...);         // PII da
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 ./scripts/deploy.sh -p starter
-kubectl port-forward -n otel-demo --address $PF_ADDR svc/review-service $APP_PORT:8080 &
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \
@@ -60,7 +59,6 @@ Fuites typiques du même genre : payloads complets en attribut, URLs avec `?toke
 ```bash
 kubectl set env -n otel-demo deployment/review-service MASK_PII=true
 kubectl rollout status -n otel-demo deployment/review-service
-# relancer le port-forward puis :
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \
@@ -125,7 +123,7 @@ kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 # on peut même désactiver le masquage SDK : le collecteur protège seul
 kubectl set env -n otel-demo deployment/review-service MASK_PII-
 kubectl rollout status -n otel-demo deployment/review-service
-# relancer le port-forward puis rejouer un POST avec un email marqueur :
+# rejouer un POST avec un email marqueur :
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \

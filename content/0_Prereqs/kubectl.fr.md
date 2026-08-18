@@ -79,6 +79,11 @@ puis `Ctrl-C` pour couper le tunnel.
 > tunnels des autres participants. La variable vient de `scripts/env.sh` :
 > `. ./scripts/env.sh` en début de session.
 
+> 🛠️ **Dans les labs, vous n'aurez pas à taper cette commande** :
+> `./scripts/open-ui.sh` ouvre tous les tunnels dont les labs ont besoin et les
+> maintient ouverts. Les énoncés ne parlent donc que d'URLs. C'est ici, une
+> fois pour toutes, que vous voyez ce qu'il y a dessous.
+
 ## Attendre qu'un déploiement soit prêt
 
 Après un changement de config, ces commandes rendent la main **une fois** le
@@ -109,8 +114,8 @@ kubectl apply -n otel-demo -f mon-fichier.yaml
 | `No resources found` | Il manque probablement `-n otel-demo`. |
 | Pod en `Pending` | Le cluster manque de ressources : `kubectl describe pod <nom> -n otel-demo`. |
 | Pod en `CrashLoopBackOff` | Il redémarre en boucle : lisez les logs `kubectl logs <nom> -n otel-demo`. |
-| `port-forward` coupe tout seul | Le pod a redémarré : relancez la commande. |
-| Une UI ne répond pas | Vérifiez que le `port-forward` tourne encore dans son terminal. |
+| `port-forward` coupe tout seul | Le pod a redémarré : relancez la commande (`open-ui.sh` le fait pour vous). |
+| Une UI ne répond pas | Relancez `./scripts/open-ui.sh`, il rouvre tous les accès. |
 
 > 💡 Complétion automatique : tapez le début d'un nom de pod puis `Tab`.
 > Pensez aussi à l'alias `k=kubectl` si vous le souhaitez : `alias k=kubectl`.

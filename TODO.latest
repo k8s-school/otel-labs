@@ -14,5 +14,4 @@ LAB4:
   quelqu'un voit son service disparaître.
 
 
-- pourquoi ./scripts/open-ui.sh n'expose pas prometheus??
 - Le pod accounting reste à 451 redémarrages,
