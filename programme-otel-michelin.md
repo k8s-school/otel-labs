@@ -45,8 +45,8 @@
 | 15:15 | 60 | 🧪 **Lab 3** | Configuration du collecteur |
 | 16:15 | 15 | ☕ | Pause |
 | 16:30 | 25 | 🖥️ Slides | **Ch.4 — Grafana** |
-| 16:55 | 25 | 🧪 **Lab 4** | Dashboard unifié logs/métriques/traces |
-| 17:20 | 10 | 🧪 **Lab 4.1** | Exemplars : du point de métrique à la trace (lecture guidée) |
+| 16:55 | 30 | 🧪 **Lab 4** | Dashboard unifié logs/métriques/traces + alerte déclenchée |
+| 17:25 | 10 | 🧪 **Lab 4.1** | Exemplars : du point de métrique à la trace (lecture guidée) |
 
 **Bilan J1** intégré à la fin du Lab 4.1. Labs J1 ≈ 3h30 · Théorie ≈ 2h40.
 
@@ -128,12 +128,12 @@ Contenu slides :
 - Dashboards (variables, organisation)
 - Alerting (principe, règle simple)
 
-### 🧪 Lab 4 — Dashboard unifié *(25 min)*
+### 🧪 Lab 4 — Dashboard unifié *(30 min)*
 **But** : rassembler les 3 signaux sur un écran.
 - Ajouter une variable (`service_name`) alimentée par les données
 - Construire **deux** panels : métriques (Prometheus) et traces (Jaeger)
 - Importer le dashboard de référence, qui apporte le p95 et les logs (OpenSearch)
-- Créer une règle d'alerte sur le panel de latence p95
+- Installer la règle d'alerte (p95 > 100 ms) et **la faire sonner** en chargeant le service : `Normal` → `Pending` → `Firing`
 - **Livrable** : un dashboard « vue service » exporté en JSON (à committer dans le repo).
 
 ### 🧪 Lab 4.1 — Exemplars *(10 min, lecture guidée)*
@@ -288,7 +288,7 @@ Contenu slides :
 | 1 | Démarrage de la stack | Introduction | 45 | Trace de bout en bout dans Jaeger |
 | 2 | Instrumentation micro-service Java | Zero-code | 70 | 2 traces (agent + starter) |
 | 3 | Configuration du collecteur | Collecteur | 60 | Métriques système + produit collectées |
-| 4 | Dashboard unifié | Grafana | 25 | Dashboard 3-signaux exporté + alerte p95 |
+| 4 | Dashboard unifié | Grafana | 30 | Dashboard 3-signaux exporté + alerte p95 déclenchée |
 | 4.1 | Exemplars (lecture) | Grafana | 10 | — |
 | 5 | Logs structurées | Logs | 55 | Log corrélé à sa trace |
 | 6 | Métriques | Métriques | 70 | Graphe latence + compteur métier |

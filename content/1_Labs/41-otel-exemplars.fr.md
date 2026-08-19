@@ -66,7 +66,19 @@ Une colonne de la heatmap, lue de bas en haut, c'est donc la **distribution des 
 
 5.  **Repérer les exemplars.** Ils ne sont pas *sur* la courbe : ce sont des marqueurs à part, de petits **carrés magenta** sur la heatmap, de petits **losanges verts** sur la courbe du p95 juste à côté (« 95th Pct Cart GetCart Latency with Exemplars »).
 
-Chacun est posé à **sa propre valeur** — le plus souvent *sous* la courbe du p95, parfois au-dessus. Rien d'anormal : la courbe est un p95, donc dans le haut de la distribution, tandis qu'un exemplar est une requête tirée au hasard, généralement plus rapide.
+Chacun est posé à **sa propre valeur** — le plus souvent *sous* la courbe du p95, parfois au-dessus. Ce n'est pas un tirage au hasard parmi toutes les requêtes, et le mécanisme réel explique mieux ce que vous voyez : le SDK garde **un échantillon par seau** de l'histogramme. Chaque seau qui a reçu du trafic conserve donc ses requêtes témoins, et Grafana les affiche toutes, seaux confondus.
+
+Relevé sur le cluster de la formation, sur un quart d'heure :
+
+```text
+seau le=0.005    14 exemplars    (0,6 à 3,6 ms)
+seau le=0.01      8 exemplars    (5,4 à 7,1 ms)   ← le p95 tombe ici (8,2 ms)
+seau le=0.025     4 exemplars    (11,6 à 18,7 ms)
+```
+
+Les seaux du bas sont les plus peuplés — la plupart des requêtes sont rapides — donc la plupart des marqueurs se posent **sous** une courbe qui, elle, suit le haut de la distribution. Un marqueur au-dessus du p95 est une requête d'un seau plus lent : exactement celle qu'on veut ouvrir.
+
+> 💡 **La heatmap et la courbe affichent les mêmes exemplars**, tous seaux confondus — et non, la courbe du p95 ne montre pas seulement les requêtes du seau où tombe le p95. Quand la case *Exemplars* est cochée, Grafana envoie l'expression du panel à l'API `query_exemplars`, qui n'en retient que le **sélecteur de série** (`app_cart_get_cart_latency_seconds_bucket`) et ignore tout le reste : `rate`, `sum by(le)` et `histogram_quantile` n'ont aucun effet sur les marqueurs renvoyés. Vérifié sur le cluster de la formation : les trois écritures rendent les mêmes 31 exemplars, sur les mêmes 4 seaux.
 
 **Survolez un marqueur** : une infobulle donne la valeur, le `trace_id` et un lien. **Cliquez** : Jaeger s'ouvre sur cette requête précise. Au lieu de chercher dans Jaeger une trace qui ressemblerait au symptôme, c'est le symptôme qui vous donne son identifiant.
 
@@ -99,13 +111,21 @@ Appliquée sur le modèle du Lab 3 (un fichier de values de plus, empilé sur le
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+
+# la métrique du service cart, produite par son SDK
 curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
   --data-urlencode 'query=app_cart_get_cart_latency_seconds_bucket' \
   --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" \
   | head -c 400
+echo
+
+# celle de vos panels, recalculée par le collecteur
+curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
+  --data-urlencode 'query=traces_span_metrics_duration_milliseconds_bucket' \
+  --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)"
 ```
 
-Vous y lisez des `trace_id` en clair. Remplacez maintenant le nom par `traces_span_metrics_duration_milliseconds_bucket`, la métrique de vos panels : la réponse est `{"status":"success","data":[]}`.
+La première réponse est pleine de `trace_id` en clair. La seconde tient en une ligne : `{"status":"success","data":[]}` — aucun exemplar, comme annoncé.
 
 ## À retenir
 

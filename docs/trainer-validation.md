@@ -55,9 +55,17 @@ Things the scripts cannot judge, watch for them explicitly:
   (lab 8), zPages content (lab 3)
 - **Wording**: are the instructions unambiguous for a DevOps discovering
   OpenTelemetry? Are the "Réponse" blocks at the right depth?
-- **Manual steps**: build the two panels by hand (lab 4 steps 2-4) and
-  create the alert rule (step 7); the solution script imports the reference
-  JSON, which validates nothing about the UI workflow
+- **Manual steps**: build the two panels by hand (lab 4 steps 2-4), then
+  watch the alert go Normal -> Pending -> Firing under the load of step 8.
+  The solution script installs dashboard and rule through the API, which
+  validates nothing about the UI workflow
+- **Alert threshold is calibrated, not guessed** (measured on student1, empty
+  reviews table): review-service sits at ~4 ms idle, 30 parallel curl push it
+  to ~41 ms (60 -> 50 ms, 120 -> 175 ms), and the rule fires above 20 ms.
+  Two traps: hammering `/` proves nothing (static file, 1 ms spans, it drags
+  the p95 *down*), and loading with POST inserts thousands of reviews, which
+  makes `GET /api/reviews` durably slow (13k rows -> 144 ms) and shifts what
+  the threshold means. Re-measure before changing any of it
 - **Lab 4.1 is read-only**: check what the demo dashboard actually renders —
   heatmap axes, magenta squares, green diamonds, the click through to Jaeger
 - **Failure modes**: try a wrong YAML indent in lab 3, a forgotten
@@ -75,7 +83,7 @@ recalibrated with real ones:
 | 1 — Stack           | 45 min | | |
 | 2 — Zero-code       | 70 min | | |
 | 3 — Collector       | 60 min | | |
-| 4 — Grafana         | 25 min | | |
+| 4 — Grafana         | 30 min | | |
 | 4.1 — Exemplars     | 10 min | | |
 | 5 — Logs            | 55 min | | |
 | 6 — Metrics         | 70 min | | |

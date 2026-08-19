@@ -132,15 +132,75 @@ Pourquoi un percentile plutôt qu'une moyenne ? Parce qu'une moyenne noie les ca
 
 > 💡 Le détail de cette requête — ce qu'est un seau `le`, pourquoi un percentile ne s'additionne pas, et ce que ce p95 ne dit pas — est dans le [Lab 4 bonus]({{% relref "42-otel-grafana-bonus" %}}).
 
-7.  **Créer la règle d'alerte sur ce panel.** Le p95 y est tracé avec son **seuil à 500 ms matérialisé en rouge** : c'est le point de départ. *Panel → More → New alert rule* — Grafana reprend la requête du panel, il ne reste qu'à saisir le seuil et la durée.
+7.  **Installer la règle d'alerte.** Le panel trace le p95 avec son **seuil à 20 ms en rouge** ; la règle qui surveille ce seuil s'installe en deux commandes — un dossier pour la ranger, puis la règle elle-même :
 
-Trois éléments font une alerte, et vous les lisez sur ce panel :
+```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+GRAFANA="http://$PF_HOST:$UI_PORT/grafana"
 
-* **la condition** — la ligne rouge : « p95 au-dessus de 500 ms » ;
-* **la durée** — une alerte ne se déclenche pas au premier point qui dépasse, elle attend que le dépassement *dure* (le `for` de la règle, 2 min ici). C'est ce qui sépare un pic isolé d'un incident ;
-* **les états** — condition vraie mais durée non écoulée : `Pending` ; durée atteinte : `Firing`, et la notification part.
+# 1. le dossier qui accueillera la règle
+curl -sS -X POST "$GRAFANA/api/folders" -H "Content-Type: application/json" \
+  -d '{"uid":"otel-training","title":"Formation OTel"}'
 
-Retrouvez ensuite votre règle dans *Alerting → Alert rules*, et regardez-la changer d'état.
+# 2. la règle : p95 du review-service > 20 ms pendant 1 minute
+curl -sS -X POST "$GRAFANA/api/v1/provisioning/alert-rules" \
+  -H "Content-Type: application/json" -H "X-Disable-Provenance: true" \
+  -d @content/1_Labs/40-otel-grafana-alert.json
+
+echo "$GRAFANA/alerting/list"
+```
+
+Ouvrez l'URL affichée : la règle **« Latence p95 du review-service »** y est, à l'état `Normal`. (Si vous rejouez ces commandes, Grafana répondra que le dossier existe déjà — sans conséquence.)
+
+> 💡 **Pourquoi deux commandes, et pas une ligne de plus dans le dashboard ?** Parce qu'une règle d'alerte **ne vit pas dans le dashboard**. Jusqu'à Grafana 10 elle était rangée dans le JSON du panel ; l'alerting unifié l'en a sortie (l'ancien système a disparu en Grafana 11, et la démo tourne en 13). Une règle est désormais un objet à part, avec son API, et Grafana exige de la ranger dans un **dossier** et dans un **groupe d'évaluation** — ici le groupe `formation-otel`, évalué toutes les 60 secondes. Elle reste toutefois **rattachée au panel** : le JSON contient l'`uid` du dashboard et l'id du panel, c'est ce qui permet de passer de l'un à l'autre d'un clic.
+>
+> Le `X-Disable-Provenance: true` mérite un mot : sans lui, Grafana marque la règle « provisionnée » et l'interface **interdit de la modifier**. Avec lui, vous pourrez ouvrir la règle et changer le seuil à la souris.
+>
+> Notez enfin le service, écrit **en dur** dans la requête : `service_name="review-service"`. Une règle d'alerte n'a pas de menu déroulant — la variable `$service_name` du dashboard n'existe pas pour elle. Si vous créez une règle depuis un panel (*Panel → More → New alert rule*), Grafana y fige la valeur affichée au moment du clic, sans le dire.
+
+8.  **La faire sonner.** Votre `review-service` n'a de trafic que celui que vous lui envoyez, et il est rapide : au repos, son p95 tourne autour de **4 ms**. D'où le seuil à 20 ms — cinq fois le repos. Un seuil ne se choisit pas dans l'absolu, il se calibre sur le service qu'il surveille.
+
+Pour le faire monter, ce n'est pas le **nombre** de requêtes qui compte, c'est le nombre de requêtes **en même temps** : trente clients en parallèle pendant trois minutes.
+
+```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+for i in $(seq 1 30); do
+  ( fin=$((SECONDS+180))
+    while [ $SECONDS -lt $fin ]; do
+      curl -s -o /dev/null --max-time 10 http://$PF_HOST:$APP_PORT/api/reviews
+    done ) &
+done
+wait
+```
+
+Pendant que ça tourne, remettez la variable `service_name` sur **`review-service`** et regardez **le panel** « Latence p95 » : la courbe décolle et franchit la ligne rouge — mesuré en salle, ~40 ms, soit le double du seuil. Puis la page *Alerting → Alert rules*, où la règle change d'état :
+
+* `Normal` — le p95 est sous le seuil ;
+* `Pending` — il vient de passer au-dessus, mais la règle attend que le dépassement **dure** (son `for`, 1 minute) ;
+* `Firing` — le dépassement a duré : l'alerte est déclarée.
+
+Chronologie relevée en salle : `Pending` au bout d'une **trentaine de secondes** — la première évaluation qui voit le dépassement —, puis `Firing` à **1 min 40**, à l'évaluation suivante, une fois le `for` écoulé. Le groupe s'évalue toutes les 60 secondes : il faut donc deux évaluations au-dessus du seuil.
+
+Ces trois éléments — la **condition** (la ligne rouge), la **durée** (`for`), les **états** — sont tout ce qui fait une alerte. Le `for` est ce qui sépare un pic isolé d'un incident : sans lui, la moindre requête lente réveillerait quelqu'un.
+
+{{%expand "Pourquoi ces trente clients, et pas un million de requêtes ?" %}}
+Parce qu'un million de `curl` lancés **les uns après les autres** ne chargent rien : le service ne voit jamais qu'une requête à la fois, la traite en 4 ms, et recommence. Le p95 ne bouge pas — il faudrait juste beaucoup de patience.
+
+Ce qui fait monter une latence, c'est la **concurrence** : les requêtes qui attendent leur tour derrière les autres. Mesuré sur le cluster de la formation :
+
+| Requêtes simultanées | p95 |
+|---|---|
+| 1 (séquentiel) | 4 ms |
+| 30 | 41 ms |
+| 60 | 50 ms |
+| 120 | 175 ms |
+
+Deuxième piège : **la cible compte autant que la charge**. La page d'accueil du service (`http://$PF_HOST:$APP_PORT/`) est un fichier statique, servi en 1 ms sans toucher la base. La marteler *ferait baisser* le p95 : le panel agrège toutes les opérations du service, et des milliers de spans très rapides tirent la distribution vers le bas. C'est `GET /api/reviews`, avec son `SELECT`, qui souffre de la concurrence.
+
+Enfin, évitez de charger en **POST** : chaque appel insère un avis, et comme `GET /api/reviews` liste toute la table, quelques minutes de POST laissent le service durablement plus lent — le seuil ne veut alors plus dire la même chose.
+{{% /expand%}}
+
+> 💡 **Deux choses qui surprennent.** D'abord, **rien n'arrive dans aucune boîte** : la démo ne configure aucun point de contact, l'alerte se lit donc dans l'interface et nulle part ailleurs. Ensuite, quand vous arrêtez la charge, le retour à `Normal` prend encore **deux bonnes minutes** : la requête moyenne les latences sur une fenêtre de deux minutes (`rate(...[2m])`), et cette fenêtre doit d'abord se vider des requêtes lentes.
 
 > 💡 **En production, cette alerte ne vivrait probablement pas dans Grafana.** On l'écrirait côté **Prometheus**, en YAML versionné dans Git :
 >
@@ -149,21 +209,21 @@ Retrouvez ensuite votre règle dans *Alerting → Alert rules*, et regardez-la c
 >   - name: service-slo
 >     rules:
 >       - alert: HighLatencyP95
->         expr: histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket[2m])) by (le, service_name)) > 500
->         for: 2m
+>         expr: histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket[2m])) by (le, service_name)) > 20
+>         for: 1m
 >         labels:
 >           severity: warning
 >         annotations:
->           summary: "p95 > 500 ms sur {{ $labels.service_name }}"
+>           summary: "p95 > 20 ms sur {{ $labels.service_name }}"
 > ```
 >
-> Vous y retrouvez exactement les trois éléments lus sur le panel : `expr` est la condition, `for` la durée, et les états `Pending` → `Firing` sont les mêmes. Seul l'endroit change — et cela change trois choses : la règle est **revue en PR comme du code**, elle est **évaluée par Prometheus même si Grafana est éteint**, et **Alertmanager** prend en charge ce que Grafana ne fait qu'en partie : déduplication, groupement, silences pendant une maintenance, routage vers Slack ou PagerDuty.
+> Vous y retrouvez exactement les trois éléments observés : `expr` est la condition, `for` la durée, et les états `Pending` → `Firing` sont les mêmes. Seul l'endroit change — et cela change trois choses : la règle est **revue en PR comme du code**, elle est **évaluée par Prometheus même si Grafana est éteint**, et **Alertmanager** prend en charge ce que Grafana ne fait qu'en partie : déduplication, groupement, silences pendant une maintenance, routage vers Slack ou PagerDuty.
 >
 > L'alerting Grafana garde un avantage que Prometheus ne peut pas avoir : il est **multi-datasources**. Une règle Grafana peut croiser une métrique Prometheus et des logs OpenSearch dans la même condition ; une règle Prometheus ne voit que du PromQL.
 >
-> Pourquoi ce lab ne la déploie pas : la démo désactive `alertmanager` (aucune notification à recevoir) **et** `configmapReload` (Prometheus ne relit pas sa configuration à chaud). Il faudrait donc un `helm upgrade` **et** un redémarrage de Prometheus pour voir passer trois lignes de YAML — pour le même cycle d'états que vous venez de parcourir en trois clics.
+> Pourquoi ce lab ne la déploie pas de ce côté-là : la démo désactive `alertmanager` (aucune notification à recevoir) **et** `configmapReload` (Prometheus ne relit pas sa configuration à chaud). Il faudrait un `helm upgrade` **et** un redémarrage de Prometheus pour voir passer trois lignes de YAML.
 
-8.  **Exporter votre dashboard en JSON** (*Share → Export → Save to file*) : c'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et vos deux panels.
+9.  **Exporter votre dashboard en JSON** (*Share → Export → Save to file*) : c'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et vos deux panels.
 
 ## Pour aller plus loin
 
@@ -172,4 +232,4 @@ Retrouvez ensuite votre règle dans *Alerting → Alert rules*, et regardez-la c
 
 ## Livrable
 
-Votre dashboard « vue service » exporté en JSON, avec sa variable `service_name` et au moins un panel qu'elle pilote. Le dashboard de référence importé à l'étape 5 montre la cible complète — les trois signaux d'un même service côte à côte.
+Votre dashboard « vue service » exporté en JSON, avec sa variable `service_name` et au moins un panel qu'elle pilote — et la règle d'alerte vue passer en `Firing`. Le dashboard de référence importé à l'étape 5 montre la cible complète — les trois signaux d'un même service côte à côte.

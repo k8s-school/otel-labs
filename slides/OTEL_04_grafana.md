@@ -68,7 +68,7 @@ label_values(traces_span_metrics_calls_total, service_name)
 - Une règle = une requête + une condition + une durée
 
 ```text
-p95(traces_span_metrics_duration_milliseconds) > 500ms pendant 2 minutes
+p95(traces_span_metrics_duration_milliseconds) > 20ms pendant 1 minute
 ```
 
 - États : `Normal` → `Pending` → `Firing`

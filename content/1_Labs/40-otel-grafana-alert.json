@@ -1,0 +1,86 @@
+{
+  "uid": "otel-training-p95",
+  "title": "Latence p95 du review-service",
+  "folderUID": "otel-training",
+  "ruleGroup": "formation-otel",
+  "condition": "C",
+  "for": "1m",
+  "noDataState": "OK",
+  "execErrState": "Error",
+  "isPaused": false,
+  "annotations": {
+    "__dashboardUid__": "otel-training-service",
+    "__panelId__": "2",
+    "summary": "Le p95 du review-service dépasse 20 ms depuis 1 minute"
+  },
+  "labels": {
+    "severity": "warning"
+  },
+  "data": [
+    {
+      "refId": "A",
+      "queryType": "",
+      "relativeTimeRange": {
+        "from": 600,
+        "to": 0
+      },
+      "datasourceUid": "webstore-metrics",
+      "model": {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "webstore-metrics"
+        },
+        "expr": "histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=\"review-service\"}[2m])) by (le))",
+        "instant": true,
+        "intervalMs": 60000,
+        "legendFormat": "p95",
+        "maxDataPoints": 43200,
+        "range": false,
+        "refId": "A"
+      }
+    },
+    {
+      "refId": "C",
+      "queryType": "expression",
+      "relativeTimeRange": {
+        "from": 0,
+        "to": 0
+      },
+      "datasourceUid": "__expr__",
+      "model": {
+        "conditions": [
+          {
+            "evaluator": {
+              "params": [
+                20
+              ],
+              "type": "gt"
+            },
+            "operator": {
+              "type": "and"
+            },
+            "query": {
+              "params": [
+                "C"
+              ]
+            },
+            "reducer": {
+              "params": [],
+              "type": "last"
+            },
+            "type": "query"
+          }
+        ],
+        "datasource": {
+          "type": "__expr__",
+          "uid": "__expr__"
+        },
+        "expression": "A",
+        "intervalMs": 1000,
+        "maxDataPoints": 43200,
+        "refId": "C",
+        "type": "threshold"
+      }
+    }
+  ]
+}

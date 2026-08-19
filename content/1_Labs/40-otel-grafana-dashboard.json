@@ -75,7 +75,7 @@
           "legendFormat": "p95"
         }
       ],
-      "description": "Seuil d'alerte à 500 ms, matérialisé en rouge. C'est de ce panel que part « Panel → More → New alert rule » : la ligne rouge est la condition, la durée du dépassement est le « for » de la règle.",
+      "description": "Seuil à 20 ms, matérialisé en rouge : c'est celui de la règle d'alerte « Latence p95 du review-service » (content/1_Labs/40-otel-grafana-alert.json). Calibré sur le service : il tourne à ~4 ms au repos. Changer l'un sans l'autre les désaccorde.",
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
@@ -93,7 +93,7 @@
               },
               {
                 "color": "red",
-                "value": 500
+                "value": 20
               }
             ]
           }

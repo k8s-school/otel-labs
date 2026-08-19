@@ -44,6 +44,51 @@ grep -q '"status":"success"' <<< "$IMPORTED"
 DASHBOARD=$(curl -sSf "$GRAFANA/api/dashboards/uid/otel-training-service")
 grep -q "Vue service" <<< "$DASHBOARD"
 
+# The alert rule of step 7. It does NOT live in the dashboard JSON: unified
+# alerting took rules out of dashboards (legacy alerting is gone since Grafana
+# 11), so a rule needs its own folder and evaluation group.
+# 409 on the folder just means a previous run created it.
+curl -sS -X POST "$GRAFANA/api/folders" -H "Content-Type: application/json" \
+    -d '{"uid":"otel-training","title":"Formation OTel"}' > /dev/null || true
+# X-Disable-Provenance: without it Grafana marks the rule as provisioned and
+# the UI refuses to edit it - the participant must be able to move the threshold.
+curl -sS -X DELETE "$GRAFANA/api/v1/provisioning/alert-rules/otel-training-p95" \
+    -H "X-Disable-Provenance: true" > /dev/null 2>&1 || true
+RULE=$(curl -sSf -X POST "$GRAFANA/api/v1/provisioning/alert-rules" \
+    -H "Content-Type: application/json" -H "X-Disable-Provenance: true" \
+    -d @"$DIR/40-otel-grafana-alert.json")
+grep -q '"uid":"otel-training-p95"' <<< "$RULE"
+
+# The panel threshold and the rule threshold are two files that must agree:
+# the participant reads one and the alert uses the other.
+python3 - "$DIR/40-otel-grafana-alert.json" "$DIR/40-otel-grafana-dashboard.json" << 'PYEOF'
+import json, sys
+rule, dash = (json.load(open(p)) for p in sys.argv[1:3])
+in_rule = rule["data"][1]["model"]["conditions"][0]["evaluator"]["params"][0]
+panel = next(p for p in dash["panels"] if p["id"] == 2)
+in_panel = next(s["value"] for s in panel["fieldConfig"]["defaults"]["thresholds"]["steps"]
+                if s["color"] == "red")
+if in_rule != in_panel:
+    sys.exit("ERROR: alert rule fires at %s ms but the panel draws its line at %s ms" % (in_rule, in_panel))
+print("Alert threshold consistent: %s ms in both the rule and the panel" % in_rule)
+PYEOF
+
+# Grafana evaluates it without error (a bad expression would show up here as
+# health=error). Not asserted: that it fires - that needs 3 minutes of load.
+sleep 5
+RULES=$(curl -sSf "$GRAFANA/api/prometheus/grafana/api/v1/rules")
+python3 -c '
+import json, sys
+groups = json.load(sys.stdin)["data"]["groups"]
+rules = [r for g in groups for r in g["rules"] if r.get("name") == "Latence p95 du review-service"]
+if not rules:
+    sys.exit("ERROR: alert rule not evaluated by Grafana")
+health = rules[0].get("health")
+if health not in ("ok", "nodata"):
+    sys.exit("ERROR: alert rule health=%s (%s)" % (health, rules[0].get("lastError")))
+print("Alert rule in place, health=%s, state=%s" % (health, rules[0].get("state")))
+' <<< "$RULES"
+
 # --- lab 4.1 reads a dashboard shipped by the demo: check it is in place ---
 
 # The dashboard itself (uid is stable across clusters, it comes from the chart)
@@ -81,4 +126,4 @@ else
     echo "WARNING: no exemplar returned yet - lab 4.1 needs traffic on the cart service"
 fi
 
-echo "Lab 4 OK: unified dashboard imported in Grafana, lab 4.1 dashboard in place"
+echo "Lab 4 OK: dashboard + alert rule in Grafana, lab 4.1 dashboard in place"
