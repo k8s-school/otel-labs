@@ -63,6 +63,12 @@ curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
 resource.service.name:"review-service"
 ```
 
+Puis **cliquez sur l'onglet `Logs`**, juste sous le champ de requête, **avant** de lancer *Run query*.
+
+> ⚠️ **Sans ce clic, vous n'obtiendrez aucun log — et aucun message d'erreur.** L'éditeur de la datasource OpenSearch ouvre sur l'onglet **Metric**, réglé sur `Count` + *Date Histogram* : Grafana se contente de **compter** les documents et d'en dessiner un graphe à barres. Pas une seule ligne de log n'est affichée, donc rien à déplier, et le message reste invisible — ce qui laisse croire que la requête est fausse. Elle ne l'est pas.
+>
+> Les cinq onglets — *Metric*, **Logs**, *Raw Data*, *Raw Document*, *Traces* — sont alignés sous le champ *Lucene query*. Cliquez sur **Logs**, puis *Run query* : le panneau *Logs* apparaît, une ligne par message. C'est exactement ce que fait, en JSON, le panel « Logs » du dashboard de référence du Lab 4 : `"metrics": [{"type": "logs"}]`.
+
 Dépliez le log `Creating review for product...`. Quels champs OTel voyez-vous autour du message ?
 
 {{%expand "Réponse" %}}
@@ -76,11 +82,54 @@ Le LogRecord est **structuré** :
 Au passage : le message contient l'**email du client** en clair... Gardez ça en tête pour le Lab 8 (RGPD).
 {{% /expand%}}
 
-5.  **Du log à la trace en un clic :**
+5.  **Rendre le `traceId` cliquable.** Dans le log déplié, le `traceId` s'affiche — mais **rien ne s'y attache** : c'est du texte inerte. Rien ne relie encore OpenSearch à Jaeger dans ce sens-là. À vous de le déclarer :
 
-Toujours dans le log déplié, suivez le lien du champ `traceId` (bouton *View in Jaeger* configuré dans la datasource). Vous atterrissez sur la trace exacte qui a produit ce log : `POST /api/reviews` avec ses spans HTTP, catalogue et SQL.
+*Connections → Data sources → **OpenSearch** → section **Data links** → + Add* :
+* **Field** : `traceId`
+* **Internal link** : activé, datasource **Jaeger**
 
-6.  **Comprendre le trajet côté collecteur :**
+*Save & test*, puis retournez dans *Explore* et relancez la requête (sans oublier l'onglet **Logs**). Dépliez un log : une section **Links** est apparue en tête, avec `traceId` et un bouton **Jaeger**.
+
+{{%expand "Solution — en une commande" %}}
+Le fichier [`50-otel-logs-datasource.json`](../50-otel-logs-datasource.json) contient la datasource complète, `dataLinks` inclus. On la remplace par l'API :
+
+```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+
+curl -sS -X PUT http://$PF_HOST:$UI_PORT/grafana/api/datasources/uid/webstore-logs \
+  -H "Content-Type: application/json" \
+  -d @content/1_Labs/50-otel-logs-datasource.json
+```
+
+C'est un **PUT** : il remplace la datasource entière, pas seulement le champ ajouté. D'où la présence de tout le reste (`timeField`, `logMessageField`…) dans le fichier — l'omettre l'effacerait. Et cela ne fonctionne que parce que la démo provisionne cette datasource avec `editable: true` (`readOnly: false` dans la réponse de l'API) : une datasource verrouillée refuserait la modification.
+
+Le cœur du fichier tient en cinq lignes :
+
+```json
+"dataLinks": [
+  {
+    "field": "traceId",
+    "datasourceUid": "webstore-traces"
+  }
+]
+```
+
+`webstore-traces`, c'est l'UID de Jaeger — celui relevé au Lab 4. Comme pour les panels, c'est l'UID qui désigne une datasource, jamais son nom d'affichage. Inutile en revanche d'y ajouter un libellé (`urlDisplayLabel`) : pour un lien **interne**, Grafana ignore ce champ et nomme le bouton d'après la datasource cible — d'où le bouton sobrement intitulé **Jaeger**. Le libellé ne sert qu'aux liens externes, ceux définis par une `url`.
+{{% /expand%}}
+
+> 💡 **Pourquoi ce lien n'existait-il pas déjà ?** Parce que la démo configure la corrélation **dans l'autre sens** : la datasource Jaeger contient un bloc `tracesToLogsV2` qui, depuis une trace, va chercher les logs correspondants (`traceId:"…" AND spanId:"…"`). Le chemin retour — du log vers la trace — est un réglage **distinct**, porté par le `dataLinks` de la datasource de logs. Les deux sens sont indépendants : en configurer un ne donne pas l'autre.
+
+> ⚠️ **Ce lien ne survivra pas à un redémarrage de Grafana.** La datasource OpenSearch est **provisionnée** par une ConfigMap (`grafana-datasources`, posée par Helm) : un sidecar la relit à chaque démarrage et **réécrit la datasource par-dessus**. Tout ce que vous avez ajouté à l'exécution — par l'interface comme par l'API — disparaît alors, sans le moindre message. Constaté en préparant ce lab : Grafana redémarre, et le bloc `dataLinks` n'est plus là.
+>
+> Le `editable: true` de la configuration **autorise** la modification ; il ne la rend pas **durable**. Deux notions distinctes, et une confusion fréquente.
+>
+> Si le cas se présente, refaites la manip — c'est l'affaire de dix secondes. Mais retenez la leçon : en production, ce lien ne se règle pas à la souris, il s'écrit dans le fichier de provisioning et se versionne dans Git. Exactement le même raisonnement que pour la règle d'alerte du Lab 4, qu'on écrirait côté Prometheus plutôt que dans Grafana.
+
+6.  **Du log à la trace en un clic :**
+
+Toujours dans le log déplié, cliquez le bouton **Jaeger** de la section *Links*. Grafana **scinde l'écran** : vos logs restent à gauche, Jaeger s'ouvre à droite avec le *Trace ID* déjà rempli. Vous avez sous les yeux la trace exacte qui a produit ce log — `POST /api/reviews` avec ses spans HTTP, catalogue et SQL — sans perdre le log de vue. C'est tout l'intérêt de la corrélation : les deux signaux côte à côte, et non l'un après l'autre.
+
+7.  **Comprendre le trajet côté collecteur :**
 
 ```bash
 kubectl get configmap otel-collector-agent -n otel-demo -o yaml | grep -A8 "logs:"
@@ -99,7 +148,7 @@ logs:
 Les LogRecords arrivent en **OTLP** (poussés par l'agent), sont enrichis, puis indexés dans **OpenSearch** (index `otel-logs-*`) — celui que requête la datasource Grafana.
 {{% /expand%}}
 
-7.  **Bonus — receiver `filelog` :** le collecteur sait aussi **lire des fichiers de logs** (applis legacy, pods non instrumentés). Sur le modèle du Lab 3, ajoutez à la config du collecteur un receiver `filelog` pointé sur `/var/log/pods/*/*/*.log` et branchez-le au pipeline `logs` (le chart monte déjà les volumes en mode DaemonSet via le preset `logsCollection`). À discuter avec le formateur selon le temps restant.
+8.  **Bonus — receiver `filelog` :** le collecteur sait aussi **lire des fichiers de logs** (applis legacy, pods non instrumentés). Sur le modèle du Lab 3, ajoutez à la config du collecteur un receiver `filelog` pointé sur `/var/log/pods/*/*/*.log` et branchez-le au pipeline `logs` (le chart monte déjà les volumes en mode DaemonSet via le preset `logsCollection`). À discuter avec le formateur selon le temps restant.
 
 ## Livrable
 

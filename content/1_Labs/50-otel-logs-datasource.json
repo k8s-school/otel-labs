@@ -1,0 +1,23 @@
+{
+  "uid": "webstore-logs",
+  "name": "OpenSearch",
+  "type": "grafana-opensearch-datasource",
+  "access": "proxy",
+  "url": "http://opensearch:9200/",
+  "isDefault": false,
+  "jsonData": {
+    "database": "otel-logs-*",
+    "flavor": "opensearch",
+    "logLevelField": "severity.text.keyword",
+    "logMessageField": "body",
+    "pplEnabled": true,
+    "timeField": "observedTimestamp",
+    "version": "3.6.0",
+    "dataLinks": [
+      {
+        "field": "traceId",
+        "datasourceUid": "webstore-traces"
+      }
+    ]
+  }
+}
