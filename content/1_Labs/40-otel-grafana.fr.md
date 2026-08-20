@@ -31,7 +31,7 @@ Dans Grafana : ⚙️ *Connections → Data sources*. Trois sources corresponden
 
 Le chart Helm de la démo les provisionne automatiquement (ConfigMap `grafana-datasources`). Ouvrez la configuration de Prometheus : elle contient un bloc `exemplars` qui la relie à Jaeger — c'est le sujet du **Lab 4.1**.
 
-Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par son nom d'affichage. Le dashboard de référence de l'étape 5 contient `"datasource": { "type": "prometheus", "uid": "webstore-metrics" }` — c'est ce qui lui permet de s'importer sans re-câbler un seul panel. Un dashboard récupéré ailleurs (grafana.com, un autre cluster) porte d'autres UID : ses panels arrivent vides tant qu'on ne les a pas repointés.
+Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par son nom d'affichage. Le dashboard de référence, celui du bloc « Solution » plus bas, contient `"datasource": { "type": "prometheus", "uid": "webstore-metrics" }` — c'est ce qui lui permet de s'importer sans re-câbler un seul panel. Un dashboard récupéré ailleurs (grafana.com, un autre cluster) porte d'autres UID : ses panels arrivent vides tant qu'on ne les a pas repointés.
 {{% /expand%}}
 
 > 💡 **Où lire l'UID d'une datasource.** En une phrase : l'UID est l'**adresse d'une datasource à l'intérieur de Grafana**. C'est par lui qu'un panel dit « mes données viennent de Prometheus ».
@@ -79,7 +79,8 @@ sum(rate(traces_span_metrics_calls_total{service_name=~"$service_name"}[2m]))
 
 > ⚠️ **Le panel restera vide tant que vous n'aurez pas coché *Table view***, l'interrupteur en haut de l'éditeur de panel. La visualisation par défaut est un graphe temporel : elle ne sait pas représenter une liste de traces, et n'affiche donc **rien du tout — sans message d'erreur**, ce qui laisse croire que la requête est en cause. Elle ne l'est pas : la requête ci-dessus est correcte. (Vous pouvez aussi choisir la visualisation *Table* dans le sélecteur en haut à droite ; *Table view* est simplement plus rapide.)
 
-5.  **Importer le dashboard de référence** — il arrive **à côté du vôtre**, sans l'écraser : son `uid` (`otel-training-service`) n'est pas celui de votre création.
+{{%expand "Solution" %}}
+**Importer le dashboard de référence** — il arrive **à côté du vôtre**, sans l'écraser : son `uid` (`otel-training-service`) n'est pas celui de votre création.
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
@@ -95,6 +96,7 @@ echo "http://$PF_HOST:$UI_PORT/grafana/d/otel-training-service"
 Il s'intitule **« Vue service — Formation OTel »** et arrive à la racine, sans dossier : dans *Dashboards*, il se retrouve mêlé aux neuf dashboards livrés par la démo. Plutôt que de le chercher, ouvrez l'URL ci-dessus — c'est l'`uid` du dashboard, pas son titre, qui la détermine.
 
 Il contient **quatre panels** : vos deux (débit, traces), plus les deux que vous n'avez pas écrits — la **latence p95** et les **logs** du service, en Lucene sur OpenSearch (`resource.service.name:"$service_name"`). Les quatre sont pilotés par la même variable : c'est l'objectif du lab, les trois signaux d'un même service sur un écran.
+{{% /expand%}}
 
 > 💡 **Panels vides sur `review-service` ?** C'est normal, et instructif : les services de la boutique reçoivent du trafic en permanence — le load generator s'en charge — mais **le vôtre n'en reçoit que si vous lui en envoyez**. Ses derniers logs peuvent dater de votre session précédente. Réveillez-le :
 >
@@ -118,7 +120,7 @@ Il contient **quatre panels** : vos deux (débit, traces), plus les deux que vou
 >
 > Ni l'un ni l'autre — une image `default-…` sans `JAVA_TOOL_OPTIONS` — et l'application n'émet **rien du tout** : ni logs, ni traces, ni métriques. C'est l'état du tout début du Lab 2, celui où Jaeger restait désespérément vide.
 
-6.  **Lire le panel « Latence p95 »** du dashboard importé, et basculez la variable `service_name` entre `frontend`, `checkout` et `review-service` : les quatre panels suivent.
+5.  **Lire le panel « Latence p95 »** du dashboard importé, et basculez la variable `service_name` entre `frontend`, `checkout` et `review-service` : les quatre panels suivent.
 
 ```promql
 histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~"$service_name"}[2m])) by (le))
@@ -132,7 +134,7 @@ Pourquoi un percentile plutôt qu'une moyenne ? Parce qu'une moyenne noie les ca
 
 > 💡 Le détail de cette requête — ce qu'est un seau `le`, pourquoi un percentile ne s'additionne pas, et ce que ce p95 ne dit pas — est dans le [Lab 4 bonus]({{% relref "42-otel-grafana-bonus" %}}).
 
-7.  **Installer la règle d'alerte.** Le panel trace le p95 avec son **seuil à 20 ms en rouge** ; la règle qui surveille ce seuil s'installe en deux commandes — un dossier pour la ranger, puis la règle elle-même :
+6.  **Installer la règle d'alerte.** Le panel trace le p95 avec son **seuil à 20 ms en rouge** ; la règle qui surveille ce seuil s'installe en deux commandes — un dossier pour la ranger, puis la règle elle-même :
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
@@ -158,7 +160,7 @@ Ouvrez l'URL affichée : la règle **« Latence p95 du review-service »** y est
 >
 > Notez enfin le service, écrit **en dur** dans la requête : `service_name="review-service"`. Une règle d'alerte n'a pas de menu déroulant — la variable `$service_name` du dashboard n'existe pas pour elle. Si vous créez une règle depuis un panel (*Panel → More → New alert rule*), Grafana y fige la valeur affichée au moment du clic, sans le dire.
 
-8.  **La faire sonner.** Votre `review-service` n'a de trafic que celui que vous lui envoyez, et il est rapide : au repos, son p95 tourne autour de **4 ms**. D'où le seuil à 20 ms — cinq fois le repos. Un seuil ne se choisit pas dans l'absolu, il se calibre sur le service qu'il surveille.
+7.  **La faire sonner.** Votre `review-service` n'a de trafic que celui que vous lui envoyez, et il est rapide : au repos, son p95 tourne autour de **4 ms**. D'où le seuil à 20 ms — cinq fois le repos. Un seuil ne se choisit pas dans l'absolu, il se calibre sur le service qu'il surveille.
 
 Pour le faire monter, ce n'est pas le **nombre** de requêtes qui compte, c'est le nombre de requêtes **en même temps** : trente clients en parallèle pendant trois minutes.
 
@@ -223,7 +225,7 @@ Enfin, évitez de charger en **POST** : chaque appel insère un avis, et comme `
 >
 > Pourquoi ce lab ne la déploie pas de ce côté-là : la démo désactive `alertmanager` (aucune notification à recevoir) **et** `configmapReload` (Prometheus ne relit pas sa configuration à chaud). Il faudrait un `helm upgrade` **et** un redémarrage de Prometheus pour voir passer trois lignes de YAML.
 
-9.  **Exporter votre dashboard en JSON** (*Share → Export → Save to file*) : c'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et vos deux panels.
+8.  **Exporter votre dashboard en JSON** (*Share → Export → Save to file*) : c'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et vos deux panels.
 
 ## Pour aller plus loin
 
@@ -232,4 +234,4 @@ Enfin, évitez de charger en **POST** : chaque appel insère un avis, et comme `
 
 ## Livrable
 
-Votre dashboard « vue service » exporté en JSON, avec sa variable `service_name` et au moins un panel qu'elle pilote — et la règle d'alerte vue passer en `Firing`. Le dashboard de référence importé à l'étape 5 montre la cible complète — les trois signaux d'un même service côte à côte.
+Votre dashboard « vue service » exporté en JSON, avec sa variable `service_name` et au moins un panel qu'elle pilote — et la règle d'alerte vue passer en `Firing`. Le dashboard de référence importé au bloc « Solution » montre la cible complète — les trois signaux d'un même service côte à côte.
