@@ -86,9 +86,14 @@ Au passage : le message contient l'**email du client** en clair... Gardez ça en
 
 *Connections → Data sources → **OpenSearch** → section **Data links** → + Add* :
 * **Field** : `traceId`
-* **Internal link** : activé, datasource **Jaeger**
+* **Internal link** : coché, datasource **Jaeger**
+* **Query** : `${__value.raw}`
 
 *Save & test*, puis retournez dans *Explore* et relancez la requête (sans oublier l'onglet **Logs**). Dépliez un log : une section **Links** est apparue en tête, avec `traceId` et un bouton **Jaeger**.
+
+> 🔑 **Le champ `Query` est celui qu'on oublie, et sans lui le lien ne sert à rien.** Il est vide par défaut : le bouton apparaît quand même, ouvre bien Jaeger… mais sans rien lui demander, donc sur une trace vide. `${__value.raw}` est la **valeur brute du champ** de la ligne courante — ici le `traceId` du log que vous avez déplié. C'est elle qui part comme requête vers Jaeger.
+>
+> Notez que pour un lien **interne**, ce champ ne contient pas une URL malgré son intitulé dans certaines versions de Grafana : c'est la **requête** adressée à la datasource cible. Une URL n'a de sens que pour un lien externe, quand on décoche *Internal link*.
 
 {{%expand "Solution — en une commande" %}}
 Le fichier [`50-otel-logs-datasource.json`](../50-otel-logs-datasource.json) contient la datasource complète, `dataLinks` inclus. On la remplace par l'API :
@@ -109,12 +114,15 @@ Le cœur du fichier tient en cinq lignes :
 "dataLinks": [
   {
     "field": "traceId",
+    "url": "${__value.raw}",
     "datasourceUid": "webstore-traces"
   }
 ]
 ```
 
-`webstore-traces`, c'est l'UID de Jaeger — celui relevé au Lab 4. Comme pour les panels, c'est l'UID qui désigne une datasource, jamais son nom d'affichage. Inutile en revanche d'y ajouter un libellé (`urlDisplayLabel`) : pour un lien **interne**, Grafana ignore ce champ et nomme le bouton d'après la datasource cible — d'où le bouton sobrement intitulé **Jaeger**. Le libellé ne sert qu'aux liens externes, ceux définis par une `url`.
+Les trois clés correspondent aux trois réglages de l'interface : `field` le champ à rendre cliquable, `datasourceUid` la cible (`webstore-traces`, l'UID de Jaeger relevé au Lab 4 — comme pour les panels, c'est l'UID qui désigne une datasource, jamais son nom d'affichage), et `url` la requête. Oui, `url` : la clé porte ce nom pour des raisons historiques, mais dès qu'un `datasourceUid` est présent, Grafana en lit le contenu comme une **requête**, pas comme une adresse.
+
+Inutile d'y ajouter un libellé (`urlDisplayLabel`) : sur un lien interne, Grafana nomme le bouton d'après la datasource cible — d'où le bouton sobrement intitulé **Jaeger**.
 {{% /expand%}}
 
 > 💡 **Pourquoi ce lien n'existait-il pas déjà ?** Parce que la démo configure la corrélation **dans l'autre sens** : la datasource Jaeger contient un bloc `tracesToLogsV2` qui, depuis une trace, va chercher les logs correspondants (`traceId:"…" AND spanId:"…"`). Le chemin retour — du log vers la trace — est un réglage **distinct**, porté par le `dataLinks` de la datasource de logs. Les deux sens sont indépendants : en configurer un ne donne pas l'autre.
@@ -127,7 +135,7 @@ Le cœur du fichier tient en cinq lignes :
 
 6.  **Du log à la trace en un clic :**
 
-Toujours dans le log déplié, cliquez le bouton **Jaeger** de la section *Links*. Grafana **scinde l'écran** : vos logs restent à gauche, Jaeger s'ouvre à droite avec le *Trace ID* déjà rempli. Vous avez sous les yeux la trace exacte qui a produit ce log — `POST /api/reviews` avec ses spans HTTP, catalogue et SQL — sans perdre le log de vue. C'est tout l'intérêt de la corrélation : les deux signaux côte à côte, et non l'un après l'autre.
+Toujours dans le log déplié, cliquez le bouton **Jaeger** de la section *Links*. Grafana **scinde l'écran** : vos logs restent à gauche, Jaeger s'ouvre à droite, garni de la trace que la requête `${__value.raw}` vient de réclamer. Vous avez sous les yeux la trace exacte qui a produit ce log — `POST /api/reviews` avec ses spans HTTP, catalogue et SQL — sans perdre le log de vue. C'est tout l'intérêt de la corrélation : les deux signaux côte à côte, et non l'un après l'autre.
 
 7.  **Comprendre le trajet côté collecteur :**
 

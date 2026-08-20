@@ -16,6 +16,7 @@
     "dataLinks": [
       {
         "field": "traceId",
+        "url": "${__value.raw}",
         "datasourceUid": "webstore-traces"
       }
     ]
