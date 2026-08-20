@@ -122,7 +122,7 @@ Le cœur du fichier tient en cinq lignes :
 
 Les trois clés correspondent aux trois réglages de l'interface : `field` le champ à rendre cliquable, `datasourceUid` la cible (`webstore-traces`, l'UID de Jaeger relevé au Lab 4 — comme pour les panels, c'est l'UID qui désigne une datasource, jamais son nom d'affichage), et `url` la requête. Oui, `url` : la clé porte ce nom pour des raisons historiques, mais dès qu'un `datasourceUid` est présent, Grafana en lit le contenu comme une **requête**, pas comme une adresse.
 
-Inutile d'y ajouter un libellé (`urlDisplayLabel`) : sur un lien interne, Grafana nomme le bouton d'après la datasource cible — d'où le bouton sobrement intitulé **Jaeger**.
+Le bouton porte le nom de la datasource cible — d'où le sobre **Jaeger**. Pour l'intituler autrement, remplissez le champ **Label** de l'interface, qui se sérialise en `"title"` : `"title": "Voir la trace"` et le bouton s'appelle ainsi. C'est purement cosmétique, et sans effet sur le fonctionnement du lien.
 {{% /expand%}}
 
 > 💡 **Pourquoi ce lien n'existait-il pas déjà ?** Parce que la démo configure la corrélation **dans l'autre sens** : la datasource Jaeger contient un bloc `tracesToLogsV2` qui, depuis une trace, va chercher les logs correspondants (`traceId:"…" AND spanId:"…"`). Le chemin retour — du log vers la trace — est un réglage **distinct**, porté par le `dataLinks` de la datasource de logs. Les deux sens sont indépendants : en configurer un ne donne pas l'autre.
