@@ -8,6 +8,8 @@ tags: ["OpenTelemetry", "logs", "Logback", "OpenSearch"]
 
 `review-service` écrit ses logs avec **SLF4J/Logback**, comme la plupart des applications Java. Dans ce lab, vous suivez le trajet complet d'un log : Logback → appender OpenTelemetry (injecté par l'agent) → OTLP → collecteur → **OpenSearch** — et surtout, vous exploitez la **corrélation log ↔ trace**.
 
+Un mot sur ce que ce lab enseigne, pour éviter un malentendu : le sujet n'est pas le **transport**, c'est le **modèle de données** et la **corrélation**. Un log OpenTelemetry est un LogRecord structuré — corps, sévérité, ressource, `traceId` — et cette forme est la même qu'il arrive par OTLP ou qu'il soit relu depuis un fichier. Nous prenons OTLP parce que notre service est instrumenté ; l'étape bonus montre l'autre chemin, celui des applications qu'on ne peut pas toucher.
+
 ## Prérequis
 
 * Labs 1 à 3 terminés.
@@ -156,7 +158,67 @@ logs:
 Les LogRecords arrivent en **OTLP** (poussés par l'agent), sont enrichis, puis indexés dans **OpenSearch** (index `otel-logs-*`) — celui que requête la datasource Grafana.
 {{% /expand%}}
 
-8.  **Bonus — receiver `filelog` :** le collecteur sait aussi **lire des fichiers de logs** (applis legacy, pods non instrumentés). Sur le modèle du Lab 3, ajoutez à la config du collecteur un receiver `filelog` pointé sur `/var/log/pods/*/*/*.log` et branchez-le au pipeline `logs` (le chart monte déjà les volumes en mode DaemonSet via le preset `logsCollection`). À discuter avec le formateur selon le temps restant.
+## Pour aller plus loin — l'autre chemin, lire les fichiers
+
+Tout ce lab repose sur un choix : l'application **pousse** ses logs au collecteur en OTLP. Il existe un second chemin, et il vaut la peine d'être connu — ne serait-ce que pour savoir quand ne pas le prendre.
+
+Le collecteur sait aussi **lire des fichiers**. C'est le receiver `filelog`, qui parcourt `/var/log/pods/*/*/*.log` — là où le kubelet écrit tout ce que les conteneurs envoient sur leur sortie standard. Il répond à un cas que ce lab n'a pas traité : les applications qu'on ne peut **pas** instrumenter, applis legacy, pods tiers, outils dont on n'a pas les sources.
+
+Il ne s'active pas comme les receivers du Lab 3. Lire `/var/log/pods` suppose de monter un répertoire du nœud dans le pod, ce qui ne se configure pas dans `config:` mais dans la forme même du DaemonSet. D'où un **preset**, qui pose le tout d'un bloc — receiver, branchement au pipeline `logs`, volumes, et l'opérateur qui décode le format du runtime :
+
+```yaml
+opentelemetry-collector:
+  presets:
+    logsCollection:
+      enabled: true
+```
+
+### Le conflit avec ce que vous venez de faire
+
+⚠️ **Activer les deux chemins pour les mêmes pods coûte cher et n'apporte rien.** `filelog` lit les fichiers de **tous** les conteneurs du nœud — mesuré sur le cluster de la formation : 47 conteneurs, 228 Mo de fichiers. Or les 28 pods de la démo poussent déjà leurs logs en OTLP.
+
+Chaque ligne arriverait donc **deux fois** dans OpenSearch : une fois en LogRecord structuré avec son `traceId`, une fois en texte brut sans corrélation. Stockage et ingestion doublés, sans une information de plus — et le collecteur, déjà juste en mémoire (voir le `memory_limiter` du Lab 3), encaisserait le double.
+
+Quand les deux doivent coexister — `filelog` pour le parc non instrumenté, OTLP pour les services qui le sont — on écarte les seconds avec un `exclude`. Les chemins ont la forme `/var/log/pods/<namespace>_<pod>_<uid>/<conteneur>/*.log` :
+
+```yaml
+opentelemetry-collector:
+  config:
+    receivers:
+      filelog:
+        exclude:
+          - /var/log/pods/otel-demo_review-service-*_*/review-service/*.log
+```
+
+Votre `config:` étant fusionnée **par-dessus** celle du preset, ce bloc **remplace** la liste `exclude` qu'il avait posée pour ses propres logs.
+
+### Alors, OTLP ou `filelog` ?
+
+Aucun des deux n'est « le bon » dans l'absolu — c'est l'application qui tranche.
+
+* **Application instrumentée → OTLP.** Le SDK produit des LogRecords déjà structurés : sévérité normalisée, attributs typés, ressource, `traceId`. Rien à parser, rien à deviner. C'est le cas du `review-service`, donc de ce lab.
+* **Application qu'on ne peut pas toucher → `filelog`.** Universel, tous langages, aucun code à modifier — et le fichier **survit au collecteur** : s'il sature ou redémarre, la lecture reprend au point d'arrêt (option `storeCheckpoints`). L'appender OTLP, lui, garde ses LogRecords **en mémoire** : collecteur indisponible, logs perdus. C'est exactement ce que racontent les `data refused due to high memory usage` du Lab 3.
+
+En pratique, un parc Kubernetes réel mélange les deux, parce qu'il mélange les deux sortes d'applications. Ce qu'il ne faut pas, c'est les faire se recouvrir.
+
+### La corrélation ne vient pas du transport
+
+C'est le point à emporter. Regardez la sortie console de votre service :
+
+```text
+2026-08-21T07:53:09.459Z  INFO 1 --- [review-service] [nio-8080-exec-4] fr.k8sschool.reviews.ReviewController : Creating review for product…
+```
+
+Aucun `traceId` nulle part. Relus par `filelog`, ces logs arriveraient dans OpenSearch **sans lien vers la trace**, et l'étape 5 de ce lab n'aurait plus d'objet — non pas à cause du transport, mais parce que l'identifiant n'est **pas dans le texte**.
+
+Il y est pourtant, ailleurs : dans le **MDC**. *Mapped Diagnostic Context*, une petite table clé/valeur que SLF4J attache au **thread courant**, et dont Logback sait insérer les valeurs via `%X{clé}`. L'agent OpenTelemetry y dépose automatiquement `trace_id` et `span_id` chaque fois qu'une ligne est écrite pendant une requête tracée. Ils sont donc **déjà là** — c'est le pattern par défaut de Spring Boot qui ne les affiche pas. Les faire apparaître tient en une ligne :
+
+```properties
+# apps/review-service/src/main/resources/application.properties
+logging.pattern.level=%5p [%X{trace_id:-},%X{span_id:-}]
+```
+
+Et cela éclaire au passage pourquoi l'appender OTLP, lui, n'a rien à configurer : il ne lit pas le texte mis en forme, il interroge directement le contexte de trace au moment où le log est émis. Le transport change ce qu'il faut faire pour **conserver** la corrélation ; il ne la crée jamais.
 
 ## Livrable
 
