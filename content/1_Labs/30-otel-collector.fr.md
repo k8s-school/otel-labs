@@ -255,6 +255,17 @@ Il manque un maillon par rapport à l'ordre recommandé : entre le garde-fou et 
 > 📌 **`batch` en dernier, vraiment ?** Le [schéma officiel du collecteur](https://opentelemetry.io/docs/collector/img/otel-collector.svg) montre `Batch` **en tête** de la chaîne de processors : c'est une illustration générique de la notion de pipeline, pas une prescription d'ordre. La recommandation est donnée par le [README des processors](https://github.com/open-telemetry/opentelemetry-collector/blob/main/processor/README.md) : `memory_limiter` en premier, puis les processors qui **jettent** de la donnée (filtrage, échantillonnage), puis ceux qui l'**enrichissent**, et **`batch` en dernier** — inutile de dépenser du CPU à regrouper des données qui seront ensuite écartées ou modifiées. Les trois pipelines de la démo respectent cet ordre.
 >
 > Seule entorse : le preset `kubernetesAttributes` du chart insère `k8sattributes` **avant** `memory_limiter`, alors que la recommandation le place après. Sans conséquence ici, ce processor n'accumulant pas de données — mais c'est exactement le genre de détail que la lecture d'une configuration réelle apprend à repérer.
+
+> ⚠️ **Quand `memory_limiter` mord, ça se voit dans les logs de vos applications — jamais dans Grafana.** Ses deux réglages se lisent ensemble : `limit_percentage: 80` place le seuil **dur** à 80 % de la mémoire du conteneur, et `spike_limit_percentage: 25` avance le seuil **souple** 25 points plus bas. Le refus commence donc dès **55 %**. Sur un collecteur limité à 200 Mi — la valeur du chart, avant que les values de la formation ne la relèvent — cela faisait 110 Mi, et l'agent s'y cognait une quarantaine de fois par heure, en continu.
+>
+> Côté application émettrice, le refus se lit ainsi :
+>
+> ```text
+> ERROR io.opentelemetry.exporter.internal.grpc.GrpcExporter - Failed to export spans.
+> Server is UNAVAILABLE. ... data refused due to high memory usage
+> ```
+>
+> Le SDK retente, puis renonce : **la télémétrie est perdue**. Et c'est là le piège — le collecteur ne redémarre pas, aucune alerte ne se déclenche, et Grafana se contente d'afficher des courbes un peu creuses. Un panel incomplet, une trace amputée de son saut vers le service suivant, un log jamais arrivé dans OpenSearch : rien ne distingue cela d'une manipulation ratée. D'où le réflexe à prendre : **quand une donnée manque, lisez d'abord les logs de l'application qui l'émet** (`kubectl logs -n otel-demo deployment/<service>`) avant de soupçonner votre propre configuration.
 {{% /expand%}}
 
 Deux détails à ne pas manquer en refermant cette configuration : le processor **`transform`** et ses instructions **OTTL** qui normalisent les noms de spans du frontend — un exemple réel du langage vu en cours — ainsi que `kubeletstats` et `k8s_cluster` : personne ne les a écrits, ce sont des **presets** du chart Helm qui les ont ajoutés.

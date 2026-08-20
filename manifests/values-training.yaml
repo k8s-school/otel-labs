@@ -13,6 +13,29 @@ opentelemetry-collector:
     annotationDiscovery:
       metrics:
         enabled: false
+  # Chart 0.40.9 caps the collector at 200Mi; later chart versions raised it to
+  # 400Mi. At 200Mi the memory_limiter processor (limit_percentage 80,
+  # spike_limit_percentage 25) starts refusing data above 110Mi, and the agent
+  # sits right at that line: measured on a training cluster, ~40 rejections per
+  # hour, continuously, hours on end. The SDKs log "Failed to export spans.
+  # Server is UNAVAILABLE ... data refused due to high memory usage", retry, and
+  # eventually drop the telemetry.
+  #
+  # Nothing crashes -- the pod had been up for six days while dropping data --
+  # and Grafana shows no sign of it: participants just see an incomplete Débit
+  # panel, a trace missing its jump to frontend, or a log that never reaches
+  # OpenSearch, with no way to tell it apart from a mistake of their own.
+  #
+  # 512Mi rather than the 400Mi upstream settled on, because Lab 3 has
+  # participants add a hostmetrics receiver (5 scrapers, 10s interval) and a
+  # postgresql receiver on top of what the stock demo runs. As elsewhere in this
+  # file, only the limit is raised: the request is pinned to the former ceiling
+  # so the scheduler reserves the same amount per participant.
+  resources:
+    requests:
+      memory: 200Mi
+    limits:
+      memory: 512Mi
 
 # Jaeger stores traces in memory, and the chart caps the container at 600Mi.
 # Under the demo's continuous load generator that ceiling is reached after two
@@ -32,3 +55,34 @@ jaeger:
         memory: 600Mi
       limits:
         memory: 1536Mi
+
+# The chart caps the Grafana container at 300Mi *and* derives GOMEMLIMIT from
+# that same value (resourceFieldRef on limits.memory), so the Go runtime aims at
+# exactly the ceiling the kernel kills at. GOMEMLIMIT is a soft limit: the
+# garbage collector grows more aggressive as the heap approaches it, but nothing
+# guarantees it stays below. Set to 100% of the cgroup limit, it leaves the
+# collector no room to act before the OOM killer does -- the usual advice is
+# 85-90%.
+#
+# Measured on a training cluster, Grafana 13.0.1 starts at ~199Mi -- before
+# anyone opens a dashboard -- and settles on a plateau of ~283Mi, i.e. 94% of
+# the limit: 10 provisioned dashboards, unified alerting, the bleve search index
+# and the OpenSearch plugin. It survives at rest, but any transient spike goes
+# over. With the fourteen daily log indices the demo accumulates over a training
+# week (8.4M documents, 14 shards scanned per query), a single Lab 5 Explore
+# query was enough: OOMKilled (exit 137) every six minutes for hours, HTTP 503
+# from the frontend-proxy in the middle of Labs 4 and 5, and the alert rule the
+# participants had just created no longer evaluated. Trimming the indices back
+# to two ended the crash loop -- which shows how little headroom 300Mi leaves.
+#
+# Only the limit is raised: the request is pinned to the chart's former ceiling
+# so the scheduler still reserves the same amount on a server hosting one
+# cluster per participant. Without an explicit request, Kubernetes would default
+# it to the limit and reserve a full gigabyte each. GOMEMLIMIT follows the limit
+# automatically, so the runtime gets the same extra headroom.
+grafana:
+  resources:
+    requests:
+      memory: 300Mi
+    limits:
+      memory: 1Gi
