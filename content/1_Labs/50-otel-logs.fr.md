@@ -95,7 +95,7 @@ Au passage : le message contient l'**email du client** en clair... Gardez ça en
 >
 > Notez que pour un lien **interne**, ce champ ne contient pas une URL malgré son intitulé dans certaines versions de Grafana : c'est la **requête** adressée à la datasource cible. Une URL n'a de sens que pour un lien externe, quand on décoche *Internal link*.
 
-{{%expand "Solution — en une commande" %}}
+{{%expand "Solution" %}}
 Le fichier [`50-otel-logs-datasource.json`](../50-otel-logs-datasource.json) contient la datasource complète, `dataLinks` inclus. On la remplace par l'API :
 
 ```bash

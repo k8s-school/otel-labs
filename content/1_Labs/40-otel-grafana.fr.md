@@ -134,7 +134,10 @@ Pourquoi un percentile plutôt qu'une moyenne ? Parce qu'une moyenne noie les ca
 
 > 💡 Le détail de cette requête — ce qu'est un seau `le`, pourquoi un percentile ne s'additionne pas, et ce que ce p95 ne dit pas — est dans le [Lab 4 bonus]({{% relref "42-otel-grafana-bonus" %}}).
 
-6.  **Installer la règle d'alerte.** Le panel trace le p95 avec son **seuil à 20 ms en rouge** ; la règle qui surveille ce seuil s'installe en deux commandes — un dossier pour la ranger, puis la règle elle-même :
+6.  **Installer la règle d'alerte.** Le panel trace le p95 avec son **seuil à 20 ms en rouge**. Installez la règle qui surveille ce seuil : elle doit se déclencher quand le p95 du `review-service` dépasse 20 ms pendant 1 minute.
+
+{{%expand "Solution" %}}
+Deux commandes — un dossier pour la ranger, puis la règle elle-même :
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
@@ -153,6 +156,7 @@ echo "$GRAFANA/alerting/list"
 ```
 
 Ouvrez l'URL affichée : la règle **« Latence p95 du review-service »** y est, à l'état `Normal`. (Si vous rejouez ces commandes, Grafana répondra que le dossier existe déjà — sans conséquence.)
+{{% /expand%}}
 
 > 💡 **Pourquoi deux commandes, et pas une ligne de plus dans le dashboard ?** Parce qu'une règle d'alerte **ne vit pas dans le dashboard**. Jusqu'à Grafana 10 elle était rangée dans le JSON du panel ; l'alerting unifié l'en a sortie (l'ancien système a disparu en Grafana 11, et la démo tourne en 13). Une règle est désormais un objet à part, avec son API, et Grafana exige de la ranger dans un **dossier** et dans un **groupe d'évaluation** — ici le groupe `formation-otel`, évalué toutes les 60 secondes. Elle reste toutefois **rattachée au panel** : le JSON contient l'`uid` du dashboard et l'id du panel, c'est ce qui permet de passer de l'un à l'autre d'un clic.
 >
