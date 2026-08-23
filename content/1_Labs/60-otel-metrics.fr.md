@@ -107,6 +107,24 @@ reviewsCreated.add(1, Attributes.of(RATING, (long) review.getRating()));
 ```
 
 Un attribut de métrique devient un **label** Prometheus, et donc une **série temporelle par valeur distincte**. Une note vaut 1 à 5 : 5 séries, c'est gratuit. Le même code avec `user.email` à la place créerait une série par utilisateur — c'est l'**explosion de cardinalité**, la première cause de mort d'un Prometheus. Les identifiants vont dans les **traces** (où ils coûtent un attribut sur un span), jamais dans les métriques.
+
+**Et si on en mettait deux ?** C'est la même méthode, avec deux paires (`Attributes.of` en accepte jusqu'à cinq ; au-delà, `Attributes.builder()`) :
+
+```java
+private static final AttributeKey<String> PRODUCT = AttributeKey.stringKey("app.product.id");
+...
+Attributes.of(RATING,  (long) review.getRating(),
+              PRODUCT, review.getProductId());
+```
+
+Vous obtiendriez alors des séries à deux labels, `reviews_created_total{app_review_rating="5", app_product_id="OLJCESPC7Z"}`. Mais leur nombre est le **produit** des valeurs, jamais leur somme — et le catalogue de la démo compte 10 produits :
+
+| | note seule | note + produit |
+|---|---|---|
+| le compteur | 5 séries | 5 × 10 = **50** |
+| l'histogramme (16 seaux) | 80 séries | 5 × 10 × 16 = **800** |
+
+Le SDK ne crée que les combinaisons réellement rencontrées, mais le plafond est bien celui-là. Sur un vrai catalogue de 50 000 références, cette même ligne donnerait 250 000 séries pour le compteur et 4 millions pour l'histogramme. **Un attribut ne s'ajoute que si l'on sait par combien il multiplie** — et un histogramme multiplie déjà par son nombre de seaux.
 {{% /expand%}}
 
 ### Partie 2 — Et l'instrumentation Micrometer que vous avez déjà ?
