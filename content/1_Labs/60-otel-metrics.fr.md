@@ -3,10 +3,10 @@ title: 'Lab 6 — Métriques métier'
 date: 2026-07-06T11:40:00+02:00
 draft: false
 weight: 60
-tags: ["OpenTelemetry", "métriques", "Micrometer", "Prometheus"]
+tags: ["OpenTelemetry", "métriques", "SDK", "Micrometer", "Prometheus"]
 ---
 
-Le Lab 3 collectait des métriques d'**infrastructure** (système, PostgreSQL) ; le connector spanmetrics fournit déjà débit et latence par service. Il manque les métriques **métier** : combien d'avis créés ? En combien de temps ? Dans ce lab, vous instrumentez `review-service` avec **Micrometer** (un compteur + un histogramme), exportés vers Prometheus via l'agent OpenTelemetry, puis vous dérivez une métrique depuis les spans avec le connector **`count`**.
+Le Lab 3 collectait des métriques d'**infrastructure** (système, PostgreSQL) ; le connector spanmetrics fournit déjà débit et latence par service. Il manque les métriques **métier** : combien d'avis créés ? En combien de temps ? Dans ce lab, vous écrivez ces métriques vous-même avec l'**API OpenTelemetry** (un compteur + un histogramme), vous découvrez ensuite le **pont Micrometer** pour les applications Spring qui ont déjà leur instrumentation, puis vous dérivez une métrique depuis les spans avec le connector **`count`**.
 
 ## Prérequis
 
@@ -16,31 +16,44 @@ Le Lab 3 collectait des métriques d'**infrastructure** (système, PostgreSQL) ;
 
 ## Étapes
 
-### Partie 1 — Compteur et histogramme dans le code
+### Partie 1 — Un compteur et un histogramme avec l'API OpenTelemetry
 
-1.  **Lire l'instrumentation Micrometer** dans `apps/review-service/src/main/java/fr/k8sschool/reviews/ReviewController.java` :
+1.  **Lire l'instrumentation** dans `apps/review-service/src/main/java/fr/k8sschool/reviews/ReviewController.java`. Les deux instruments sont créés une fois, dans le constructeur :
 
 ```java
-this.reviewsCreated = Counter.builder("reviews.created")
-        .description("Number of product reviews created")
-        .register(registry);
-this.reviewCreationTimer = Timer.builder("reviews.creation.time")
-        .description("Time spent creating a review (catalog check + insert)")
-        .publishPercentileHistogram()
-        .register(registry);
+Meter meter = GlobalOpenTelemetry.getMeter("fr.k8sschool.reviews");
+this.reviewsCreated = meter.counterBuilder("reviews.created")
+        .setDescription("Number of product reviews created")
+        .setUnit("{review}")
+        .build();
+this.reviewCreationDuration = meter.histogramBuilder("reviews.creation.duration")
+        .setDescription("Time spent creating a review (catalog check + insert)")
+        .setUnit("ms")
+        .build();
 ```
 
-Pourquoi **Micrometer** plutôt que le SDK OpenTelemetry directement ?
+et alimentés à chaque création d'avis :
+
+```java
+Attributes attributes = Attributes.of(RATING, (long) review.getRating());
+reviewsCreated.add(1, attributes);
+reviewCreationDuration.record((System.nanoTime() - startNanos) / 1_000_000.0, attributes);
+```
+
+Le service ne dépend pourtant d'**aucun SDK** OpenTelemetry (regardez `pom.xml` : seulement `opentelemetry-api`). Comment ce code peut-il produire des métriques ?
 
 {{%expand "Réponse" %}}
-Les deux marchent. Micrometer est la **façade métriques standard de Spring** (fournie par Actuator, déjà dans le classpath) : l'équipe de dev n'apprend pas une nouvelle API, et le code reste neutre. L'**agent OpenTelemetry fait le pont automatiquement** : chaque meter Micrometer devient une métrique OTLP.
+Parce que l'API seule **ne produit rien**. `GlobalOpenTelemetry.getMeter(...)` renvoie par défaut une implémentation **no-op** : les appels `add()` et `record()` ne font littéralement rien, sans erreur ni surcoût. C'est la séparation fondamentale d'OpenTelemetry :
 
-⚠️ Le bridge Micrometer de l'agent est **désactivé par défaut** (pour éviter les doublons avec les métriques Spring) : c'est le rôle de `OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true` à l'étape suivante. Sans lui, vos meters restent invisibles — un classique du debug OTel.
+* l'**API** (`opentelemetry-api`) est ce que vous appelez dans votre code métier — légère, stable, sans dépendance ;
+* le **SDK** est l'implémentation qui agrège, met en forme et exporte. Il est fourni ici par l'**agent Java** du Lab 2 : au démarrage de la JVM, l'agent installe son SDK dans `GlobalOpenTelemetry`, et vos appels deviennent d'un coup réels.
 
-L'alternative SDK pur : injecter un `Meter` OTel (`meter.counterBuilder("reviews.created").build()`) — même résultat, API OTel native. Les deux instruments du programme sont là :
-* `Counter` → **compteur** (monotone croissant) ;
-* `Timer` + `publishPercentileHistogram()` → **histogramme** de latence (buckets → percentiles calculables côté Prometheus). Une **jauge** (3ᵉ type) serait par ex. `Gauge.builder("reviews.pending", queue::size)`.
+Conséquence pratique : une bibliothèque partagée peut s'instrumenter avec l'API sans imposer quoi que ce soit à ses utilisateurs. Et si vous retirez le `-javaagent`, l'application tourne toujours — sans métriques.
+
+La chaîne de types est la même dans tous les langages : **`MeterProvider` → `Meter` → instrument**. Le nom passé à `getMeter()` (`fr.k8sschool.reviews`) est le **scope d'instrumentation** : il identifie *qui* a produit la métrique, exactement comme l'`otel.scope.name` que vous verrez sur les spans au Lab 7.
 {{% /expand%}}
+
+> 💡 **Et une annotation, comme `@WithSpan` ?** Il n'y en a pas pour les métriques. Le module d'annotations d'OpenTelemetry n'en contient que trois — `@WithSpan`, `@SpanAttribute`, `@AddingSpanAttributes` (Lab 7) — et toutes produisent des **spans**. Ce n'est pas un oubli : un span commence et finit avec la méthode, une annotation suffit donc à le décrire. Un compteur métier, lui, s'incrémente à un endroit choisi du corps de la méthode, souvent sous condition — ici uniquement quand l'insertion a réussi — et avec une valeur d'attribut calculée (la note de l'avis). C'est pourquoi l'API métriques est impérative dans tous les langages. La seule voie déclarative existante est celle de Micrometer (`@Timed`, `@Counted`), qui n'accepte que des tags **statiques**.
 
 2.  **Déployer et générer du trafic :**
 
@@ -48,8 +61,7 @@ L'alternative SDK pur : injecter un `Meter` OTel (`meter.counterBuilder("reviews
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 ./scripts/deploy.sh
 kubectl set env -n otel-demo deployment/review-service \
-  JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar" \
-  OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true
+  JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
 kubectl rollout status -n otel-demo deployment/review-service
 
 for i in $(seq 1 10); do
@@ -59,24 +71,102 @@ for i in $(seq 1 10); do
 done
 ```
 
-3.  **Retrouver les métriques dans Prometheus** ([http://localhost:9090](http://localhost:9090)) :
+3.  **Retrouver les métriques dans Prometheus** (`http://$PF_HOST:$PROM_PORT/`). Cherchez ce que le préfixe `reviews_` propose : vos deux instruments y sont, mais **pas sous le nom que vous avez écrit**. Pourquoi ?
+
+{{%expand "Réponse" %}}
+Vous trouvez :
 
 * `reviews_created_total` — votre compteur ;
-* `reviews_creation_time_*` — votre histogramme (`_bucket`, `_sum`, `_count`).
+* `reviews_creation_duration_milliseconds_bucket`, `_sum` et `_count` — votre histogramme.
 
-Tracez la latence p95 de création d'un avis :
+Deux traductions ont eu lieu entre votre code et Prometheus :
+
+* les **points** deviennent des `_` (`reviews.created` → `reviews_created`) : le point n'est pas un caractère légal dans un nom de série Prometheus ;
+* deux **suffixes** ont été ajoutés. `_total` marque un compteur monotone, c'est la convention Prometheus. Et `_milliseconds` vient de l'unité que vous avez déclarée dans le code (`.setUnit("ms")`) : la traduction OTLP → Prometheus développe l'unité et l'accole au nom. Déclarer une unité n'est donc pas décoratif — cela change le nom de la série.
+
+Chemin parcouru : API OTel → SDK de l'agent → OTLP → collecteur → exporter `otlphttp/prometheus` → Prometheus. **Retenez le principe** : le nom que vous lisez dans Prometheus n'est jamais tout à fait celui que vous avez écrit dans le code. Cherchez par préfixe, pas par nom exact.
+{{% /expand%}}
+
+4.  **Tracer la latence p95** de création d'un avis, et **compter les avis par note** :
 
 {{%expand "Réponse" %}}
 ```promql
-histogram_quantile(0.95, sum(rate(reviews_creation_time_seconds_bucket[2m])) by (le))
+histogram_quantile(0.95, sum(rate(reviews_creation_duration_milliseconds_bucket[5m])) by (le))
 ```
 
-Chemin parcouru : Micrometer → bridge de l'agent → OTLP → collecteur → exporter `otlphttp/prometheus` → Prometheus. Les noms sont traduits par la convention OpenTelemetry → Prometheus (`reviews.created` → `reviews_created_total`).
+```promql
+sum by (app_review_rating) (reviews_created_total)
+```
+
+La seconde requête marche parce que le code a posé un **attribut** sur chaque point de mesure :
+
+```java
+private static final AttributeKey<Long> RATING = AttributeKey.longKey("app.review.rating");
+...
+reviewsCreated.add(1, Attributes.of(RATING, (long) review.getRating()));
+```
+
+Un attribut de métrique devient un **label** Prometheus, et donc une **série temporelle par valeur distincte**. Une note vaut 1 à 5 : 5 séries, c'est gratuit. Le même code avec `user.email` à la place créerait une série par utilisateur — c'est l'**explosion de cardinalité**, la première cause de mort d'un Prometheus. Les identifiants vont dans les **traces** (où ils coûtent un attribut sur un span), jamais dans les métriques.
 {{% /expand%}}
 
-### Partie 2 — Dériver une métrique depuis les spans (connector `count`)
+### Partie 2 — Et l'instrumentation Micrometer que vous avez déjà ?
 
-4.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values, `manifests/60-otel-metrics-values.yaml`. Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
+Vous venez d'écrire de l'OpenTelemetry natif. Mais une application Spring en production a déjà, elle, des dizaines de meters **Micrometer** — la façade métriques de Spring Boot, fournie par Actuator. Faut-il tout réécrire ? Non.
+
+5.  **Lire le meter Micrometer** du même service, qui chronomètre exactement le même bloc de code que votre histogramme :
+
+```java
+this.reviewCreationTimer = Timer.builder("reviews.creation.time")
+        .description("Time spent creating a review, measured by Micrometer")
+        .publishPercentileHistogram()
+        .register(registry);
+```
+
+Cherchez `reviews_creation_time` dans Prometheus : **il n'y est pas**. Pourquoi, et que faut-il faire ?
+
+{{%expand "Réponse" %}}
+L'agent Java sait faire le pont — chaque meter Micrometer devient une métrique OTLP — mais ce **bridge est désactivé par défaut**, pour éviter les doublons avec les métriques que Spring Boot exporte parfois déjà de son côté. Il s'active par une variable d'environnement :
+
+```bash
+kubectl set env -n otel-demo deployment/review-service \
+  OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true
+kubectl rollout status -n otel-demo deployment/review-service
+```
+
+Un meter qui reste invisible faute d'avoir activé son bridge est un **classique du debug OTel** : le code est juste, la configuration ne l'est pas.
+{{% /expand%}}
+
+6.  **Regénérer du trafic** (la boucle `curl` de l'étape 2) puis observer ce qui est apparu dans Prometheus :
+
+{{%expand "Réponse" %}}
+`reviews_creation_time_seconds_bucket`, `_sum`, `_count` — le pendant Micrometer de votre histogramme. Notez l'unité : **secondes**, là où votre instrument OTel produisait des `_milliseconds`. Le même bloc de code, chronométré deux fois, à deux échelles : un `Timer` Micrometer publie toujours en secondes.
+
+Mais surtout, regardez tout ce qui est arrivé avec. Sur le cluster de la formation, le service exportait **53** métriques avant le pont, **138** après — pour un seul `Timer` écrit à la main. Le reste, c'est le patrimoine **Actuator** que Spring Boot instrumente pour vous : `hikaricp_connections_*` (le pool de connexions), `jvm_gc_pause_seconds_*`, `tomcat_sessions_*`, `logback_events_total`, `spring_data_repository_invocations_seconds_*`, `application_ready_time_seconds`…
+
+Et vous tenez là **la raison pour laquelle ce pont est fermé par défaut** : une bonne partie de ces séries mesure ce que l'agent mesurait déjà, sous d'autres noms.
+
+| Mesuré par l'agent (convention OTel) | Le doublon Micrometer/Spring |
+|---|---|
+| `http_server_request_duration_seconds_*` | `http_server_requests_seconds_*` |
+| `db_client_connections_usage` | `hikaricp_connections_active`, `jdbc_connections_active` |
+| `jvm_gc_duration_seconds_*` | `jvm_gc_pause_seconds_*` |
+| `jvm_thread_count` | `jvm_threads_live`, `jvm_threads_daemon` |
+
+Deux mesures de la même chose, stockées deux fois. En production il faut trancher : garder le pont fermé et s'en tenir aux conventions OTel, ou l'ouvrir et écarter les doublons dans le collecteur (processor `filter`, cf. Lab 3).
+
+C'est tout l'intérêt du pont. **Vous ne réécrivez pas votre instrumentation existante** : vous branchez l'agent, et le patrimoine Micrometer de l'application — le vôtre et celui d'Actuator — part en OTLP avec le reste.
+
+Alors, API OpenTelemetry ou Micrometer ?
+
+* **API OpenTelemetry** : la même dans tous les langages, aucun bridge à activer, et le seul chemin pour les **traces** et les **logs**. À privilégier pour du code neuf.
+* **Micrometer** : ce que votre application Spring a déjà. À garder — et à faire sortir en OTLP par le pont plutôt qu'à réécrire.
+
+Les deux cohabitent sans problème dans une même JVM, comme ici : ce service exporte les deux.
+{{% /expand%}}
+
+### Partie 3 — Dériver une métrique depuis les spans (connector `count`)
+
+7.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values, `manifests/60-otel-metrics-values.yaml`. Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
 
 {{%expand "Réponse" %}}
 Le fichier de référence est [`60-otel-metrics-values.yaml`](../60-otel-metrics-values.yaml). Pour l'utiliser tel quel :
@@ -122,7 +212,7 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
 kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
 
-5.  **Provoquer des erreurs et vérifier :** créez un avis pour un produit inexistant (le service échoue en 500) :
+8.  **Provoquer des erreurs et vérifier :** créez un avis pour un produit inexistant (le service échoue en 500) :
 
 ```bash
 curl -s -X POST http://$PF_HOST:$APP_PORT/api/reviews \
@@ -134,4 +224,4 @@ Dans Prometheus, cherchez `app_spans_errors_total` : votre première métrique *
 
 ## Livrable
 
-Dans Grafana ou Prometheus : le graphe de latence p95 (`reviews_creation_time`) + le compteur métier `reviews_created_total` + la métrique dérivée `app_spans_errors_total`.
+Dans Grafana ou Prometheus : le graphe de latence p95 de création d'un avis + le compteur métier des avis créés, ventilé par note + la métrique dérivée `app_spans_errors_total`.

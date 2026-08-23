@@ -15,3 +15,24 @@ LAB4:
 
 
 - Le pod accounting reste à 451 redémarrages,
+
+LAB6 (refonte API OTel, verifiee sur cluster local le 2026-08-24):
+- Partie 1 = API OpenTelemetry (compteur + histogramme), Partie 2 = pont
+  Micrometer, Partie 3 = connector count. Noms OBSERVES dans Prometheus:
+  reviews_created_total (label app_review_rating), 
+  reviews_creation_duration_milliseconds_{bucket,sum,count},
+  et apres le flag: reviews_creation_time_seconds_* (Micrometer publie en s).
+- Le pont fait passer le service de 53 a 138 metriques (mesure). Doublons
+  agent/Micrometer verifies: http_server_request_duration_seconds vs
+  http_server_requests_seconds, db_client_connections_* vs hikaricp_*/jdbc_*,
+  jvm_gc_duration_seconds vs jvm_gc_pause_seconds, jvm_thread_count vs
+  jvm_threads_live.
+- PIEGE A DIRE A L'ORAL: juste apres un rollout, le p95 renvoie NaN pendant
+  une a deux minutes. Le nouveau pod ouvre de nouvelles series
+  (service_instance_id different) et rate() sur les anciennes vaut 0.
+  Attendre un cycle d'export (60 s) et regenerer du trafic.
+- Annotations: OTel n'en fournit AUCUNE pour les metriques (le jar
+  opentelemetry-instrumentation-annotations ne contient que WithSpan,
+  SpanAttribute, AddingSpanAttributes). Cote Micrometer @Timed/@Counted
+  marcheraient (aspectjweaver est deja dans le fat jar) mais n'acceptent que
+  des tags statiques -> on perdrait la demo attribut/cardinalite.

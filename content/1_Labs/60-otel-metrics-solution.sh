@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Lab 6 solution: business metrics (Micrometer counter + histogram) and a
+# Lab 6 solution: business metrics written with the OpenTelemetry API
+# (counter + histogram), the Micrometer bridge of the Java agent, and a
 # span-derived metric (count connector).
 # Assumes labs 1-3 are done.
 #
@@ -21,37 +22,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Part 1: deploy the instrumented code with the Java agent.
-# The agent's Micrometer bridge is OPT-IN: it must be enabled explicitly.
-"$DIR/../../scripts/deploy.sh"
-kubectl set env -n "$NS" deployment/review-service \
-    JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar" \
-    OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true
-kubectl rollout status -n "$NS" deployment/review-service --timeout=180s
-
-# Part 2: add the count connector to the collector
-helm upgrade "$RELEASE" "$CHART" \
-    --version "$CHART_VERSION" \
-    --namespace "$NS" \
-    -f "$DIR/../../manifests/values-training.yaml" \
-    ${EXTRA_VALUES:-} \
-    -f "$DIR/30-otel-collector-values.yaml" \
-    -f "$DIR/60-otel-metrics-values.yaml" \
-    --timeout 10m
-kubectl rollout status daemonset/otel-collector-agent -n "$NS" --timeout=300s
-
-kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/review-service "$APP_PORT":8080 &
-APP_PF_PID=$!
-kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/prometheus "$PROM_PORT":9090 &
-PROM_PF_PID=$!
-sleep 3
+# A port-forward to a service dies with the pod it selected: every rollout
+# below needs a fresh one.
+start_app_port_forward() {
+    [ -n "$APP_PF_PID" ] && kill "$APP_PF_PID" 2>/dev/null || true
+    kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/review-service "$APP_PORT":8080 &
+    APP_PF_PID=$!
+    sleep 3
+}
 
 generate_traffic() {
-    # Successful creations feed the counter and the histogram
+    # Successful creations feed the counter and the histograms
     for i in $(seq 1 5); do
         curl -sSf -X POST http://$PF_HOST:$APP_PORT/api/reviews \
             -H "Content-Type: application/json" \
-            -d "{\"productId\": \"OLJCESPC7Z\", \"rating\": 5, \"comment\": \"metric $i\", \"userEmail\": \"user$i@example.com\", \"userName\": \"User $i\"}" \
+            -d "{\"productId\": \"OLJCESPC7Z\", \"rating\": $((i % 5 + 1)), \"comment\": \"metric $i\", \"userEmail\": \"user$i@example.com\", \"userName\": \"User $i\"}" \
             > /dev/null
     done
     # A failing creation (unknown product -> 500) feeds the error span count
@@ -78,10 +63,44 @@ check_metric_prefix() {
     return 1
 }
 
+# Part 1: the OpenTelemetry API instruments need nothing but the agent, which
+# installs the SDK the API delegates to.
+"$DIR/../../scripts/deploy.sh"
+kubectl set env -n "$NS" deployment/review-service \
+    JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
+kubectl rollout status -n "$NS" deployment/review-service --timeout=180s
+
+start_app_port_forward
+kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/prometheus "$PROM_PORT":9090 &
+PROM_PF_PID=$!
+sleep 3
+
 generate_traffic
+check_metric_prefix "reviews_created"           # OTel API counter
+check_metric_prefix "reviews_creation_duration" # OTel API histogram
 
-check_metric_prefix "reviews_created"        # Micrometer counter
-check_metric_prefix "reviews_creation_time"  # Micrometer timer histogram
-check_metric_prefix "app_spans_errors"       # count connector
+# Part 2: the Micrometer meter of the same service. The agent's Micrometer
+# bridge is OPT-IN: without this variable the meter stays invisible.
+kubectl set env -n "$NS" deployment/review-service \
+    OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true
+kubectl rollout status -n "$NS" deployment/review-service --timeout=180s
+start_app_port_forward
 
-echo "Lab 6 OK: business metrics and span-derived metric are in Prometheus"
+generate_traffic
+check_metric_prefix "reviews_creation_time"     # Micrometer timer histogram
+
+# Part 3: add the count connector to the collector
+helm upgrade "$RELEASE" "$CHART" \
+    --version "$CHART_VERSION" \
+    --namespace "$NS" \
+    -f "$DIR/../../manifests/values-training.yaml" \
+    ${EXTRA_VALUES:-} \
+    -f "$DIR/30-otel-collector-values.yaml" \
+    -f "$DIR/60-otel-metrics-values.yaml" \
+    --timeout 10m
+kubectl rollout status daemonset/otel-collector-agent -n "$NS" --timeout=300s
+
+generate_traffic
+check_metric_prefix "app_spans_errors"          # count connector
+
+echo "Lab 6 OK: business metrics (OTel API + Micrometer) and span-derived metric are in Prometheus"

@@ -1,9 +1,14 @@
 package fr.k8sschool.reviews;
 
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.baggage.Baggage;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.metrics.DoubleHistogram;
+import io.opentelemetry.api.metrics.LongCounter;
+import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Scope;
 import org.slf4j.Logger;
@@ -27,23 +32,41 @@ public class ReviewController {
 
     private static final Logger logger = LoggerFactory.getLogger(ReviewController.class);
 
+    // A rating is a small integer (1..5): a safe metric dimension. An e-mail
+    // or a product id would create one time series per value (Lab 6).
+    private static final AttributeKey<Long> RATING = AttributeKey.longKey("app.review.rating");
+
     private final ReviewRepository repository;
     private final ProductCatalogClient catalog;
 
-    // Lab 6: business metrics (Micrometer). Exported to OpenTelemetry by the
-    // Java agent (Micrometer bridge) or by the Spring Boot Starter.
-    private final Counter reviewsCreated;
+    // Lab 6 part 1: business metrics written with the OpenTelemetry API.
+    private final LongCounter reviewsCreated;
+    private final DoubleHistogram reviewCreationDuration;
+
+    // Lab 6 part 2: the Micrometer meter this application already had. The
+    // Java agent exports it too, once its Micrometer bridge is enabled.
     private final Timer reviewCreationTimer;
 
     public ReviewController(ReviewRepository repository, ProductCatalogClient catalog,
                             MeterRegistry registry) {
         this.repository = repository;
         this.catalog = catalog;
-        this.reviewsCreated = Counter.builder("reviews.created")
-                .description("Number of product reviews created")
-                .register(registry);
+
+        // The API alone is a no-op: it only produces data once an SDK is
+        // installed in the JVM (the Java agent, or the Spring Boot Starter).
+        // The instrumentation scope name below ends up in otel.scope.name.
+        Meter meter = GlobalOpenTelemetry.getMeter("fr.k8sschool.reviews");
+        this.reviewsCreated = meter.counterBuilder("reviews.created")
+                .setDescription("Number of product reviews created")
+                .setUnit("{review}")
+                .build();
+        this.reviewCreationDuration = meter.histogramBuilder("reviews.creation.duration")
+                .setDescription("Time spent creating a review (catalog check + insert)")
+                .setUnit("ms")
+                .build();
+
         this.reviewCreationTimer = Timer.builder("reviews.creation.time")
-                .description("Time spent creating a review (catalog check + insert)")
+                .description("Time spent creating a review, measured by Micrometer")
                 .publishPercentileHistogram()
                 .register(registry);
     }
@@ -92,12 +115,16 @@ public class ReviewController {
                 .put("app.review.channel", "web")
                 .build();
         try (Scope ignored = baggage.makeCurrent()) {
-            return reviewCreationTimer.record(() -> {
+            long startNanos = System.nanoTime();
+            // Both APIs instrument the very same block, side by side.
+            Review saved = reviewCreationTimer.record(() -> {
                 catalog.checkProductExists(review.getProductId());
-                Review saved = repository.save(review);
-                reviewsCreated.increment();
-                return saved;
+                return repository.save(review);
             });
+            Attributes attributes = Attributes.of(RATING, (long) review.getRating());
+            reviewsCreated.add(1, attributes);
+            reviewCreationDuration.record((System.nanoTime() - startNanos) / 1_000_000.0, attributes);
+            return saved;
         }
     }
 }

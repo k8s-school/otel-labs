@@ -38,20 +38,41 @@ backgroundColor: #ffffff
 
 ---
 
-## Java : Micrometer — rappels
+## Java : l'API OpenTelemetry
 
-- La façade métriques **standard de Spring** (fournie par Actuator)
+- Même chaîne de types dans tous les langages :
+  **`MeterProvider` → `Meter` → instrument**
 
 ```java
-Counter.builder("reviews.created").register(registry);
+Meter meter = GlobalOpenTelemetry.getMeter("fr.k8sschool.reviews");
+LongCounter created = meter.counterBuilder("reviews.created").build();
+DoubleHistogram duration = meter
+     .histogramBuilder("reviews.creation.duration").setUnit("ms").build();
+created.add(1, Attributes.of(RATING, 5L));   // attribut = dimension
+```
+
+- **API ≠ SDK** : sans SDK dans la JVM, l'API est **no-op** — le code compile,
+  tourne, et ne produit rien. L'agent du Lab 2 installe le SDK.
+- Le nom passé à `getMeter()` = **scope d'instrumentation** (`otel.scope.name`)
+
+---
+
+## Java : et Micrometer ?
+
+- La façade métriques **standard de Spring** (fournie par Actuator) :
+  toute application Spring en a déjà
+
+```java
 Timer.builder("reviews.creation.time")
      .publishPercentileHistogram()
      .register(registry);
 ```
 
-- L'**agent OTel fait le pont automatiquement** : meter Micrometer → métrique OTLP
-- Alternative SDK natif : `MeterProvider` → `Meter` → `meter.counterBuilder(...)`
+- L'agent OTel fait le **pont** : meter Micrometer → métrique OTLP
+- ⚠️ Pont **opt-in** : `OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true`
 - Annotations : `@Timed`, `@Counted` (Micrometer) — même résultat en déclaratif
+- Code neuf → **API OTel** (seul chemin pour les traces et les logs) ;
+  patrimoine Micrometer → **le pont**, pas une réécriture
 
 ---
 
@@ -85,9 +106,10 @@ exporters:
 
 ## 🧪 LAB 6 — Métriques métier
 
-- **Partie 1** : compteur + histogramme Micrometer dans `review-service`,
-  export via l'agent, latence p95 en PromQL
-- **Partie 2** : connector **`count`** — compter les spans en erreur,
+- **Partie 1** : compteur + histogramme avec l'**API OpenTelemetry** dans
+  `review-service`, export via l'agent, latence p95 en PromQL
+- **Partie 2** : le **pont Micrometer** — un flag, et le patrimoine Spring suit
+- **Partie 3** : connector **`count`** — compter les spans en erreur,
   `app_spans_errors_total` sans une ligne de code
 
 ➡ [Lab 6 — Métriques métier](https://k8s-school.fr/labs/otel/fr/1_labs/60-otel-metrics/index.html)
