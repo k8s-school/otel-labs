@@ -131,7 +131,7 @@ La chaîne d'activation, du plus haut au plus bas niveau :
                       opentelemetry-spring-boot-starter (+ le BOM qui fixe sa version)
 ```
 
-* **`pom.xml`** — le profil `default` (`activeByDefault`) n'ajoute **rien** : l'appli n'a que l'API OTel, qui reste *no-op* sans SDK. Le profil `starter` ajoute la dépendance `opentelemetry-spring-boot-starter` et importe le `opentelemetry-instrumentation-bom` (qui aligne les versions OTel). C'est cette dépendance qui embarque le **SDK + les auto-configurations Spring**.
+* **`pom.xml`** — le profil `default` (`activeByDefault`) n'ajoute **rien** : l'appli n'appelle que l'API OTel, qui reste *no-op* tant qu'aucun SDK n'est installé. Le `opentelemetry-sdk` présent dans le pom sert à compiler le masquage PII du Lab 8 et ne s'installe pas de lui-même. Le profil `starter` ajoute la dépendance `opentelemetry-spring-boot-starter` et importe le `opentelemetry-instrumentation-bom` (qui aligne les versions OTel). C'est cette dépendance qui embarque le **SDK + les auto-configurations Spring**.
 * **`Dockerfile`** — `ARG MAVEN_PROFILE=default` déclare la variable de build, consommée à l'étape de compilation : `RUN mvn -P ${MAVEN_PROFILE} -DskipTests package`. Changer le profil change donc le `.jar` produit → **rebuild obligatoire** (l'agent, lui, ne touchait pas au build).
 * **`deploy.sh`** — `-p starter` positionne `PROFILE=starter`, passé à Docker via `docker build --build-arg MAVEN_PROFILE=starter`. Cette même valeur sert de **tag d'image** (`starter-<user>-<horodatage>`), pour que Kind recharge bien la nouvelle image.
 

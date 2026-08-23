@@ -64,7 +64,9 @@ check_metric_prefix() {
 }
 
 # Part 1: the OpenTelemetry API instruments need nothing but the agent, which
-# installs the SDK the API delegates to.
+# installs the SDK the API delegates to. The lab page only CHECKS the agent at
+# this point (lab 5 already enabled it); this script deploys because it must
+# run standalone, on a cluster where lab 5 was never played.
 "$DIR/../../scripts/deploy.sh"
 kubectl set env -n "$NS" deployment/review-service \
     JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"

@@ -10,7 +10,7 @@ Le Lab 3 collectait des métriques d'**infrastructure** (système, PostgreSQL) ;
 
 ## Prérequis
 
-* Labs 1 à 3 terminés, agent Java actif sur `review-service` (cf. Lab 5, étape 2).
+* Labs 1 à 3 terminés, agent Java actif sur `review-service` (cf. [Lab 5, étape 2]({{% relref "50-otel-logs.fr.md" %}}) — l'étape 2 ci-dessous le vérifie).
 * **D'abord** les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) et `$PF_HOST`, le nom par lequel vous le joignez.
 * Les accès ouverts (`./scripts/open-ui.sh`) : Prometheus est sur `http://$PF_HOST:$PROM_PORT/`.
 
@@ -40,7 +40,37 @@ reviewsCreated.add(1, attributes);
 reviewCreationDuration.record((System.nanoTime() - startNanos) / 1_000_000.0, attributes);
 ```
 
-Le service ne dépend pourtant d'**aucun SDK** OpenTelemetry (regardez `pom.xml` : seulement `opentelemetry-api`). Comment ce code peut-il produire des métriques ?
+{{%expand "Au fait, qu'est-ce qu'`Attributes` ?" %}}
+Un sac de paires **clé → valeur** attaché à *chaque mesure*. C'est lui qui permettra, à l'étape 4, de découper la métrique — « combien d'avis, et pour quelle note ? ».
+
+**La clé est typée**, et se déclare une fois pour toutes :
+
+```java
+private static final AttributeKey<Long>   RATING  = AttributeKey.longKey("app.review.rating");
+private static final AttributeKey<String> PRODUCT = AttributeKey.stringKey("app.product.id");
+```
+
+Le type vit dans la clé, pas dans la valeur : le compilateur refuse `Attributes.of(RATING, "cinq")`. OpenTelemetry n'accepte que quatre types — `String`, `Long`, `Double`, `Boolean` — et leurs tableaux (`stringArrayKey`, `longArrayKey`…). Pas d'`int`, d'où le `(long)` dans le code du contrôleur.
+
+Le `static final` n'est pas de la coquetterie : construire une clé alloue un objet et calcule un hash, et cette ligne-là s'exécute à chaque avis créé.
+
+**Plusieurs paires ?** `Attributes.of` en accepte de une à six. Au-delà, ou quand une paire est conditionnelle, on passe par le builder :
+
+```java
+Attributes.builder()
+        .put(RATING, 5L)
+        .put(PRODUCT, "OLJCESPC7Z")
+        .build();
+```
+
+L'objet obtenu est **immuable et trié** : l'ordre d'écriture n'a aucune importance, `{rating, product}` et `{product, rating}` désignent la même série.
+
+**Et la taille ?** Rien dans l'API ne vous empêche d'empiler les paires — mais le SDK, lui, plafonne à **2 000 combinaisons distinctes par instrument** (`DEFAULT_MAX_CARDINALITY`, dans l'agent même que vous utilisez). Au-delà, les mesures ne sont pas jetées : le SDK **remplace leurs attributs** par `otel.metric.overflow=true` et les agrège toutes dans cette série unique.
+
+La nuance compte pour lire un dashboard. Un `sum(reviews_created_total)` reste exact — rien n'est perdu. Mais un `sum by (app_product_id)` devient trompeur : tout ce qui a débordé se retrouve sous une seule étiquette au lieu d'être ventilé. Le seul avertissement arrive dans les **logs du service** (`… has exceeded the maximum allowed cardinality (2000).`), jamais dans Prometheus. L'étape 4 montre à quelle vitesse on s'approche de ce plafond.
+{{% /expand%}}
+
+Ce code n'appelle pourtant que des classes `io.opentelemetry.api.*` : il ne construit aucun `MeterProvider`, n'enregistre aucun exporter, ne lit aucune configuration. Comment peut-il produire des métriques ?
 
 {{%expand "Réponse" %}}
 Parce que l'API seule **ne produit rien**. `GlobalOpenTelemetry.getMeter(...)` renvoie par défaut une implémentation **no-op** : les appels `add()` et `record()` ne font littéralement rien, sans erreur ni surcoût. C'est la séparation fondamentale d'OpenTelemetry :
@@ -50,20 +80,41 @@ Parce que l'API seule **ne produit rien**. `GlobalOpenTelemetry.getMeter(...)` r
 
 Conséquence pratique : une bibliothèque partagée peut s'instrumenter avec l'API sans imposer quoi que ce soit à ses utilisateurs. Et si vous retirez le `-javaagent`, l'application tourne toujours — sans métriques.
 
+⚠️ Attention à une confusion facile : le `pom.xml` **contient** bien `opentelemetry-sdk`, mais pour une tout autre raison — les classes de masquage PII du Lab 8 en ont besoin pour compiler, et elles ne servent qu'avec le profil `starter`. Or **avoir le SDK dans le classpath ne l'active pas** : un SDK ne produit rien tant que personne ne le construit et ne l'installe. Ici, aucune ligne de l'application ne le fait ; c'est l'agent qui s'en charge, de l'extérieur.
+
 La chaîne de types est la même dans tous les langages : **`MeterProvider` → `Meter` → instrument**. Le nom passé à `getMeter()` (`fr.k8sschool.reviews`) est le **scope d'instrumentation** : il identifie *qui* a produit la métrique, exactement comme l'`otel.scope.name` que vous verrez sur les spans au Lab 7.
 {{% /expand%}}
 
 > 💡 **Et une annotation, comme `@WithSpan` ?** Il n'y en a pas pour les métriques. Le module d'annotations d'OpenTelemetry n'en contient que trois — `@WithSpan`, `@SpanAttribute`, `@AddingSpanAttributes` (Lab 7) — et toutes produisent des **spans**. Ce n'est pas un oubli : un span commence et finit avec la méthode, une annotation suffit donc à le décrire. Un compteur métier, lui, s'incrémente à un endroit choisi du corps de la méthode, souvent sous condition — ici uniquement quand l'insertion a réussi — et avec une valeur d'attribut calculée (la note de l'avis). C'est pourquoi l'API métriques est impérative dans tous les langages. La seule voie déclarative existante est celle de Micrometer (`@Timed`, `@Counted`), qui n'accepte que des tags **statiques**.
 
-2.  **Déployer et générer du trafic :**
+2.  **Vérifier que l'agent est actif, puis générer du trafic.** Rien à redéployer ici : ce code est déjà dans l'image, et le Lab 5 a activé l'agent. Une commande le confirme — elle lit l'environnement réel du conteneur qui tourne :
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+kubectl exec -n otel-demo deployment/review-service -- printenv JAVA_TOOL_OPTIONS
+```
+
+Attendu : `-javaagent:/otel/opentelemetry-javaagent.jar`.
+
+{{%expand "Rien ne s'affiche ?" %}}
+L'agent n'est pas actif sur le pod en cours, et sans lui vos instruments restent no-op : aucune métrique n'arrivera, quoi que vous fassiez ensuite.
+
+La cause la plus fréquente est d'avoir relancé `deploy.sh` depuis le Lab 5. Le script **efface délibérément** les variables posées à la main (`JAVA_TOOL_OPTIONS`, `MASK_PII`, `OTEL_INSTRUMENTATION_MICROMETER_ENABLED`) avant d'appliquer les manifestes, pour que ceux-ci restent la seule source de vérité — sans quoi un build `starter` se retrouverait avec l'agent par-dessus, soit deux SDK dans la même JVM.
+
+Reprenez donc le [Lab 5, étape 2]({{% relref "50-otel-logs.fr.md" %}}), ou en trois commandes :
+
+```bash
 ./scripts/deploy.sh
 kubectl set env -n otel-demo deployment/review-service \
   JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
 kubectl rollout status -n otel-demo deployment/review-service
+```
+{{% /expand%}}
 
+> 💡 Pour voir l'agent se charger lui-même, et sa version :
+> `kubectl logs -n otel-demo deployment/review-service | grep VersionLogger`
+
+```bash
 for i in $(seq 1 10); do
   curl -s -X POST http://$PF_HOST:$APP_PORT/api/reviews \
     -H "Content-Type: application/json" \
@@ -108,7 +159,7 @@ reviewsCreated.add(1, Attributes.of(RATING, (long) review.getRating()));
 
 Un attribut de métrique devient un **label** Prometheus, et donc une **série temporelle par valeur distincte**. Une note vaut 1 à 5 : 5 séries, c'est gratuit. Le même code avec `user.email` à la place créerait une série par utilisateur — c'est l'**explosion de cardinalité**, la première cause de mort d'un Prometheus. Les identifiants vont dans les **traces** (où ils coûtent un attribut sur un span), jamais dans les métriques.
 
-**Et si on en mettait deux ?** C'est la même méthode, avec deux paires (`Attributes.of` en accepte jusqu'à cinq ; au-delà, `Attributes.builder()`) :
+**Et si on en mettait deux ?** C'est la même méthode, avec deux paires :
 
 ```java
 private static final AttributeKey<String> PRODUCT = AttributeKey.stringKey("app.product.id");
