@@ -52,7 +52,7 @@ private static final AttributeKey<String> PRODUCT = AttributeKey.stringKey("app.
 
 Le type vit dans la clé, pas dans la valeur : le compilateur refuse `Attributes.of(RATING, "cinq")`. OpenTelemetry n'accepte que quatre types — `String`, `Long`, `Double`, `Boolean` — et leurs tableaux (`stringArrayKey`, `longArrayKey`…). Pas d'`int`, d'où le `(long)` dans le code du contrôleur.
 
-Le `static final` n'est pas de la coquetterie : construire une clé alloue un objet et calcule un hash, et cette ligne-là s'exécute à chaque avis créé.
+Pourquoi `static final` ? D'abord parce qu'une clé d'attribut est une **constante de l'application**, au même titre que le nom de la métrique : déclarée en haut de la classe, elle s'écrit une fois et se relit partout. Recopiez la chaîne à la main dans deux appels, glissez un `app.review.Rating` dans l'un des deux, et vous obtenez **deux séries distinctes** — sans une erreur du compilateur ni le moindre message à l'exécution. Accessoirement, une `AttributeKey` porte un hash et un encodage UTF-8 précalculés, que le SDK réutilise à chaque mesure et à chaque export : la reconstruire à chaque avis créé, c'est refaire ce travail pour rien.
 
 **Plusieurs paires ?** `Attributes.of` en accepte de une à six. Au-delà, ou quand une paire est conditionnelle, on passe par le builder :
 
