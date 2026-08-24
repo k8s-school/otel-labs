@@ -12,9 +12,11 @@ NS="otel-demo"
 
 APP_PF_PID=""
 OS_PF_PID=""
+PROXY_PF_PID=""
 cleanup() {
     [ -n "$APP_PF_PID" ] && kill "$APP_PF_PID" 2>/dev/null || true
     [ -n "$OS_PF_PID" ] && kill "$OS_PF_PID" 2>/dev/null || true
+    [ -n "$PROXY_PF_PID" ] && kill "$PROXY_PF_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -30,6 +32,8 @@ kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/review-service "$APP_PORT
 APP_PF_PID=$!
 kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/opensearch "$OS_PORT":9200 &
 OS_PF_PID=$!
+kubectl port-forward -n "$NS" --address "$PF_ADDR" svc/frontend-proxy "$UI_PORT":8080 &
+PROXY_PF_PID=$!
 sleep 3
 
 # Generate correlated logs
@@ -59,4 +63,28 @@ grep -q "Creating review for product" <<< "$RESULT"
 grep -q "review-service" <<< "$RESULT"
 grep -Eq '"traceId":"[0-9a-f]{32}"' <<< "$RESULT"
 
-echo "Lab 5 OK: structured logs with trace correlation in OpenSearch"
+# Step 5 of the lab: the log -> trace link. The demo does NOT ship it -- the
+# chart wires the other direction only (tracesToLogsV2 on the Jaeger
+# datasource). The link is a dataLinks block on the OpenSearch datasource,
+# applied here through the same API call the lab uses. PUT replaces the whole
+# datasource, hence the complete file.
+GRAFANA="http://$PF_HOST:$UI_PORT/grafana"
+curl -sSf -X PUT "$GRAFANA/api/datasources/uid/webstore-logs" \
+    -H "Content-Type: application/json" \
+    -d @"$DIR/50-otel-logs-datasource.json" > /dev/null
+
+# Read it back rather than trust the write: a sidecar reprovisions this
+# datasource from a ConfigMap at every Grafana restart and would wipe the block.
+DS=$(curl -sSf "$GRAFANA/api/datasources/uid/webstore-logs")
+python3 -c '
+import json, sys
+ds = json.load(sys.stdin)
+links = ds.get("jsonData", {}).get("dataLinks") or []
+match = [l for l in links
+         if l.get("field") == "traceId" and l.get("datasourceUid") == "webstore-traces"]
+if not match:
+    sys.exit("ERROR: no traceId -> Jaeger data link on the webstore-logs datasource")
+print("Log -> trace link in place:", json.dumps(match[0]))
+' <<< "$DS"
+
+echo "Lab 5 OK: structured logs with trace correlation in OpenSearch, log -> trace link in Grafana"
