@@ -82,7 +82,17 @@ Conséquence pratique : une bibliothèque partagée peut s'instrumenter avec l'A
 
 ⚠️ Attention à une confusion facile : le `pom.xml` **contient** bien `opentelemetry-sdk`, mais pour une tout autre raison — les classes de masquage PII du Lab 8 en ont besoin pour compiler, et elles ne servent qu'avec le profil `starter`. Or **avoir le SDK dans le classpath ne l'active pas** : un SDK ne produit rien tant que personne ne le construit et ne l'installe. Ici, aucune ligne de l'application ne le fait ; c'est l'agent qui s'en charge, de l'extérieur.
 
-La chaîne de types est la même dans tous les langages : **`MeterProvider` → `Meter` → instrument**. Le nom passé à `getMeter()` (`fr.k8sschool.reviews`) est le **scope d'instrumentation** : il identifie *qui* a produit la métrique, exactement comme l'`otel.scope.name` que vous verrez sur les spans au Lab 7.
+La chaîne de types est la même dans tous les langages : **`MeterProvider` → `Meter` → instrument**. Les trois maillons n'ont ni le même rôle ni le même nombre d'exemplaires :
+
+| | Combien | Qui le crée | Ce qu'il porte |
+|---|---|---|---|
+| `MeterProvider` | **un** par application | le SDK — ici, l'agent | la Resource, les exporters, la fréquence d'export, les Views |
+| `Meter` | un par bibliothèque ou module | votre code | son nom : le **scope d'instrumentation** |
+| instrument | autant que de mesures | votre code | le nom de la métrique, son unité |
+
+Vous n'écrivez jamais le premier — `GlobalOpenTelemetry.getMeter(...)` est un raccourci pour `getMeterProvider().get(...)` — et c'est délibéré : votre code demande un guichet, il ne décide pas où partent les données. Vous l'avez pourtant déjà configuré au Lab 2 sans le nommer, puisque `OTEL_EXPORTER_OTLP_ENDPOINT` désigne l'exporter de ce provider, et `OTEL_SERVICE_NAME` sa Resource. C'est lui, enfin, qui explique la minute d'attente avant de voir une métrique apparaître : il collecte et exporte **à intervalle fixe, 60 s par défaut**, si bien qu'un `add()` n'envoie rien sur le réseau — il incrémente un total en mémoire, que le provider poussera au cycle suivant.
+
+Le nom passé à `getMeter()` (`fr.k8sschool.reviews`) est le **scope d'instrumentation** : il identifie *qui* a produit la métrique, exactement comme l'`otel.scope.name` que vous verrez sur les spans au Lab 7.
 {{% /expand%}}
 
 > 💡 **Et une annotation, comme `@WithSpan` ?** Il n'y en a pas pour les métriques. Le module d'annotations d'OpenTelemetry n'en contient que trois — `@WithSpan`, `@SpanAttribute`, `@AddingSpanAttributes` (Lab 7) — et toutes produisent des **spans**. Ce n'est pas un oubli : un span commence et finit avec la méthode, une annotation suffit donc à le décrire. Un compteur métier, lui, s'incrémente à un endroit choisi du corps de la méthode, souvent sous condition — ici uniquement quand l'insertion a réussi — et avec une valeur d'attribut calculée (la note de l'avis). C'est pourquoi l'API métriques est impérative dans tous les langages. La seule voie déclarative existante est celle de Micrometer (`@Timed`, `@Counted`), qui n'accepte que des tags **statiques**.
@@ -122,7 +132,7 @@ for i in $(seq 1 10); do
 done
 ```
 
-3.  **Retrouver les métriques dans Prometheus** (`http://$PF_HOST:$PROM_PORT/`). Cherchez ce que le préfixe `reviews_` propose : vos deux instruments y sont, mais **pas sous le nom que vous avez écrit**. Pourquoi ?
+3.  **Retrouver les métriques dans Prometheus** (`http://$PF_HOST:$PROM_PORT/`), en laissant passer une minute après vos requêtes — le temps d'un cycle d'export. Cherchez ce que le préfixe `reviews_` propose : vos deux instruments y sont, mais **pas sous le nom que vous avez écrit**. Pourquoi ?
 
 {{%expand "Réponse" %}}
 Vous trouvez :
