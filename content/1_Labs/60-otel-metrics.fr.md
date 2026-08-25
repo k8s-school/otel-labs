@@ -124,13 +124,83 @@ kubectl rollout status -n otel-demo deployment/review-service
 > 💡 Pour voir l'agent se charger lui-même, et sa version :
 > `kubectl logs -n otel-demo deployment/review-service | grep VersionLogger`
 
+Une poignée de requêtes ne suffira pas : les métriques s'observent dans la **durée**. `rate(...[5m])` compare la valeur du compteur d'il y a cinq minutes à sa valeur actuelle : si vous n'avez rien envoyé pendant ces cinq minutes, les deux chiffres sont identiques, le taux vaut zéro — et le p95 calculé à partir de là affiche `NaN`. Écrivez donc un générateur, qui commence par une rafale puis ralentit progressivement pendant dix minutes — de quoi dessiner une courbe, et pas un plateau :
+
 ```bash
-for i in $(seq 1 10); do
-  curl -s -X POST http://$PF_HOST:$APP_PORT/api/reviews \
-    -H "Content-Type: application/json" \
-    -d "{\"productId\": \"OLJCESPC7Z\", \"rating\": $((RANDOM % 5 + 1)), \"comment\": \"avis $i\", \"userEmail\": \"user$i@example.com\", \"userName\": \"User $i\"}" > /dev/null
+cat > generate-reviews.sh <<'EOF'
+#!/bin/bash
+# Pose des avis pendant DURATION secondes : une rafale au démarrage, puis un
+# rythme qui se relâche peu à peu. Donne aux métriques de ce lab une courbe
+# à observer plutôt qu'un débit constant.
+. ./scripts/env.sh
+
+DURATION=${1:-600}
+MAX=${2:-400}          # plafond : ces avis restent en base
+PRODUCTS=(OLJCESPC7Z 0PUK6V6EV0 1YMWWN1N4O 2ZYFJ3GM2N 66VCHSJNUP)
+START=$SECONDS
+END=$((START + DURATION))
+NEXT_REPORT=$((START + 60))
+created=0
+failed=0
+
+while [ "$SECONDS" -lt "$END" ] && [ "$((created + failed))" -lt "$MAX" ]; do
+    rating=$((RANDOM % 5 + 1))
+    product=${PRODUCTS[$((RANDOM % ${#PRODUCTS[@]}))]}
+    n=$((created + failed + 1))
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+        "http://$PF_HOST:$APP_PORT/api/reviews" \
+        -H "Content-Type: application/json" \
+        -d "{\"productId\": \"$product\", \"rating\": $rating, \"comment\": \"lab6\",
+             \"userEmail\": \"user$n@example.com\", \"userName\": \"User $n\"}")
+    if [ "$code" = "201" ]; then created=$((created + 1)); else failed=$((failed + 1)); fi
+
+    if [ "$SECONDS" -ge "$NEXT_REPORT" ]; then
+        printf '%s  %d avis créés, %d échecs, %d s restantes\n' \
+            "$(date +%H:%M:%S)" "$created" "$failed" "$((END - SECONDS))"
+        NEXT_REPORT=$((SECONDS + 60))
+    fi
+
+    # Cadence : ~7 avis/s pendant les 15 premières secondes, puis un intervalle
+    # qui s'allonge avec le temps écoulé, jusqu'à un avis toutes les 8 s.
+    elapsed=$((SECONDS - START))
+    if [ "$elapsed" -lt 15 ]; then
+        sleep 0.15
+    else
+        delay=$((elapsed / 40))
+        [ "$delay" -lt 1 ] && delay=1
+        [ "$delay" -gt 8 ] && delay=8
+        sleep "$delay"
+    fi
 done
+
+printf 'Terminé : %d avis créés, %d échecs.\n' "$created" "$failed"
+EOF
+chmod +x generate-reviews.sh
 ```
+
+Lancez-le **dans un second terminal**, et laissez-le tourner pendant tout le lab :
+
+```bash
+. ./scripts/env.sh   # ce terminal-là aussi a besoin des variables
+./generate-reviews.sh
+```
+
+Il affiche son compteur chaque minute :
+
+```text
+10:47:01  145 avis créés, 0 échecs, 540 s restantes
+10:48:01  185 avis créés, 0 échecs, 480 s restantes
+10:49:01  204 avis créés, 0 échecs, 420 s restantes
+```
+
+La décélération se lit déjà dans ces chiffres : 145 avis la première minute, 40 la deuxième, 19 la troisième. Au bout des dix minutes, comptez **environ 265 avis** — c'est ce que vous retrouverez dans le compteur, et la pente que dessinera `rate()` dans Grafana.
+
+> 💡 **Ces avis restent en base**, et `GET /api/reviews` renvoie la table entière : quelques centaines de lignes ralentissent un peu ce point d'entrée pour les labs suivants. Ils portent tous le commentaire `lab6`, ce qui permet de les retirer après coup :
+>
+> ```bash
+> kubectl exec -n otel-demo deploy/postgresql -- \
+>   psql -U root -d otel -tAc "delete from reviews where comment = 'lab6'"
+> ```
 
 3.  **Retrouver les métriques dans Prometheus** (`http://$PF_HOST:$PROM_PORT/`), en laissant passer une minute après vos requêtes — le temps d'un cycle d'export. Cherchez ce que le préfixe `reviews_` propose : vos deux instruments y sont, mais **pas sous le nom que vous avez écrit**. Pourquoi ?
 
@@ -147,6 +217,14 @@ Deux traductions ont eu lieu entre votre code et Prometheus :
 
 Chemin parcouru : API OTel → SDK de l'agent → OTLP → collecteur → exporter `otlphttp/prometheus` → Prometheus. **Retenez le principe** : le nom que vous lisez dans Prometheus n'est jamais tout à fait celui que vous avez écrit dans le code. Cherchez par préfixe, pas par nom exact.
 {{% /expand%}}
+
+Comptez enfin **combien de métriques ce service expose en tout**, et notez le nombre — la Partie 2 vous demandera de le comparer :
+
+```promql
+count(count by (__name__)({job="otel-demo/review-service"}))
+```
+
+Une cinquantaine : vos deux instruments, et tout ce que l'agent produit seul (JVM, HTTP, pool de connexions).
 
 4.  **Tracer la latence p95** de création d'un avis, et **compter les avis par note** :
 
@@ -215,14 +293,22 @@ kubectl rollout status -n otel-demo deployment/review-service
 Un meter qui reste invisible faute d'avoir activé son bridge est un **classique du debug OTel** : le code est juste, la configuration ne l'est pas.
 {{% /expand%}}
 
-6.  **Regénérer du trafic** (la boucle `curl` de l'étape 2) puis observer ce qui est apparu dans Prometheus :
+6.  **Vérifier que le générateur tourne toujours** dans son terminal — le rollout de l'étape précédente a coupé ses requêtes le temps du redémarrage, et ses dix minutes ont pu s'écouler (`./generate-reviews.sh` le relance). Puis observer, après un cycle d'export, ce qui est apparu dans Prometheus :
 
 {{%expand "Réponse" %}}
 `reviews_creation_time_seconds_bucket`, `_sum`, `_count` — le pendant Micrometer de votre histogramme. Notez l'unité : **secondes**, là où votre instrument OTel produisait des `_milliseconds`. Le même bloc de code, chronométré deux fois, à deux échelles : un `Timer` Micrometer publie toujours en secondes.
 
-Mais surtout, regardez tout ce qui est arrivé avec. Sur le cluster de la formation, le service exportait **53** métriques avant le pont, **138** après — pour un seul `Timer` écrit à la main. Le reste, c'est le patrimoine **Actuator** que Spring Boot instrumente pour vous : `hikaricp_connections_*` (le pool de connexions), `jvm_gc_pause_seconds_*`, `tomcat_sessions_*`, `logback_events_total`, `spring_data_repository_invocations_seconds_*`, `application_ready_time_seconds`…
+Mais surtout, regardez tout ce qui est arrivé avec. Relancez le comptage de l'étape 3 :
 
-Et vous tenez là **la raison pour laquelle ce pont est fermé par défaut** : une bonne partie de ces séries mesure ce que l'agent mesurait déjà, sous d'autres noms.
+```promql
+count(count by (__name__)({job="otel-demo/review-service"}))
+```
+
+Le nombre a **plus que doublé** — d'une cinquantaine de métriques à plus de cent trente — pour un seul `Timer` écrit à la main. Tout le reste, c'est le patrimoine **Actuator** que Spring Boot instrumente pour vous, et que le pont emporte avec : `hikaricp_connections_*` (le pool de connexions), `jvm_gc_pause_seconds_*`, `tomcat_sessions_*`, `logback_events_total`, `spring_data_repository_invocations_seconds_*`, `application_ready_time_seconds`…
+
+C'est tout l'intérêt du pont : **vous ne réécrivez pas votre instrumentation existante**. Vous branchez l'agent, et le patrimoine Micrometer de l'application — le vôtre et celui d'Actuator — part en OTLP avec le reste.
+
+Le revers se lit dans la même liste, et c'est **la raison pour laquelle ce pont est fermé par défaut** : une bonne partie de ces séries mesure ce que l'agent mesurait déjà, sous d'autres noms.
 
 | Mesuré par l'agent (convention OTel) | Le doublon Micrometer/Spring |
 |---|---|
@@ -233,8 +319,6 @@ Et vous tenez là **la raison pour laquelle ce pont est fermé par défaut** : u
 
 Deux mesures de la même chose, stockées deux fois. En production il faut trancher : garder le pont fermé et s'en tenir aux conventions OTel, ou l'ouvrir et écarter les doublons dans le collecteur (processor `filter`, cf. Lab 3).
 
-C'est tout l'intérêt du pont. **Vous ne réécrivez pas votre instrumentation existante** : vous branchez l'agent, et le patrimoine Micrometer de l'application — le vôtre et celui d'Actuator — part en OTLP avec le reste.
-
 Alors, API OpenTelemetry ou Micrometer ?
 
 * **API OpenTelemetry** : la même dans tous les langages, aucun bridge à activer, et le seul chemin pour les **traces** et les **logs**. À privilégier pour du code neuf.
@@ -242,6 +326,12 @@ Alors, API OpenTelemetry ou Micrometer ?
 
 Les deux cohabitent sans problème dans une même JVM, comme ici : ce service exporte les deux.
 {{% /expand%}}
+
+> 💡 **Et si je n'avais pas d'agent ?** Micrometer sait exporter tout seul, sans une ligne d'OpenTelemetry dans la JVM : la dépendance `micrometer-registry-otlp` et une propriété Spring (`management.otlp.metrics.export.url`) envoient les meters au collecteur en OTLP. `micrometer-registry-prometheus` fait l'équivalent en mode **pull**, en exposant `/actuator/prometheus` à scraper.
+>
+> Deux réserves avant de choisir cette voie. Le **Spring Boot Starter** du Lab 2 n'a, lui, aucun pont Micrometer — son jar ne contient pas une seule classe Micrometer : il trace et journalise, mais laisse vos meters sur place. Et un registry n'exporte que des **métriques** : ni traces, ni logs, ni contexte partagé. Vous obtenez trois tuyaux séparés au lieu de la chaîne unique que ces labs construisent, et vous perdez la corrélation des Labs 4 et 5.
+>
+> Quant à `review-service`, il n'embarque **aucun** registry d'export et n'expose qu'`/actuator/health` : sans le pont de l'agent, ses meters Micrometer existent bel et bien en mémoire — et ne sont visibles nulle part.
 
 ### Partie 3 — Dériver une métrique depuis les spans (connector `count`)
 
@@ -290,6 +380,31 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   -f manifests/60-otel-metrics-values.yaml
 kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
+
+Comme au Lab 3, relisez la ConfigMap pour voir ce que Helm a réellement produit de vos values :
+
+```bash
+kubectl get configmap otel-collector-agent -n otel-demo -o jsonpath='{.data.relay}' | less
+```
+
+Ou, pour aller droit au connector que vous venez d'ajouter :
+
+```bash
+kubectl get configmap otel-collector-agent -n otel-demo -o jsonpath='{.data.relay}' \
+  | grep -B1 -A6 -E '^\s+count:'
+```
+
+```yaml
+connectors:
+  count:
+    spans:
+      app.spans.errors:
+        conditions:
+        - status.code == STATUS_CODE_ERROR
+        description: Number of spans with ERROR status
+```
+
+C'est le seul endroit qui dit la vérité sur la configuration en vigueur : vos values sont un *calque*, la ConfigMap est ce que le collecteur lit au démarrage.
 
 8.  **Provoquer des erreurs et vérifier :** créez un avis pour un produit inexistant (le service échoue en 500) :
 
