@@ -29,20 +29,6 @@ backgroundColor: #ffffff
 
 ---
 
-## Java : SLF4J & Logback — rappels
-
-- **SLF4J** : la façade (l'API que voit le code)
-- **Logback** : l'implémentation (appenders, encoders, niveaux)
-
-```java
-private static final Logger logger = LoggerFactory.getLogger(ReviewController.class);
-logger.info("Creating review for product {}", productId);
-```
-
-- Le code applicatif **ne change pas** avec OpenTelemetry : on branche la sortie
-
----
-
 ## SDK LoggerProvider
 
 - Le pendant « logs » du TracerProvider / MeterProvider
@@ -103,3 +89,17 @@ filelog:
 - Repérer une **PII dans un log**... (à suivre au Lab 8)
 
 ➡ [Lab 5 — Logs structurées](https://k8s-school.fr/labs/otel/fr/1_labs/50-otel-logs/index.html)
+
+---
+
+## Annexe — Java : SLF4J & Logback — rappels
+
+- **SLF4J** : la façade (l'API que voit le code)
+- **Logback** : l'implémentation (appenders, encoders, niveaux)
+
+```java
+private static final Logger logger = LoggerFactory.getLogger(ReviewController.class);
+logger.info("Creating review for product {}", productId);
+```
+
+- Le code applicatif **ne change pas** avec OpenTelemetry : on branche la sortie

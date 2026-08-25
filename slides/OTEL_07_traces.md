@@ -43,21 +43,6 @@ try (Scope scope = span.makeCurrent()) {
 
 ---
 
-## Annotations
-
-- Le span manuel sans le code de plomberie :
-
-```java
-@WithSpan("product-catalog.lookup")
-public void checkProductExists(@SpanAttribute("app.product.id") String productId)
-```
-
-- `io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations`
-- Interprétées par l'agent **et** par le starter
-- Sans SDK actif : no-op — zéro risque à instrumenter
-
----
-
 ## Contexte de trace & bagage
 
 - **Contexte** : `trace_id` + `span_id` courant, propagé
@@ -118,3 +103,18 @@ tail_sampling:
 - Vérifier : les erreurs survivent, le bruit diminue
 
 ➡ [Lab 7 — Traces & échantillonnage](https://k8s-school.fr/labs/otel/fr/1_labs/70-otel-traces/index.html)
+
+---
+
+## Annexe — Annotations
+
+- Le span manuel sans le code de plomberie :
+
+```java
+@WithSpan("product-catalog.lookup")
+public void checkProductExists(@SpanAttribute("app.product.id") String productId)
+```
+
+- `io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations`
+- Interprétées par l'agent **et** par le starter
+- Sans SDK actif : no-op — zéro risque à instrumenter

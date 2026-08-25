@@ -39,49 +39,6 @@ java -javaagent:/otel/opentelemetry-javaagent.jar -jar app.jar
 
 ---
 
-## Agent Java — installation
-
-- Télécharger le JAR (releases GitHub `opentelemetry-java-instrumentation`)
-- L'attacher à la JVM, au choix :
-  - flag explicite : `java -javaagent:...`
-  - variable d'environnement : `JAVA_TOOL_OPTIONS="-javaagent:..."`
-    - lue par **toutes** les JVM au démarrage
-    - idéal en conteneur : une simple variable d'env dans le manifest K8s
-- Dans la formation : l'agent est **déjà dans l'image** (`/otel/opentelemetry-javaagent.jar`),
-  seul `JAVA_TOOL_OPTIONS` l'active
-
----
-
-## Agent Java — configuration
-
-- Tout se pilote par variables d'environnement `OTEL_*` :
-
-```bash
-OTEL_SERVICE_NAME=review-service
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-OTEL_EXPORTER_OTLP_PROTOCOL=grpc
-OTEL_RESOURCE_ATTRIBUTES=service.namespace=otel-demo
-```
-
-- Équivalents en propriétés système (`-Dotel.service.name=...`)
-- Réglages fins : activer/désactiver une instrumentation, échantillonnage,
-  `OTEL_INSTRUMENTATION_<NAME>_ENABLED=false`...
-
----
-
-## Agent Java — fonctionnement
-
-- Au démarrage : l'agent s'enregistre comme `ClassFileTransformer`
-- À chaque classe chargée : si une instrumentation la connaît,
-  le bytecode est **réécrit à la volée** (ByteBuddy)
-- Exemple sur `review-service` :
-  - requête HTTP entrante → span **serveur** `GET /api/reviews`
-  - appel JDBC → span **client** `SELECT reviews` (`db.system=postgresql`)
-  - le **contexte de trace** est propagé automatiquement (headers W3C `traceparent`)
-- Coût : démarrage plus lent, léger overhead CPU/mémoire
-
----
-
 ## Spring Boot Starter
 
 - Une **dépendance Maven/Gradle**, pas un agent :
@@ -127,3 +84,46 @@ OTEL_RESOURCE_ATTRIBUTES=service.namespace=otel-demo
 ➡ [Lab 2 — Instrumentation zero-code](https://k8s-school.fr/labs/otel/fr/1_labs/20-otel-zero-code/index.html)
 
 *Livrable : deux traces du même endpoint, une par agent, une par starter.*
+
+---
+
+## Annexe — Agent Java — installation
+
+- Télécharger le JAR (releases GitHub `opentelemetry-java-instrumentation`)
+- L'attacher à la JVM, au choix :
+  - flag explicite : `java -javaagent:...`
+  - variable d'environnement : `JAVA_TOOL_OPTIONS="-javaagent:..."`
+    - lue par **toutes** les JVM au démarrage
+    - idéal en conteneur : une simple variable d'env dans le manifest K8s
+- Dans la formation : l'agent est **déjà dans l'image** (`/otel/opentelemetry-javaagent.jar`),
+  seul `JAVA_TOOL_OPTIONS` l'active
+
+---
+
+## Annexe — Agent Java — configuration
+
+- Tout se pilote par variables d'environnement `OTEL_*` :
+
+```bash
+OTEL_SERVICE_NAME=review-service
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_RESOURCE_ATTRIBUTES=service.namespace=otel-demo
+```
+
+- Équivalents en propriétés système (`-Dotel.service.name=...`)
+- Réglages fins : activer/désactiver une instrumentation, échantillonnage,
+  `OTEL_INSTRUMENTATION_<NAME>_ENABLED=false`...
+
+---
+
+## Annexe — Agent Java — fonctionnement
+
+- Au démarrage : l'agent s'enregistre comme `ClassFileTransformer`
+- À chaque classe chargée : si une instrumentation la connaît,
+  le bytecode est **réécrit à la volée** (ByteBuddy)
+- Exemple sur `review-service` :
+  - requête HTTP entrante → span **serveur** `GET /api/reviews`
+  - appel JDBC → span **client** `SELECT reviews` (`db.system=postgresql`)
+  - le **contexte de trace** est propagé automatiquement (headers W3C `traceparent`)
+- Coût : démarrage plus lent, léger overhead CPU/mémoire

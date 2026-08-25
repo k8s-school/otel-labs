@@ -26,43 +26,6 @@ backgroundColor: #ffffff
 
 ---
 
-## Datasources
-
-- Une datasource = un backend + sa configuration de requête
-- Provisionnables **par fichier YAML** (infra-as-code, comme dans la démo)
-- Le vrai pouvoir : les **liens entre datasources**
-  - **exemplars** : d'un point de métrique → la trace qui l'a produit
-  - **tracesToLogsV2** : d'une trace → les logs corrélés
-  - champ `traceId` d'un log → *View in Jaeger*
-- C'est la **corrélation** du chapitre 1, rendue cliquable
-
----
-
-## Visualisations
-
-- **Time series** : l'essentiel des métriques (débit, latence, saturation)
-- **Stat / Gauge** : valeur instantanée, SLO
-- **Table** : inventaires, résultats de recherche de traces
-- **Logs panel** : flux de logs avec niveau et détail dépliable
-- **Traces panel** : waterfall de spans dans Grafana
-- Bonnes pratiques : peu de panels, des unités correctes, le service en variable
-
----
-
-## Dashboards
-
-- Organisation : dossiers, tags, permissions
-- **Variables** (`$service_name`...) : un dashboard générique pour N services
-
-```promql
-label_values(traces_span_metrics_calls_total, service_name)
-```
-
-- Export/import **JSON** : versionnable dans Git — c'est le livrable du lab
-- Provisionnement par ConfigMap (sidecar Grafana) : les dashboards de la démo arrivent comme ça
-
----
-
 ## Alerting
 
 - Une règle = une requête + une condition + une durée
@@ -87,3 +50,40 @@ p95(traces_span_metrics_duration_milliseconds) > 20ms pendant 1 minute
 - Lab 4.1 : les exemplars, du point de métrique à la trace
 
 ➡ [Lab 4 — Dashboard unifié](https://k8s-school.fr/labs/otel/fr/1_labs/40-otel-grafana/index.html)
+
+---
+
+## Annexe — Datasources
+
+- Une datasource = un backend + sa configuration de requête
+- Provisionnables **par fichier YAML** (infra-as-code, comme dans la démo)
+- Le vrai pouvoir : les **liens entre datasources**
+  - **exemplars** : d'un point de métrique → la trace qui l'a produit
+  - **tracesToLogsV2** : d'une trace → les logs corrélés
+  - champ `traceId` d'un log → *View in Jaeger*
+- C'est la **corrélation** du chapitre 1, rendue cliquable
+
+---
+
+## Annexe — Visualisations
+
+- **Time series** : l'essentiel des métriques (débit, latence, saturation)
+- **Stat / Gauge** : valeur instantanée, SLO
+- **Table** : inventaires, résultats de recherche de traces
+- **Logs panel** : flux de logs avec niveau et détail dépliable
+- **Traces panel** : waterfall de spans dans Grafana
+- Bonnes pratiques : peu de panels, des unités correctes, le service en variable
+
+---
+
+## Annexe — Dashboards
+
+- Organisation : dossiers, tags, permissions
+- **Variables** (`$service_name`...) : un dashboard générique pour N services
+
+```promql
+label_values(traces_span_metrics_calls_total, service_name)
+```
+
+- Export/import **JSON** : versionnable dans Git — c'est le livrable du lab
+- Provisionnement par ConfigMap (sidecar Grafana) : les dashboards de la démo arrivent comme ça
