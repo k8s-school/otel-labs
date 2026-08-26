@@ -113,15 +113,46 @@ C'est une différence de fond avec un compteur applicatif, dont le total est ten
 
 ## 6. Compter des requêtes plutôt que des spans
 
-Le Lab 6 le montre : une seule requête en échec fait monter `app_spans_errors_total` de **3** pour `review-service`, parce que l'exception traverse trois spans. Pour compter des **requêtes**, il faut ne retenir que les spans **serveur** — un seul par service et par requête :
+Le Lab 6 le montre : une seule requête en échec fait monter `app_spans_errors_total` de **3** pour `review-service`, parce que l'exception traverse trois spans. Pour compter des **requêtes**, il faut ne retenir que les spans **serveur** — il n'y en a qu'un par service et par requête.
+
+C'est la seule section de cette page où il y a quelque chose à faire, et c'est court. Un même connector peut produire **plusieurs métriques** : il suffit d'une seconde entrée sous `spans:`. Le fichier de référence est [`61-otel-metrics-values.yaml`](../61-otel-metrics-values.yaml) :
 
 ```yaml
-    app.requests.errors:
-      description: "Number of failed server requests"
-      conditions:
-        - status.code == STATUS_CODE_ERROR and kind == SPAN_KIND_SERVER
+opentelemetry-collector:
+  config:
+    connectors:
+      count:
+        spans:
+          app.requests.errors:
+            description: "Number of failed server requests"
+            conditions:
+              - status.code == STATUS_CODE_ERROR and kind == SPAN_KIND_SERVER
 ```
 
-Vérifié sur le cluster de la formation : trois requêtes en échec donnent alors `app_requests_errors_total{service_name="review-service"} = 3`, là où `app_spans_errors_total` en compte 9.
+Il **s'empile** sur celui du Lab 6 : Helm fusionne les maps, donc `app.requests.errors` s'ajoute à `app.spans.errors` sans la remplacer. Rien d'autre à redéclarer — ni les pipelines, ni `deltatocumulative` :
 
-Les deux métriques répondent à deux questions différentes — « combien de requêtes ont échoué ? » et « quelle est l'ampleur de la panne dans le système ? » — et il vaut mieux savoir laquelle on lit.
+```bash
+cp content/1_Labs/61-otel-metrics-values.yaml manifests/
+
+helm upgrade otel-demo open-telemetry/opentelemetry-demo \
+  --version 0.40.9 -n otel-demo \
+  -f manifests/values-training.yaml \
+  -f manifests/30-otel-collector-values.yaml \
+  -f manifests/60-otel-metrics-values.yaml \
+  -f manifests/61-otel-metrics-values.yaml
+kubectl rollout status daemonset/otel-collector-agent -n otel-demo
+```
+
+Provoquez trois erreurs comme à l'étape 8 du Lab 6, patientez un cycle d'export, et comparez les deux métriques :
+
+```promql
+app_requests_errors_total{service_name="review-service"}
+app_spans_errors_total{service_name="review-service"}
+```
+
+```text
+app_requests_errors_total  3   ← une par requête
+app_spans_errors_total     9   ← trois spans par requête
+```
+
+Les deux répondent à deux questions différentes — « combien de requêtes ont échoué ? » et « quelle est l'ampleur de la panne dans le système ? » — et il vaut mieux savoir laquelle on lit.

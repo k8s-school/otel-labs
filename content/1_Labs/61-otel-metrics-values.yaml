@@ -1,0 +1,14 @@
+# Lab 6 bonus — compter les requêtes en échec, et non les spans en erreur.
+#
+# S'empile sur 60-otel-metrics-values.yaml : Helm fusionne les maps, donc la
+# métrique ci-dessous s'ajoute à app.spans.errors sans la remplacer. Rien
+# d'autre à redéclarer — ni les pipelines, ni deltatocumulative.
+opentelemetry-collector:
+  config:
+    connectors:
+      count:
+        spans:
+          app.requests.errors:
+            description: "Number of failed server requests"
+            conditions:
+              - status.code == STATUS_CODE_ERROR and kind == SPAN_KIND_SERVER
