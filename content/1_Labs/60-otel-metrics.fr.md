@@ -443,12 +443,12 @@ Relevé sur une de ces traces : **9 spans, dont 8 en erreur** — 3 dans `review
 
 Le neuvième span, celui de la base de `product-catalog`, n'est **pas** en erreur : la requête SQL s'est exécutée normalement, elle n'a simplement rien trouvé. Un échec **métier** ne devient une erreur **technique** qu'à l'endroit où du code décide de lever une exception — ici, dans `review-service`.
 
-C'est le point à retenir sur cette métrique : elle mesure la **propagation** d'une panne à travers le système, pas le nombre de requêtes ratées. Pour compter des requêtes, il faudrait ne retenir que les spans **serveur** — un seul par service et par requête. C'est l'objet du [Lab 6 bonus]({{% relref "61-otel-metrics-bonus.fr.md" %}}), qui l'ajoute en quatre lignes de YAML.
+C'est le point à retenir sur cette métrique : elle mesure la **propagation** d'une panne à travers le système, pas le nombre de requêtes ratées. Pour compter des requêtes, il faudrait ne retenir que les spans **serveur** — un seul par service et par requête. C'est l'objet de la [dernière section du Lab 6 bonus]({{% relref "61-otel-metrics-bonus.fr.md" %}}#6-compter-des-requêtes-plutôt-que-des-spans), qui l'ajoute en quatre lignes de YAML.
 {{% /expand%}}
 
 > 💡 **Si vous revenez sur cette métrique plus tard, elle aura disparu.** Elle n'est alimentée que lorsqu'une erreur survient, et une requête instantanée ne regarde que les cinq dernières minutes. Vos données sont pourtant bien là : ouvrez l'onglet **Graph** sur la dernière heure, ou demandez la dernière valeur connue avec `last_over_time(app_spans_errors_total[1h])`.
 >
-> Le pourquoi — delta, cumulative, et ce que le collecteur garde en mémoire — est dans le [Lab 6 bonus]({{% relref "61-otel-metrics-bonus.fr.md" %}}).
+> Le pourquoi — delta, cumulative, et ce que le collecteur garde en mémoire — ouvre le [Lab 6 bonus]({{% relref "61-otel-metrics-bonus.fr.md" %}}).
 
 ## Livrable
 
