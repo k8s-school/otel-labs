@@ -414,7 +414,50 @@ curl -s -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "?", "userEmail": "x@example.com", "userName": "X"}'
 ```
 
-Dans Prometheus, cherchez `app_spans_errors_total` : votre première métrique **dérivée des traces**, sans une ligne de code.
+Dans Prometheus, cherchez `app_spans_errors_total` : votre première métrique **dérivée des traces**, sans une ligne de code. Ventilez-la par service :
+
+```promql
+sum by (service_name) (app_spans_errors_total)
+```
+
+Votre unique requête a fait monter la série de `review-service` de **3**. Pourquoi pas de 1 ?
+
+{{%expand "Réponse" %}}
+Parce que le connector compte des **spans**, pas des requêtes. L'exception remonte toute la pile d'appels, et chaque span qu'elle traverse se termine en erreur :
+
+```text
+POST /api/reviews          🔴 500   le span serveur
+└── product-catalog.lookup 🔴       le span manuel du code (Lab 7)
+    └── GET                🔴 500   l'appel HTTP vers le frontend
+```
+
+**Allez voir la trace dans Jaeger** (`http://$PF_HOST:$UI_PORT/jaeger/ui/`). Dans le panneau de recherche :
+
+* *Service* : `review-service`
+* *Operation* : `POST /api/reviews`
+* *Tags* : `error=true` — c'est ce filtre qui compte, sans lui votre trace se noie parmi les requêtes réussies du générateur.
+
+Cliquez sur **Find Traces** : la vôtre est en tête, marquée d'une pastille rouge. Dépliez-la, et vous constaterez que l'erreur n'est pas restée chez vous. Le `frontend` a été appelé, puis `product-catalog` : eux aussi ont leurs spans en erreur, et le total dépasse largement 3.
+
+Relevé sur une de ces traces : **9 spans, dont 8 en erreur** — 3 dans `review-service`, 4 dans le `frontend`, 1 dans `product-catalog`. `sum(app_spans_errors_total)` monte donc de 8 pour une seule requête, quand la série de votre service ne monte que de 3.
+
+Le neuvième span, celui de la base de `product-catalog`, n'est **pas** en erreur : la requête SQL s'est exécutée normalement, elle n'a simplement rien trouvé. Un échec **métier** ne devient une erreur **technique** qu'à l'endroit où du code décide de lever une exception — ici, dans `review-service`.
+
+C'est le point à retenir sur cette métrique : elle mesure la **propagation** d'une panne à travers le système, pas le nombre de requêtes ratées. Pour compter des requêtes, il faut ne retenir que les spans **serveur** — un seul par service et par requête — ce qui tient dans une condition supplémentaire :
+
+```yaml
+    app.requests.errors:
+      description: "Number of failed server requests"
+      conditions:
+        - status.code == STATUS_CODE_ERROR and kind == SPAN_KIND_SERVER
+```
+
+Vérifié sur le cluster de la formation : trois requêtes en échec donnent alors `app_requests_errors_total{service_name="review-service"} = 3`, là où `app_spans_errors_total` en compte 9.
+{{% /expand%}}
+
+> 💡 **Si vous revenez sur cette métrique plus tard, elle aura disparu.** Elle n'est alimentée que lorsqu'une erreur survient, et une requête instantanée ne regarde que les cinq dernières minutes. Vos données sont pourtant bien là : ouvrez l'onglet **Graph** sur la dernière heure, ou demandez la dernière valeur connue avec `last_over_time(app_spans_errors_total[1h])`.
+>
+> Le pourquoi — delta, cumulative, et ce que le collecteur garde en mémoire — est dans le [Lab 6 bonus]({{% relref "61-otel-metrics-bonus.fr.md" %}}).
 
 ## Livrable
 

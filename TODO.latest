@@ -36,3 +36,25 @@ LAB6 (refonte API OTel, verifiee sur cluster local le 2026-08-24):
   SpanAttribute, AddingSpanAttributes). Cote Micrometer @Timed/@Counted
   marcheraient (aspectjweaver est deja dans le fat jar) mais n'acceptent que
   des tags statiques -> on perdrait la demo attribut/cardinalite.
+
+LAB6 — EXEMPLARS SUR LE CONNECTOR count (à creuser, testé le 2026-08-26
+sur cluster local, chart 0.40.9, collector 0.151.0) :
+- `exemplars: enabled: true` sous `connectors.count` est ACCEPTÉ : le collecteur
+  démarre (il refuse toute clé inconnue) et la clé apparaît bien dans la
+  ConfigMap générée, au même niveau que `spans:`.
+- Mais `query_exemplars` sur `app_spans_errors_total` renvoie 0, après
+  3 requêtes en erreur et un cycle d'export complet.
+- Ce n'est PAS Prometheus : `exemplar-storage` est actif et 569 groupes
+  d'exemplars existent, produits par les SDK des autres services de la démo.
+- Suspect n°1 : le processor `deltatocumulative`, qui reconstruit les points en
+  réagrégeant les deltas et ne reporte probablement pas les exemplars. Il est
+  indispensable dans la chaîne (sans lui Prometheus refuse le delta en HTTP 500),
+  donc le contourner demande de tester autrement : exporter le pipeline metrics
+  vers `debug` (verbosity: detailed) ou `file` AVANT le processor et regarder si
+  les exemplars y sont.
+- Repli qui marche sans exemplar : un data link Grafana sur le panel (mécanisme
+  du lab 5) qui ouvre Jaeger sur les traces en erreur du `service_name` du point
+  cliqué. Pas LA trace, mais la liste des traces fautives en un clic.
+- Volontairement laissé hors du lab : le lab 4.1 traite déjà les exemplars
+  (sur spanmetrics, qui les gère), et ouvrir la question ici sans la refermer
+  juste avant le livrable ne sert personne.
