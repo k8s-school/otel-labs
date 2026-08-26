@@ -337,6 +337,8 @@ Les deux cohabitent sans problème dans une même JVM, comme ici : ce service ex
 
 7.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values, `manifests/60-otel-metrics-values.yaml`. Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
 
+    La [documentation du connector `count`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/connector/countconnector/README.md) donne la structure attendue (`spans:`, puis une entrée par métrique avec ses `conditions:`) ; la condition elle-même s'écrit en **OTTL**, dont les fonctions sont [répertoriées ici](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md).
+
 {{%expand "Réponse" %}}
 Le fichier de référence est [`60-otel-metrics-values.yaml`](../60-otel-metrics-values.yaml). Pour l'utiliser tel quel :
 

@@ -301,8 +301,8 @@ Ouvrez l'URL affichée (`http://localhost:9090` sur un poste individuel) et cher
 ### 3. Écrire le fichier de values qui ajoute les deux receivers
 
 Créez `manifests/30-otel-collector-values.yaml`. Il doit ajouter au collecteur :
-* un receiver **`hostmetrics`** (scrapers `cpu`, `memory`, `load`, `disk`, `network`) ;
-* un receiver **`postgresql`** pointé sur la base de la boutique (service `postgresql:5432`, user `root`, mot de passe `otel`) — celle-là même qu'utilise votre `review-service` ;
+* un receiver **`hostmetrics`** (scrapers `cpu`, `memory`, `load`, `disk`, `network`) — [documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/receiver/hostmetricsreceiver/README.md) ;
+* un receiver **`postgresql`** pointé sur la base de la boutique (service `postgresql:5432`, user `root`, mot de passe `otel`) — celle-là même qu'utilise votre `review-service` — [documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/receiver/postgresqlreceiver/README.md) ;
 * l'extension **`zpages`** (pages de debug du collecteur) ;
 * et il doit **brancher les deux receivers dans le pipeline `metrics`**.
 

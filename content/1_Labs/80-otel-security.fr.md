@@ -71,6 +71,8 @@ Vérifiez : le **log** est masqué (`***@***` dans OpenSearch)... mais les **att
 
 6.  **Écrire la règle OTTL** dans `manifests/80-otel-security-values.yaml` : elle supprime `user.email` et `http.request.header.authorization` de **tous** les spans, et masque les emails dans **tous** les bodies de logs — quel que soit le service, corrigé ou non.
 
+    Deux documentations pour cela : celle du [processor `transform`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/transformprocessor/README.md), qui donne la structure (`trace_statements`, `log_statements`), et la [liste des fonctions OTTL](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md) — `delete_key` et `replace_pattern` sont celles qu'il vous faut.
+
 {{%expand "Réponse" %}}
 Fichier de référence [`80-otel-security-values.yaml`](../80-otel-security-values.yaml). Pour l'utiliser tel quel :
 
