@@ -89,7 +89,13 @@ curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "bagage", "userEmail": "a@b.c", "userName": "A"}'
 ```
 
-Ouvrez la trace `babbaba9e00000000000000000000001` dans Jaeger et dépliez les spans. Relevé sur le cluster de la formation, en ne gardant que les attributs `app.*` :
+> ⚠️ **Jaeger ne trouve pas la trace ? C'est normal une fois sur quatre.** Contrairement à celle de la section 1, cette requête réussit et va vite : elle n'est retenue ni par `keep-errors` ni par `keep-slow`, et tombe donc dans `sample-the-rest` — 25 %. Relancez la commande en changeant le **dernier caractère** du `traceparent` (`…002`, puis `…003`…) jusqu'à ce que Jaeger trouve la trace, et cherchez le nouvel identifiant. Relevé sur le cluster de la formation : huit requêtes envoyées, deux traces conservées.
+>
+> Prenez-en une qui compte **une quinzaine de spans** : une trace de neuf spans a été tranchée avant que les derniers n'arrivent (`decision_wait: 5s`), et il lui manque justement la fin, là où le bagage est le plus parlant.
+>
+> **Renvoyer la requête avec le même `traceparent` ne sert à rien** — c'est la première idée qui vient, et elle ne marche pas. Le tail sampling décide **une fois par `traceId`**, pas par requête : ce qui arrive ensuite sous le même identifiant est un « span tardif » qui suit la décision déjà prise. Mesuré sur le cluster de la formation : douze identifiants rejoués quatre à cinq fois chacun, aucune trace n'a changé de sort. Et Jaeger regrouperait de toute façon toutes ces requêtes en une seule trace, chaque span en plusieurs exemplaires.
+
+Ouvrez la trace dans Jaeger et dépliez les spans. Relevé sur le cluster de la formation, en ne gardant que les attributs `app.*` :
 
 ```text
 review-service   POST /api/reviews          app.review.channel=mobile  app.tenant=acme
