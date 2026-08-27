@@ -41,7 +41,11 @@ Trois mécanismes du chapitre s'y trouvent — lesquels ?
 {{%expand "Réponse" %}}
 * **`@WithSpan`** (annotation) : crée un span `product-catalog.lookup`, enfant automatique du span serveur — équivalent déclaratif de `tracer.spanBuilder(...).startSpan()` ;
 * **`@SpanAttribute` / `Span.current().setAttribute(...)`** : attributs posés sur le span courant ;
-* **`Baggage`** : des paires clé/valeur qui **voyagent avec le contexte** (header W3C `baggage`) vers les services aval — contrairement aux attributs, qui restent sur leur span.
+* **`Baggage`** : des paires clé/valeur — des chaînes, uniquement — qui **voyagent avec le contexte** (header W3C `baggage`) vers les services aval, contrairement aux attributs, qui restent sur leur span.
+
+**Et à quoi sert une valise pareille ?** À faire suivre une information métier que **seul le premier service connaît**. Le cas d'école est le **client** : quand une requête SQL traîne dans `product-catalog`, quatre sauts plus loin, ce service n'a aucun moyen de savoir *pour qui* il travaillait — l'identité du client est restée à l'entrée du système. Posée dans le bagage, elle est disponible partout en aval, et l'on peut enfin poser des questions du genre « montre-moi les requêtes lentes de ce client-là ». Même usage pour un `app.rollout=canary` que l'on veut retrouver sur tous les spans des deux versions.
+
+⚠️ **Vous n'en verrez pourtant aucune trace dans Jaeger, et c'est normal :** le bagage est un canal de **transport**, pas une donnée du span — il circule dans les en-têtes HTTP et ne part jamais vers le collecteur. Le [Lab 7 bonus]({{% relref "71-otel-traces-bonus.fr.md" %}}) le rend visible en trois commandes, et s'en sert pour garder 100 % des traces d'un client donné malgré l'échantillonnage de la partie 2.
 
 Lors du `POST /api/reviews`, le service appelle le **frontend** de la boutique (`GET /api/products/{id}`) : l'agent instrumente ce client HTTP et **propage le contexte** (header `traceparent`) — le frontend rejoint donc *votre* trace.
 {{% /expand%}}
@@ -115,7 +119,7 @@ traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 
 Avant ce standard, chaque outil avait le sien (`b3` chez Zipkin, `uber-trace-id` chez Jaeger) : deux services instrumentés avec des produits différents ne pouvaient pas partager une trace.
 
-Quant au bagage `app.review.channel=web`, il a lui aussi voyagé dans les headers (il n'apparaît pas sur les spans : c'est un canal de transport, pas une donnée stockée — un processor peut le copier en attribut si besoin).
+Quant au bagage `app.review.channel=web`, il a lui aussi voyagé dans les headers, aux côtés du `traceparent` — et vous ne le voyez nulle part, pour la raison dite à l'étape 1 : c'est un canal de transport, pas une donnée stockée. Pour le voir descendre jusqu'au span `INSERT otel`, il faut demander à l'agent de le recopier en attribut : c'est le [Lab 7 bonus]({{% relref "71-otel-traces-bonus.fr.md" %}}), une variable d'environnement et un `curl`.
 {{% /expand%}}
 
 > 💡 Le span `INSERT otel` est un span **client** (côté `review-service`) : vous ne trouverez **aucun span côté PostgreSQL**. La base n'est pas instrumentée et le protocole SQL ne transporte pas `traceparent` — la trace s'arrête à la base, qui est une **feuille**. La propagation ne marche qu'entre services instrumentés (ici `review-service` → `frontend` → `product-catalog`).
@@ -299,6 +303,10 @@ Relevé sur le cluster de la formation : **~17 spans/s → ~6 spans/s**, soit l'
 
 En production, on placerait donc le connector `spanmetrics` **avant** le tail sampling (deux pipelines chaînés) : les métriques restent exactes, seul le stockage des traces est réduit.
 {{% /expand%}}
+
+## Pour aller plus loin
+
+* [**Lab 7 bonus — Voir le bagage, et s'en servir**]({{% relref "71-otel-traces-bonus.fr.md" %}}) — rendre visible ce que ce lab ne fait qu'affirmer, puis garder 100 % des traces d'un client donné avec une quatrième politique de tail sampling.
 
 ## Livrable
 

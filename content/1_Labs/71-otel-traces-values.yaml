@@ -1,0 +1,44 @@
+# Lab 7 bonus: keep every trace of one tenant, whatever the sampling rate.
+# Stack on top of the previous labs values:
+#   helm upgrade otel-demo open-telemetry/opentelemetry-demo --version 0.40.9 -n otel-demo \
+#     -f manifests/values-training.yaml \
+#     -f content/1_Labs/30-otel-collector-values.yaml \
+#     -f content/1_Labs/60-otel-metrics-values.yaml \
+#     -f content/1_Labs/71-otel-traces-values.yaml
+#
+# Note this file does NOT stack on top of 70-otel-traces-values.yaml: it
+# replaces it. Helm merges maps, but a list is replaced wholesale - stacking a
+# file holding only keep-tenant-acme would drop the three policies of lab 7.
+# Hence the four policies below.
+#
+# This only works because the java agent copies the baggage into span
+# attributes; without OTEL_JAVA_EXPERIMENTAL_SPAN_ATTRIBUTES_COPY_FROM_BAGGAGE_INCLUDE
+# no span carries app.tenant, and keep-tenant-acme never matches anything.
+opentelemetry-collector:
+  config:
+    processors:
+      tail_sampling:
+        decision_wait: 5s
+        policies:
+          # New in this bonus: 100% of the traces of one tenant.
+          - name: keep-tenant-acme
+            type: string_attribute
+            string_attribute:
+              key: app.tenant
+              values: [acme]
+          - name: keep-errors
+            type: status_code
+            status_code:
+              status_codes: [ERROR]
+          - name: keep-slow
+            type: latency
+            latency:
+              threshold_ms: 1000
+          - name: sample-the-rest
+            type: probabilistic
+            probabilistic:
+              sampling_percentage: 25
+    service:
+      pipelines:
+        traces:
+          processors: [memory_limiter, resourcedetection, resource, transform, tail_sampling, batch]
