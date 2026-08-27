@@ -42,7 +42,11 @@ curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "fuite", "userEmail": "leak@example.com", "userName": "Leaky User"}'
 ```
 
-3.  **Chercher la fuite.** Dans Jaeger, ouvrez la trace `POST /api/reviews` : que voyez-vous dans les attributs ? Dans Grafana/OpenSearch, cherchez `leak@example.com`.
+3.  **Chercher la fuite.** Dans Jaeger, ouvrez la trace `POST /api/reviews` : que voyez-vous dans les attributs ? Puis cherchez l'email dans les logs — depuis Grafana (*Explore*, datasource `webstore-logs`), ou directement sur l'API d'OpenSearch :
+
+```bash
+curl -s "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22leak@example.com%22&_source=body&pretty"
+```
 
 {{%expand "Réponse" %}}
 * Span `POST /api/reviews` → attributs `user.email = leak@example.com` et `http.request.header.authorization = Bearer eyJ...` : **le token JWT complet est dans Jaeger**. Quiconque accède à l'UI peut le rejouer.
@@ -163,10 +167,16 @@ Dans Jaeger : la nouvelle trace `POST /api/reviews` n'a **plus** ni `user.email`
 
 La trace est propre alors que le code est fautif : le filet a retenu. C'est ce que vous voulez le jour où la faute vient d'un service que vous ne pouvez pas corriger.
 
-> ⚠️ **Mais lisez le log en entier.** Relevé sur le cluster de la formation, après masquage :
+> ⚠️ **Mais lisez le log en entier.** Demandez à OpenSearch les derniers messages, sans filtrer sur l'email cette fois — il est masqué, il ne sert plus à retrouver quoi que ce soit :
+>
+> ```bash
+> curl -s "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22Creating%20review%22&sort=@timestamp:desc&size=1&_source=body&pretty"
+> ```
+>
+> Relevé sur le cluster de la formation :
 >
 > ```text
-> Creating review for product OLJCESPC7Z by Jean Dupont <***@***>
+> "body" : "Creating review for product OLJCESPC7Z by Jean Dupont <***@***>"
 > ```
 >
 > L'email est masqué, **le nom ne l'est pas** — et c'est une donnée personnelle au même titre. Le collecteur ne sait masquer que ce qui a une **forme reconnaissable** : un email a un `@`, un IBAN un préfixe, une carte bancaire seize chiffres. « Jean Dupont » ressemble à n'importe quelle suite de mots, et le motif qui l'attraperait masquerait aussi « Creating review ».
