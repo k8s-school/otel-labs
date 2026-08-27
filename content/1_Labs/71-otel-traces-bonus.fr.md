@@ -211,8 +211,6 @@ sampled="false"  271       toutes les autres traces du cluster
 >   frontend        : 4 spans, aucun attribut
 >   product-catalog : 2 spans, aucun attribut
 > ```
->
-> Placez donc la copie sur le service **d'entrée**, celui qui voit passer toutes les requêtes.
 
 C'est la boucle complète du chapitre : une valeur métier connue **du seul service d'entrée** voyage par le bagage, se dépose en attribut sur les spans, et devient ainsi un critère de décision pour le collecteur. Sans elle, la seule façon de garder les traces d'un client serait de monter l'échantillonnage pour tout le monde.
 
