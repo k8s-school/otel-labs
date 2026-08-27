@@ -193,5 +193,18 @@ redeploy_with_agent
 NET_START_US=$(($(date +%s%N) / 1000))
 assert_clean_trace_after "$NET_START_US" "collector-mask@example.com" "collector-mask"
 
-echo "Lab 8 OK: leak demonstrated, fixed in the code, and still caught by the"
-echo "          collector once the faulty code is back"
+# The collector masks the email but NOT the user name - it can only match what
+# has a shape, and a name has none. The lab says so; check it stays true.
+# Sort by timestamp: without it OpenSearch returns arbitrary hits, and the
+# check would pass or fail depending on which ones came back.
+sleep 10
+NAME_HITS=$(curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22Creating%20review%22&size=20&sort=@timestamp:desc")
+if ! grep -q "Lab8 User" <<< "$NAME_HITS"; then
+    echo "ERROR: the user name no longer reaches the logs - lab 8 claims it does"
+    echo "       (the box on what a collector cannot mask needs updating)"
+    exit 1
+fi
+
+echo "Lab 8 OK: leak demonstrated, fixed in the code, still caught by the"
+echo "          collector once the faulty code is back - and the user name"
+echo "          still gets through, as the lab warns"

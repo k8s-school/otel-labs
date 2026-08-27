@@ -163,6 +163,18 @@ Dans Jaeger : la nouvelle trace `POST /api/reviews` n'a **plus** ni `user.email`
 
 La trace est propre alors que le code est fautif : le filet a retenu. C'est ce que vous voulez le jour où la faute vient d'un service que vous ne pouvez pas corriger.
 
+> ⚠️ **Mais lisez le log en entier.** Relevé sur le cluster de la formation, après masquage :
+>
+> ```text
+> Creating review for product OLJCESPC7Z by Jean Dupont <***@***>
+> ```
+>
+> L'email est masqué, **le nom ne l'est pas** — et c'est une donnée personnelle au même titre. Le collecteur ne sait masquer que ce qui a une **forme reconnaissable** : un email a un `@`, un IBAN un préfixe, une carte bancaire seize chiffres. « Jean Dupont » ressemble à n'importe quelle suite de mots, et le motif qui l'attraperait masquerait aussi « Creating review ».
+>
+> Voilà la vraie limite du filet, et la raison pour laquelle l'étape 4 reste la correction principale : le code, lui, **sait** que ce champ est un nom.
+>
+> **Sauf si le log est structuré.** Le vrai problème n'est pas le nom, c'est qu'il est **noyé dans une phrase**. Écrit comme un champ à part — `user.name` dans les attributs du log plutôt que dans le texte — il redevient adressable par sa clé, et le collecteur le supprime comme il supprime `user.email` des spans à l'étape 5 : `delete_key(log.attributes, "user.name")`, sans rien avoir à reconnaître. Une raison de plus de structurer ses logs.
+
 7.  **Et dans un vrai projet, on fait les deux.** Le filet n'est pas une excuse : la PII a bel et bien quitté le processus, traversé le réseau, et n'a été arrêtée qu'au collecteur — un maillon qui peut être mal configuré, contourné par un service qui exporte ailleurs, ou remis à zéro par un `helm upgrade` malheureux. La correction de l'étape 4 reste donc la première chose à faire ; ce lab la laisse de côté uniquement pour que la démonstration ci-dessus soit visible.
 
 C'est la **défense en profondeur** : le code ne produit pas la donnée, et le collecteur protège ce que le code ne couvre pas — les autres services, l'instrumentation automatique, et la faute qui reviendra un jour.
