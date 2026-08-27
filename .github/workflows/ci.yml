@@ -96,7 +96,11 @@ jobs:
         run: ./content/1_Labs/50-otel-logs-solution.sh
       - name: Run lab 6 (business metrics)
         run: ./content/1_Labs/60-otel-metrics-solution.sh
+      - name: Run lab 6 bonus (failed requests vs spans in error)
+        run: ./content/1_Labs/61-otel-metrics-bonus-solution.sh
       - name: Run lab 7 (manual traces and tail sampling)
         run: ./content/1_Labs/70-otel-traces-solution.sh
+      - name: Run lab 7 bonus (baggage made visible, sampling per tenant)
+        run: ./content/1_Labs/71-otel-traces-bonus-solution.sh
       - name: Run lab 8 (PII masking)
         run: ./content/1_Labs/80-otel-security-solution.sh
