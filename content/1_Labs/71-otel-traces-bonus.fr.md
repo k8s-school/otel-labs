@@ -224,7 +224,9 @@ Deux propriétés du bagage à ne pas oublier, et elles annoncent le [Lab 8]({{%
 
 **Il voyage vers tout l'aval, sans exception.** Chaque service instrumenté le repropage au suivant, y compris vers des API tierces si votre code en appelle. N'y mettez donc **jamais** de donnée personnelle ni de secret : ce serait publier un e-mail ou un jeton dans un en-tête HTTP, chez des gens qui ne l'ont pas demandé — la faute que le Lab 8 corrige sur les attributs, en pire, puisqu'elle sort de votre système. Restez sur des étiquettes courtes et anodines, ce qui tombe bien : 8 Ko et 64 entrées, pas davantage.
 
-## 6. Revenir à l'état du Lab 7
+## 6. Désactiver la copie du bagage, et revenir à la politique du Lab 7
+
+Deux commandes, une par changement fait dans cette page : la première retire la copie du bagage vers les attributs de span, la seconde réapplique les trois politiques du Lab 7 — donc retire `keep-tenant-acme`.
 
 ```bash
 kubectl set env -n otel-demo deployment/review-service \
