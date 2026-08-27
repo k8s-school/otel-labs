@@ -212,7 +212,7 @@ sampled="false"  271       toutes les autres traces du cluster
 >   product-catalog : 2 spans, aucun attribut
 > ```
 >
-> Placez donc la copie sur le service **d'entrée**, celui qui voit passer toutes les requêtes. Ce qui ne marchera pas pour autant : chercher dans Jaeger « les spans lents de `product-catalog` pour le client acme », ou ventiler une métrique par client en aval. Ces deux-là exigent l'attribut sur les spans **de ce service-là** — donc la variable activée aussi sur lui.
+> Placez donc la copie sur le service **d'entrée**, celui qui voit passer toutes les requêtes.
 
 C'est la boucle complète du chapitre : une valeur métier connue **du seul service d'entrée** voyage par le bagage, se dépose en attribut sur les spans, et devient ainsi un critère de décision pour le collecteur. Sans elle, la seule façon de garder les traces d'un client serait de monter l'échantillonnage pour tout le monde.
 
