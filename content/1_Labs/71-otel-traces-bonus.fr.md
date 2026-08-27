@@ -23,15 +23,34 @@ bagage   :  code → contexte → en-tête HTTP → service suivant   (invisible
 
 D'où le silence du Lab 7. Le mécanisme fonctionne pourtant, et pour le prouver il faut faire passer le bagage du premier rail au second — c'est exactement ce que fait la section suivante.
 
-**« Mais le bagage n'est vraiment pas envoyé au collecteur ? »** Vraiment pas, et pour une raison qui n'est pas un oubli du protocole. Le format OTLP décrit un span par son nom, ses attributs, ses événements, son statut — il n'a **aucun champ** pour un bagage. Et il ne pourrait pas en avoir un utilement : le bagage appartient à **une requête**, alors que l'exporter envoie des **lots** de spans issus de milliers de requêtes différentes. Un en-tête `baggage` sur la connexion d'export n'aurait rien à désigner.
+**« Mais le bagage n'est vraiment pas envoyé au collecteur ? »** Non : **OTLP ne transporte pas le bagage**. Le protocole décrit un span par son nom, ses attributs, ses événements, son statut — il n'a aucun champ pour ça.
 
-La vérification tient en une requête. Retirez la copie de la section 2, renvoyez le `curl` de la section 3, et regardez le span serveur dans Jaeger — relevé sur le cluster de la formation :
+Et une copie automatique serait coûteuse. Recopier toutes les clés du bagage sur **chaque** span d'une trace multiplie la donnée stockée ; et un bagage peut contenir ce qu'un service amont y a mis, y compris ce que vous ne tenez pas à garder six mois dans Jaeger.
 
-```text
-POST /api/reviews   21 attributs, dont app.tenant : aucun, app.review.channel : aucun
+D'où la règle : **ce que vous voulez voir dans les traces, vous l'y mettez explicitement**, clé par clé. C'est exactement ce que demande la variable de la section suivante — elle ne copie que les clés que vous nommez.
+
+**Constatez-le tout de suite**, avant d'avoir rien changé. Envoyez une requête portant un bagage bien visible :
+
+```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+curl -s -o /dev/null -X POST http://$PF_HOST:$APP_PORT/api/reviews \
+  -H "Content-Type: application/json" \
+  -H "traceparent: 00-babbaba9e00000000000000000000009-00f067aa0ba902b7-01" \
+  -H "baggage: app.tenant=acme,app.review.channel=mobile" \
+  -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "sans copie", "userEmail": "a@b.c", "userName": "A"}'
 ```
 
-Vingt et un attributs, et pas une trace des deux clés pourtant envoyées dans l'en-tête `baggage` de la requête. Ce qui n'a pas été copié en attribut **dans le processus émetteur** n'existe nulle part en aval.
+Le produit `DOESNOTEXIST` n'existe pas, et c'est voulu : la requête échoue, or `keep-errors` (Lab 7) conserve **100 %** des traces en erreur. La vôtre sera donc bien là, sans dépendre du tirage à 25 %.
+
+Cherchez `babbaba9e00000000000000000000009` dans le champ **Trace ID** de Jaeger, ouvrez le span `POST /api/reviews` et dépliez ses *Tags*. Relevé sur le cluster de la formation :
+
+```text
+21 attributs sur le span serveur
+   app.tenant         : absent
+   app.review.channel : absent
+```
+
+Vingt et un attributs, et pas un seul ne vient des deux clés pourtant envoyées dans l'en-tête `baggage`. Ce qui n'a pas été copié en attribut **dans le processus émetteur** n'existe nulle part en aval.
 
 Conséquence pratique, et elle surprend : **aucun processor du collecteur ne peut récupérer un bagage**, puisqu'il ne lui arrive jamais. La conversion bagage → attribut se fait toujours du côté de l'application — par la variable d'environnement de la section suivante, ou par un `BaggageSpanProcessor` ajouté au SDK.
 

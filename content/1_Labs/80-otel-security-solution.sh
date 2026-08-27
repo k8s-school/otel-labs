@@ -1,8 +1,13 @@
 #!/bin/bash
 
-# Lab 8 solution: PII leak, then masking at the SDK level (logs) and at the
-# collector level (spans + logs).
-# Assumes labs 1-7 are done.
+# Lab 8 solution: PII leak, fixed at the source, then netted at the collector.
+# Assumes labs 1-7 are done - the application is the one lab 7 left running,
+# java agent included. No starter build here: the leak comes from our own
+# code, so the fix is our own code.
+#
+# Part 2 edits ReviewController.java the way the lab asks the reader to, and
+# puts it back afterwards (the file is restored from a copy, not from git, so
+# a dirty working tree is left alone).
 #
 # EXTRA_VALUES can carry additional values files (e.g. CI).
 
@@ -13,10 +18,17 @@ NS="otel-demo"
 
 . "$DIR/../../scripts/env.sh"
 
+CONTROLLER="$DIR/../../apps/review-service/src/main/java/fr/k8sschool/reviews/ReviewController.java"
+CONTROLLER_BACKUP=$(mktemp)
+cp "$CONTROLLER" "$CONTROLLER_BACKUP"
+
 APP_PF_PID=""
 PROXY_PF_PID=""
 OS_PF_PID=""
 cleanup() {
+    # The faulty code is the starting point of the lab: always put it back.
+    cp "$CONTROLLER_BACKUP" "$CONTROLLER"
+    rm -f "$CONTROLLER_BACKUP"
     [ -n "$APP_PF_PID" ] && kill "$APP_PF_PID" 2>/dev/null || true
     [ -n "$PROXY_PF_PID" ] && kill "$PROXY_PF_PID" 2>/dev/null || true
     [ -n "$OS_PF_PID" ] && kill "$OS_PF_PID" 2>/dev/null || true
@@ -35,6 +47,16 @@ restart_app_pf() {
     sleep 3
 }
 
+# deploy.sh reapplies the manifest, which drops JAVA_TOOL_OPTIONS: without
+# this the agent stays off and nothing is emitted at all.
+redeploy_with_agent() {
+    "$DIR/../../scripts/deploy.sh"
+    kubectl set env -n "$NS" deployment/review-service \
+        JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
+    kubectl rollout status -n "$NS" deployment/review-service --timeout=180s
+    restart_app_pf
+}
+
 post_review() {
     local email="$1" comment="$2"
     curl -sSf -X POST http://$PF_HOST:$APP_PORT/api/reviews \
@@ -44,9 +66,9 @@ post_review() {
         > /dev/null
 }
 
-# Search Jaeger POST traces for a marker, with retries; sets JAEGER_RESULT
 jaeger_traces() {
-    curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&limit=20"
+    local start="${1:-}"
+    curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&limit=20${start:+&start=$start}"
 }
 
 # NB: tail sampling (lab 7) keeps only ~25% of successful traces, so we
@@ -79,8 +101,40 @@ wait_in_opensearch() {
     return 1
 }
 
-# --- Part 1: the leak (starter build, no masking) ---
-"$DIR/../../scripts/deploy.sh" -p starter
+# A trace posted after $1 must exist, and must not carry the marker. Sets TRACES.
+assert_clean_trace_after() {
+    local start_us="$1" marker="$2" comment="$3"
+    post_review "$marker" "$comment"
+    local found=""
+    for i in $(seq 1 24); do
+        TRACES=$(jaeger_traces "$start_us" || true)
+        if grep -q "traceID" <<< "$TRACES"; then
+            found=yes
+            break
+        fi
+        post_review "$marker" "$comment" || true
+        sleep 5
+    done
+    [ "$found" = "yes" ]
+    if grep -q "$marker" <<< "$TRACES"; then
+        echo "ERROR: $marker leaked into Jaeger"
+        return 1
+    fi
+    if grep -q "SECRET-JWT-TOKEN" <<< "$TRACES"; then
+        echo "ERROR: the JWT leaked into Jaeger"
+        return 1
+    fi
+    # And nothing in the logs either.
+    sleep 20
+    local hits
+    hits=$(curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22${marker}%22")
+    if grep -q "$marker" <<< "$hits"; then
+        echo "ERROR: $marker leaked into OpenSearch"
+        return 1
+    fi
+}
+
+# --- Part 1: the leak, on the application lab 7 left running ---
 restart_app_pf
 post_review "leak@example.com" "leak"
 
@@ -89,26 +143,35 @@ wait_in_jaeger "SECRET-JWT-TOKEN" "leak@example.com" "leak"
 wait_in_jaeger "leak@example.com" "leak@example.com" "leak"
 wait_in_opensearch "leak@example.com"
 
-# --- Part 2: SDK-level masking (logs) ---
-kubectl set env -n "$NS" deployment/review-service MASK_PII=true
-kubectl rollout status -n "$NS" deployment/review-service --timeout=180s
-restart_app_pf
-post_review "sdk-mask@example.com" "sdk-mask"
+# --- Part 2: fix the code that writes the PII ---
+# The three faulty lines of the lab, removed the way the reader is asked to.
+python3 - "$CONTROLLER" << 'PYEOF'
+import re, sys
 
-# The span still leaks (SDK masking only covers logs here)...
-wait_in_jaeger "sdk-mask@example.com" "sdk-mask@example.com" "sdk-mask"
-# ...but the log body is redacted: the marker email never reaches OpenSearch
-sleep 20
-# Capture, then match. Piping into 'grep -q' here would be worse than flaky: a
-# curl killed by EPIPE makes the whole pipeline non-zero, the 'if' false, and the
-# leak check silently passes.
-OS_HITS=$(curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22sdk-mask@example.com%22")
-if grep -q "sdk-mask@example.com" <<< "$OS_HITS"; then
-    echo "ERROR: sdk-mask@example.com leaked into OpenSearch despite SDK masking"
-    exit 1
-fi
+path = sys.argv[1]
+src = open(path).read()
 
-# --- Part 3: collector-level masking (spans + logs), SDK masking off ---
+faulty = '''        Span span = Span.current();
+        span.setAttribute("user.email", String.valueOf(review.getUserEmail()));
+        if (authorization != null) {
+            span.setAttribute("http.request.header.authorization", authorization);
+        }
+        logger.info("Creating review for product {} by {} <{}>",
+                review.getProductId(), review.getUserName(), review.getUserEmail());
+'''
+fixed = '''        logger.info("Creating review for product {}", review.getProductId());
+'''
+if faulty not in src:
+    sys.exit("ERROR: the faulty block is not where the lab says it is - update this script")
+open(path, "w").write(src.replace(faulty, fixed))
+print("ReviewController.java: three faulty lines removed")
+PYEOF
+
+redeploy_with_agent
+FIX_START_US=$(($(date +%s%N) / 1000))
+assert_clean_trace_after "$FIX_START_US" "fixed@example.com" "fixed"
+
+# --- Part 3: the collector net, checked by putting the fault back ---
 helm upgrade "$RELEASE" "$CHART" \
     --version "$CHART_VERSION" \
     --namespace "$NS" \
@@ -121,46 +184,11 @@ helm upgrade "$RELEASE" "$CHART" \
     --timeout 10m
 kubectl rollout status daemonset/otel-collector-agent -n "$NS" --timeout=300s
 
-kubectl set env -n "$NS" deployment/review-service MASK_PII-
-kubectl rollout status -n "$NS" deployment/review-service --timeout=180s
-restart_app_pf
-sleep 5
+# The faulty code is back - as if a colleague had reintroduced it.
+cp "$CONTROLLER_BACKUP" "$CONTROLLER"
+redeploy_with_agent
+NET_START_US=$(($(date +%s%N) / 1000))
+assert_clean_trace_after "$NET_START_US" "collector-mask@example.com" "collector-mask"
 
-# Only look at traces created AFTER the masking was applied: the marker
-# email cannot be used to find them anymore - that is the whole point of
-# the masking. Filter by timestamp instead (Jaeger start is microseconds).
-START_US=$(($(date +%s%N) / 1000))
-post_review "collector-mask@example.com" "collector-mask"
-
-# A post-masking trace must exist...
-found=""
-for i in $(seq 1 24); do
-    TRACES=$(curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&start=$START_US&limit=20" || true)
-    if grep -q "traceID" <<< "$TRACES"; then
-        found=yes
-        break
-    fi
-    post_review "collector-mask@example.com" "collector-mask" || true
-    sleep 5
-done
-[ "$found" = "yes" ]
-
-# ...but without the sensitive attributes (email and Authorization header
-# both deleted by the collector transform)
-if grep -q "collector-mask@example.com" <<< "$TRACES"; then
-    echo "ERROR: collector-mask@example.com leaked into Jaeger despite collector masking"
-    exit 1
-fi
-if grep -q "SECRET-JWT-TOKEN" <<< "$TRACES"; then
-    echo "ERROR: the JWT leaked into Jaeger despite collector masking"
-    exit 1
-fi
-# The marker email must never reach OpenSearch either
-sleep 20
-OS_HITS=$(curl -sS "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22collector-mask@example.com%22")
-if grep -q "collector-mask@example.com" <<< "$OS_HITS"; then
-    echo "ERROR: collector-mask@example.com leaked into OpenSearch despite collector masking"
-    exit 1
-fi
-
-echo "Lab 8 OK: PII leak demonstrated, then masked at SDK and collector levels"
+echo "Lab 8 OK: leak demonstrated, fixed in the code, and still caught by the"
+echo "          collector once the faulty code is back"

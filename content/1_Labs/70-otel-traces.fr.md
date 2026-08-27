@@ -43,9 +43,11 @@ Trois mécanismes du chapitre s'y trouvent — lesquels ?
 * **`@SpanAttribute` / `Span.current().setAttribute(...)`** : attributs posés sur le span courant ;
 * **`Baggage`** : des paires clé/valeur — des chaînes, uniquement — qui **voyagent avec le contexte** (header W3C `baggage`) vers les services aval, contrairement aux attributs, qui restent sur leur span.
 
-**Et à quoi sert une valise pareille ?** À faire suivre une information métier que **seul le premier service connaît**. Le cas d'école est le **client** : quand une requête SQL traîne dans `product-catalog`, quatre sauts plus loin, ce service n'a aucun moyen de savoir *pour qui* il travaillait — l'identité du client est restée à l'entrée du système. Posée dans le bagage, elle est disponible partout en aval, et l'on peut enfin poser des questions du genre « montre-moi les requêtes lentes de ce client-là ». Même usage pour un `app.rollout=canary` que l'on veut retrouver sur tous les spans des deux versions.
-
-⚠️ **Vous n'en verrez pourtant aucune trace dans Jaeger, et c'est normal :** le bagage est un canal de **transport**, pas une donnée du span — il circule dans les en-têtes HTTP et ne part jamais vers le collecteur. Le [Lab 7 bonus]({{% relref "71-otel-traces-bonus.fr.md" %}}) le rend visible en trois commandes, et s'en sert pour garder 100 % des traces d'un client donné malgré l'échantillonnage de la partie 2.
+> 💡 **À quoi sert une valise pareille ?** À **transporter** une information que seul le premier service connaît vers tous ceux qu'il appelle.
+>
+> Le cas d'école est l'identité du client. Elle arrive à l'entrée du système, puis se perd : quand une requête SQL traîne dans `product-catalog`, quatre sauts plus loin, ce service n'a aucun moyen de savoir *pour qui* il travaillait — personne ne la lui a transmise. Il faudrait sinon l'ajouter à chaque appel, dans chaque signature de méthode, de bout en bout. Le bagage fait ce transport tout seul : `app.tenant=acme` posé à l'entrée arrive tel quel dans chaque service en aval, sans toucher à aucune API.
+>
+> ⚠️ **Mais transporter n'est pas enregistrer.** Le bagage circule dans les en-têtes HTTP et vit dans la mémoire des services traversés ; il ne part **jamais** vers le collecteur. Vous n'en verrez donc rien dans Jaeger, et c'est normal. Pour qu'une trace le porte, un service doit le **recopier en attribut** sur ses spans — un geste explicite et volontaire. C'est ce que fait le [Lab 7 bonus]({{% relref "71-otel-traces-bonus.fr.md" %}}) en trois commandes, et c'est seulement à ce moment-là qu'on peut demander « montre-moi les requêtes lentes du client acme », ou garder 100 % de ses traces malgré l'échantillonnage de la partie 2.
 
 Lors du `POST /api/reviews`, le service appelle le **frontend** de la boutique (`GET /api/products/{id}`) : l'agent instrumente ce client HTTP et **propage le contexte** (header `traceparent`) — le frontend rejoint donc *votre* trace.
 {{% /expand%}}
