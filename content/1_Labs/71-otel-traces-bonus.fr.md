@@ -78,40 +78,32 @@ C'est le pont entre les deux rails du schéma ci-dessus : à partir de maintenan
 
 ## 3. L'expérience
 
-Une seule requête, avec deux en-têtes fabriqués à la main — un `traceparent` pour retrouver la trace tout de suite, un `baggage` qui joue le rôle du service appelant :
+Une seule requête, avec deux en-têtes fabriqués à la main — un `traceparent` pour retrouver la trace tout de suite, un `baggage` qui joue le rôle du service appelant. Comme à la section 1, le produit n'existe pas : la requête échoue, `keep-errors` la conserve à coup sûr, et vous n'avez pas à courir après le tirage à 25 %.
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
-  -H "traceparent: 00-babbaba9e00000000000000000000001-00f067aa0ba902b7-01" \
+  -H "traceparent: 00-babbaba9e00000000000000000000010-00f067aa0ba902b7-01" \
   -H "baggage: app.tenant=acme,app.review.channel=mobile" \
-  -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "bagage", "userEmail": "a@b.c", "userName": "A"}'
+  -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "bagage", "userEmail": "a@b.c", "userName": "A"}'
 ```
 
-> ⚠️ **Jaeger ne trouve pas la trace ? C'est normal une fois sur quatre.** Contrairement à celle de la section 1, cette requête réussit et va vite : elle n'est retenue ni par `keep-errors` ni par `keep-slow`, et tombe donc dans `sample-the-rest` — 25 %. Relancez la commande en changeant le **dernier caractère** du `traceparent` (`…002`, puis `…003`…) jusqu'à ce que Jaeger trouve la trace, et cherchez le nouvel identifiant. Relevé sur le cluster de la formation : huit requêtes envoyées, deux traces conservées.
->
-> Prenez-en une qui compte **une quinzaine de spans** : une trace de neuf spans a été tranchée avant que les derniers n'arrivent (`decision_wait: 5s`), et il lui manque justement la fin, là où le bagage est le plus parlant.
->
-> **Renvoyer la requête avec le même `traceparent` ne sert à rien** — c'est la première idée qui vient, et elle ne marche pas. Le tail sampling décide **une fois par `traceId`**, pas par requête : ce qui arrive ensuite sous le même identifiant est un « span tardif » qui suit la décision déjà prise. Mesuré sur le cluster de la formation : douze identifiants rejoués quatre à cinq fois chacun, aucune trace n'a changé de sort. Et Jaeger regrouperait de toute façon toutes ces requêtes en une seule trace, chaque span en plusieurs exemplaires.
-
-Ouvrez la trace dans Jaeger et dépliez les spans. Relevé sur le cluster de la formation, en ne gardant que les attributs `app.*` :
+Ouvrez `babbaba9e00000000000000000000010` dans Jaeger et dépliez les spans. Relevé sur le cluster de la formation, en ne gardant que les deux clés du bagage :
 
 ```text
-review-service   POST /api/reviews          app.review.channel=mobile  app.tenant=acme
-review-service   product-catalog.lookup     app.review.channel=web     app.tenant=acme
-review-service   GET                        app.review.channel=web     app.tenant=acme
+review-service   POST /api/reviews                  app.review.channel=mobile  app.tenant=acme
+review-service   product-catalog.lookup             app.review.channel=web     app.tenant=acme
+review-service   GET                                app.review.channel=web     app.tenant=acme
 frontend         GET /api/products/{productId}      (aucun)
+frontend         …trois autres spans                (aucun)
 product-catalog  ProductCatalogService/GetProduct   (aucun)
-review-service   ReviewRepository.save      app.review.channel=web     app.tenant=acme
-review-service   Session.persist …          app.review.channel=web     app.tenant=acme
-review-service   INSERT otel                app.review.channel=web     app.tenant=acme
-review-service   Transaction.commit         app.review.channel=web     app.tenant=acme
+product-catalog  postgresql                         (aucun)
 ```
 
 Trois choses s'y lisent, et aucune n'était visible au Lab 7.
 
-**`app.tenant=acme` descend jusqu'au span JDBC.** Personne n'a écrit cette valeur dans le code : elle est entrée par un en-tête HTTP, et elle ressort quatre couches plus bas, sur un span créé par le module JDBC de l'agent — du code qui n'a jamais entendu parler de « tenant ». C'est **toute** la différence avec un attribut : `Span.current().setAttribute(...)` ne marque que le span courant, le bagage marque tout ce qui suit dans le contexte.
+**Le bagage marque des spans que personne n'a écrits.** `app.tenant=acme` est entré par un en-tête HTTP, et il ressort sur `GET` — le span du client HTTP, créé par un module de l'agent, dans du code qui n'a jamais entendu parler de « tenant ». C'est **toute** la différence avec un attribut : `Span.current().setAttribute(...)` ne marque que le span courant, le bagage marque tout ce qui suit dans le contexte.
 
 **`mobile`, puis `web`.** Le span serveur porte la valeur envoyée par le client ; tous les suivants portent `web`. Entre les deux, il s'est passé ceci, à la ligne 114 de `ReviewController.java` :
 
@@ -127,6 +119,8 @@ Vous voyez donc **une ligne de code agir**, et vous voyez sa portée : le `try` 
 **Le `frontend` ne montre rien.** L'en-tête `baggage` lui est pourtant bien envoyé — le propagateur par défaut de l'agent est `tracecontext,baggage`, les deux partent ensemble. Mais le `frontend` est en Node.js, et personne n'y a activé de copie vers les attributs : il reçoit le bagage, le repropage à `product-catalog`, et n'en dit rien. **La copie en attributs est une décision par service**, pas une propriété de la trace.
 
 > 💡 Sans la variable de la section 2, cette même requête donne exactement la trace du Lab 7 : aucun `app.tenant`, aucun `app.review.channel`, nulle part. Le bagage voyageait déjà — c'est le regard qui manquait.
+
+Cette trace s'arrête tôt : le produit n'existant pas, la requête n'a jamais atteint la base. La section suivante montrera la même chose sur une requête **réussie**, où le bagage descend deux couches plus bas encore.
 
 ## 4. À quoi ça sert : garder les traces d'un client
 
@@ -173,6 +167,30 @@ Dans Jaeger, cherchez l'opération `GET /api/reviews` avec le tag `app.tenant=ac
 app.tenant=acme    : 20 traces   ← les 20, sans exception
 app.tenant=globex  :  4 traces   ← ~25 %, le tirage ordinaire
 ```
+
+**Et la trace complète, promise à la section 3.** La requête en erreur s'arrêtait avant la base ; maintenant que les traces `acme` sont toutes conservées, une requête **réussie** se retrouve à coup sûr, et le bagage y descend deux couches plus bas :
+
+```bash
+curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
+  -H "Content-Type: application/json" \
+  -H "traceparent: 00-babbaba9e00000000000000000000011-00f067aa0ba902b7-01" \
+  -H "baggage: app.tenant=acme,app.review.channel=mobile" \
+  -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "complet", "userEmail": "a@b.c", "userName": "A"}'
+```
+
+```text
+review-service   POST /api/reviews          app.review.channel=mobile  app.tenant=acme
+review-service   product-catalog.lookup     app.review.channel=web     app.tenant=acme
+review-service   GET                        app.review.channel=web     app.tenant=acme
+frontend         …quatre spans              (aucun)
+product-catalog  …deux spans                (aucun)
+review-service   ReviewRepository.save      app.review.channel=web     app.tenant=acme
+review-service   Session.persist …          app.review.channel=web     app.tenant=acme
+review-service   INSERT otel                app.review.channel=web     app.tenant=acme   ← quatre couches plus bas
+review-service   Transaction.commit         app.review.channel=web     app.tenant=acme
+```
+
+`app.tenant` figure sur le span de l'`INSERT`, créé par le module JDBC de l'agent — du code qui ignore tout de vos clients, et qui n'a jamais reçu cette valeur autrement que par le contexte.
 
 Le compteur du processor dit la même chose, sans compter de lignes à l'écran :
 
