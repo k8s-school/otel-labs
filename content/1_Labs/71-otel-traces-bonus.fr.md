@@ -33,7 +33,7 @@ D'où la règle : **ce que vous voulez voir dans les traces, vous l'y mettez exp
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
-curl -s -o /dev/null -X POST http://$PF_HOST:$APP_PORT/api/reviews \
+curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -H "traceparent: 00-babbaba9e00000000000000000000009-00f067aa0ba902b7-01" \
   -H "baggage: app.tenant=acme,app.review.channel=mobile" \
@@ -74,13 +74,7 @@ kubectl rollout status deployment/review-service -n otel-demo
 
 C'est le pont entre les deux rails du schéma ci-dessus : à partir de maintenant, ce qui est dans le bagage se retrouve **aussi** sur les spans.
 
-> ⚠️ **Laissez passer quelques secondes avant le premier `curl`.** Changer une variable d'environnement remplace le pod, et le `kubectl port-forward` qui vous donne accès au `review-service` était accroché à l'**ancien** — il meurt avec lui. Le superviseur de `./scripts/open-ui.sh` le rétablit tout seul en quelques secondes, mais entre-temps vos requêtes n'arrivent nulle part. Et elles échouent **en silence** : avec `-s -o /dev/null`, `curl` n'affiche rien du tout. Le réflexe, si une trace attendue reste introuvable, est donc de vérifier d'abord que la requête est bien passée :
->
-> ```bash
-> curl -s -o /dev/null -w "%{http_code}\n" http://$PF_HOST:$APP_PORT/api/reviews
-> ```
->
-> `200` : tout va bien. `000` : le port-forward n'est pas encore revenu, patientez et recommencez.
+> ⚠️ **Laissez passer quelques secondes avant le premier `curl`.** Changer une variable d'environnement remplace le pod, et le `kubectl port-forward` qui vous donne accès au `review-service` était accroché à l'**ancien** : il meurt avec lui. Si `curl` répond `Failed to connect`, c'est cela — le superviseur de `./scripts/open-ui.sh` rétablit l'accès tout seul, attendez quelques secondes et recommencez.
 
 ## 3. L'expérience
 
@@ -88,7 +82,7 @@ Une seule requête, avec deux en-têtes fabriqués à la main — un `traceparen
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
-curl -s -o /dev/null -X POST http://$PF_HOST:$APP_PORT/api/reviews \
+curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -H "traceparent: 00-babbaba9e00000000000000000000001-00f067aa0ba902b7-01" \
   -H "baggage: app.tenant=acme,app.review.channel=mobile" \
