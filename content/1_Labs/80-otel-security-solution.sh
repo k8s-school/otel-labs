@@ -5,9 +5,12 @@
 # java agent included. No starter build here: the leak comes from our own
 # code, so the fix is our own code.
 #
-# Part 2 edits ReviewController.java the way the lab asks the reader to, and
-# puts it back afterwards (the file is restored from a copy, not from git, so
-# a dirty working tree is left alone).
+# This script checks MORE than the lab asks a reader to do. The lab presents
+# the code fix as reading plus an optional check, because rebuilding the image
+# costs several minutes in a classroom; here it is done for real - the fix is
+# the point of the lab, so CI must prove it works. Part 2 therefore edits
+# ReviewController.java the way the lab describes, and puts it back afterwards
+# (from a copy, not from git, so a dirty working tree is left alone).
 #
 # EXTRA_VALUES can carry additional values files (e.g. CI).
 

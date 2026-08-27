@@ -6,7 +6,7 @@ weight: 80
 tags: ["OpenTelemetry", "sécurité", "RGPD", "PII", "OTTL"]
 ---
 
-La télémétrie est un **canal de fuite** : tokens, mots de passe, emails s'y retrouvent trop facilement — et un backend d'observabilité est rarement protégé comme la base de production. Dans ce lab, vous **constatez une fuite réelle** (déjà dans le code de `review-service`...), vous la **corrigez là où elle naît**, puis vous posez un **filet** dans le collecteur pour tout ce que votre correction ne peut pas atteindre.
+La télémétrie est un **canal de fuite** : tokens, mots de passe, emails s'y retrouvent trop facilement — et un backend d'observabilité est rarement protégé comme la base de production. Dans ce lab, vous **constatez une fuite réelle** (déjà dans le code de `review-service`...), vous voyez **où elle doit être corrigée**, puis vous posez un **filet** dans le collecteur pour tout ce qu'une correction de code ne peut pas atteindre.
 
 > 🇪🇺 **RGPD** : email, nom, téléphone sont des **données personnelles**. Leur présence dans les traces et les logs crée exactement les mêmes obligations que dans une base de données : droit à l'effacement, durée de conservation limitée, traçabilité des accès.
 >
@@ -16,7 +16,7 @@ La télémétrie est un **canal de fuite** : tokens, mots de passe, emails s'y r
 
 ## Prérequis
 
-* Labs 1 à 7 terminés, agent Java actif sur `review-service` — l'application reste exactement celle du Lab 7, ce lab ne la redéploie qu'après l'avoir corrigée.
+* Labs 1 à 7 terminés, agent Java actif sur `review-service` — l'application reste exactement celle du Lab 7, ce lab ne la reconstruit à aucun moment.
 * **D'abord** les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) et `$PF_HOST`, le nom par lequel vous le joignez.
 * Les accès ouverts (`./scripts/open-ui.sh`) : l'API OpenSearch est sur `http://$PF_HOST:$OS_PORT/`.
 
@@ -53,7 +53,7 @@ Fuites typiques du même genre : payloads complets en attribut, URLs avec `?toke
 
 ### Partie 2 — Corriger là où la fuite naît
 
-4.  **Supprimer les trois lignes fautives** de `ReviewController.java`. Une fuite écrite par votre propre code n'a qu'une seule vraie correction : ne pas l'écrire.
+4.  **La seule vraie correction : ne pas écrire la donnée.** Une fuite produite par votre propre code se règle dans ce code — trois lignes à supprimer dans `ReviewController.java`, et rien d'autre.
 
 ```java
 // AVANT — trois fautes
@@ -71,24 +71,21 @@ logger.info("Creating review for product {}", review.getProductId());
 
 L'identifiant produit reste : il est utile en cas d'incident et n'identifie personne. Ce qui part, c'est ce qui n'aurait jamais dû être écrit.
 
-5.  **Reconstruire et rejouer** avec un nouvel email marqueur :
-
-```bash
-./scripts/deploy.sh
-# deploy.sh repart du manifeste : il faut réactiver l'agent, comme au Lab 5
-kubectl set env -n otel-demo deployment/review-service \
-  JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
-kubectl rollout status -n otel-demo deployment/review-service
-
-curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \
-  -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "fixed", "userEmail": "fixed@example.com", "userName": "Fixed User"}'
-```
-
-> ⚠️ **Sans ces deux lignes, vous ne verriez plus rien du tout** — et vous croiriez la fuite corrigée. `deploy.sh` réapplique le manifeste, qui ne contient pas `JAVA_TOOL_OPTIONS` : l'agent redevient inactif, l'application cesse d'émettre, et Jaeger reste vide pour de mauvaises raisons. Le réflexe du Lab 4 s'applique : une absence de télémétrie se vérifie avant de se célébrer.
-
-Dans Jaeger, la nouvelle trace `POST /api/reviews` n'a plus ni `user.email` ni le header `Authorization`. Dans OpenSearch, `fixed@example.com` est introuvable.
+> 💡 **Pour le vérifier vous-même** (optionnel — c'est une reconstruction complète de l'image, quelques minutes) :
+>
+> ```bash
+> ./scripts/deploy.sh
+> # deploy.sh repart du manifeste, qui ne contient pas JAVA_TOOL_OPTIONS :
+> # sans ces deux lignes l'agent reste inactif, l'application n'émet plus rien,
+> # et Jaeger paraît propre pour une très mauvaise raison
+> kubectl set env -n otel-demo deployment/review-service \
+>   JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
+> kubectl rollout status -n otel-demo deployment/review-service
+> ```
+>
+> Rejouez alors le `curl` de l'étape 2 : la trace n'a plus ni `user.email` ni le header `Authorization`, et l'email est introuvable dans OpenSearch.
+>
+> **La suite du lab garde volontairement le code fautif**, pour que la partie 3 ait quelque chose à retenir.
 
 > 💡 **Alors pourquoi une partie 3 ?** Parce que cette correction ne couvre **que le code que vous écrivez**. Trois choses lui échappent, et elles sont la règle en production :
 >
@@ -104,7 +101,7 @@ Dans Jaeger, la nouvelle trace `POST /api/reviews` n'a plus ni `user.email` ni l
 
 ### Partie 3 — Le filet de sécurité : masquer au collecteur
 
-6.  **Écrire la règle OTTL** dans `manifests/80-otel-security-values.yaml` : elle supprime `user.email` et `http.request.header.authorization` de **tous** les spans, et masque les emails dans **tous** les bodies de logs — quel que soit le service, corrigé ou non.
+5.  **Écrire la règle OTTL** dans `manifests/80-otel-security-values.yaml` : elle supprime `user.email` et `http.request.header.authorization` de **tous** les spans, et masque les emails dans **tous** les bodies de logs — quel que soit le service, corrigé ou non.
 
     Deux documentations pour cela : celle du [processor `transform`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/transformprocessor/README.md), qui donne la structure (`trace_statements`, `log_statements`), et la [liste des fonctions OTTL](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md) — `delete_key` et `replace_pattern` sont celles qu'il vous faut.
 
@@ -145,7 +142,7 @@ opentelemetry-collector:
 Alternatives : le processor **`redaction`** (approche *allowlist* : seuls les attributs autorisés passent — plus sûr qu'une denylist) et `replace_pattern(..., hash=...)` pour **pseudonymiser** (hachage) au lieu de supprimer, quand on veut garder la capacité de corréler.
 {{% /expand%}}
 
-7.  **Appliquer, puis remettre la faute** — c'est la seule façon de vérifier qu'un filet retient : en tombant dedans. Remettez les trois lignes que vous avez supprimées à l'étape 4 (`git checkout apps/review-service/src/main/java/fr/k8sschool/reviews/ReviewController.java` si vous n'y avez touché qu'ici), reconstruisez, et rejouez la requête fautive.
+6.  **Appliquer, et rejouer la requête fautive.** Le code de `review-service` écrit toujours l'email et le token : c'est justement ce qu'on veut vérifier — que le collecteur les arrête quand même.
 
 ```bash
 helm upgrade otel-demo open-telemetry/opentelemetry-demo \
@@ -156,13 +153,6 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   -f manifests/70-otel-traces-values.yaml \
   -f manifests/80-otel-security-values.yaml
 kubectl rollout status daemonset/otel-collector-agent -n otel-demo
-
-# la faute est de retour dans le code, comme si un collègue l'avait réintroduite
-git checkout apps/review-service/src/main/java/fr/k8sschool/reviews/ReviewController.java
-./scripts/deploy.sh
-kubectl set env -n otel-demo deployment/review-service \
-  JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
-kubectl rollout status -n otel-demo deployment/review-service
 
 # rejouer un POST avec un email marqueur :
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
@@ -175,18 +165,10 @@ Dans Jaeger : la nouvelle trace `POST /api/reviews` n'a **plus** ni `user.email`
 
 La trace est propre alors que le code est fautif : le filet a retenu. C'est ce que vous voulez le jour où la faute vient d'un service que vous ne pouvez pas corriger.
 
-8.  **Reposer la correction, et la garder.** Le filet n'est pas une excuse : la PII a bel et bien quitté le processus, traversé le réseau, et n'a été arrêtée qu'au collecteur — un maillon qui peut être mal configuré, contourné par un service qui exporte ailleurs, ou remis à zéro par un `helm upgrade` malheureux. Supprimez de nouveau les trois lignes, et laissez les deux étages en place :
+7.  **Et dans un vrai projet, on fait les deux.** Le filet n'est pas une excuse : la PII a bel et bien quitté le processus, traversé le réseau, et n'a été arrêtée qu'au collecteur — un maillon qui peut être mal configuré, contourné par un service qui exporte ailleurs, ou remis à zéro par un `helm upgrade` malheureux. La correction de l'étape 4 reste donc la première chose à faire ; ce lab la laisse de côté uniquement pour que la démonstration ci-dessus soit visible.
 
-```bash
-# refaites l'édition de l'étape 4, puis :
-./scripts/deploy.sh
-kubectl set env -n otel-demo deployment/review-service \
-  JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
-kubectl rollout status -n otel-demo deployment/review-service
-```
-
-C'est la **défense en profondeur** : le code ne produit plus la donnée, et le collecteur protège ce que le code ne couvre pas.
+C'est la **défense en profondeur** : le code ne produit pas la donnée, et le collecteur protège ce que le code ne couvre pas — les autres services, l'instrumentation automatique, et la faute qui reviendra un jour.
 
 ## Livrable
 
-La preuve **avant / après** : capture de la trace avec JWT + email (partie 1), la même requête après correction du code (partie 2), et la trace propre alors que la faute est de retour (partie 3) — plus la recherche OpenSearch vide sur les emails marqueurs.
+La preuve **avant / après** : capture de la trace avec le JWT et l'email (partie 1), et de la même requête une fois le collecteur configuré (partie 3), alors que le code fautif n'a pas bougé — plus la recherche OpenSearch vide sur `collector-mask@example.com`.
