@@ -173,7 +173,7 @@ La trace est propre alors que le code est fautif : le filet a retenu. C'est ce q
 >
 > Voilà la vraie limite du filet, et la raison pour laquelle l'étape 4 reste la correction principale : le code, lui, **sait** que ce champ est un nom.
 >
-> **Sauf si le log est structuré.** Le vrai problème n'est pas le nom, c'est qu'il est **noyé dans une phrase**. Écrit comme un champ à part — `user.name` dans les attributs du log plutôt que dans le texte — il redevient adressable par sa clé, et le collecteur le supprime comme il supprime `user.email` des spans à l'étape 5 : `delete_key(log.attributes, "user.name")`, sans rien avoir à reconnaître. Une raison de plus de structurer ses logs.
+> **Sauf si le log est structuré.** Le vrai problème n'est pas le nom, c'est qu'il est **noyé dans une phrase**. Écrit comme un champ à part — `user.name` dans les attributs du log plutôt que dans le texte — il redevient adressable par sa clé, et le collecteur le supprime comme il supprime `user.email` des spans à l'étape 5 : `delete_key(log.attributes, "user.name")`, sans rien avoir à reconnaître. Une raison de plus de structurer ses logs, au-delà de celles du [Lab 5]({{% relref "50-otel-logs.fr.md" %}}).
 
 7.  **Et dans un vrai projet, on fait les deux.** Le filet n'est pas une excuse : la PII a bel et bien quitté le processus, traversé le réseau, et n'a été arrêtée qu'au collecteur — un maillon qui peut être mal configuré, contourné par un service qui exporte ailleurs, ou remis à zéro par un `helm upgrade` malheureux. La correction de l'étape 4 reste donc la première chose à faire ; ce lab la laisse de côté uniquement pour que la démonstration ci-dessus soit visible.
 
