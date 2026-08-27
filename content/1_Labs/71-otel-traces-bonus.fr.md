@@ -212,9 +212,9 @@ sampled="false"  271       toutes les autres traces du cluster
 >   product-catalog : 2 spans, aucun attribut
 > ```
 
-C'est la boucle complète du chapitre : une valeur métier connue **du seul service d'entrée** voyage par le bagage, se dépose en attribut sur les spans, et devient ainsi un critère de décision pour le collecteur. Sans elle, la seule façon de garder les traces d'un client serait de monter l'échantillonnage pour tout le monde.
+C'est la boucle complète : le nom du client, connu du seul premier service, voyage par le **bagage**, se dépose en **attribut** sur les spans, et devient un **critère de tri** pour le collecteur.
 
-Les autres usages sont de la même famille : `app.rollout=canary` pour comparer les latences de deux versions, `app.device=mobile`, un identifiant de ticket support le temps d'un incident.
+Sans ce chemin, il n'y aurait qu'un moyen d'être sûr de garder les traces du client `acme` : garder **toutes** les traces, de tous les clients — c'est-à-dire renoncer à l'échantillonnage, et à ce qu'il fait économiser.
 
 ## 5. Le revers : c'est un en-tête, et il va loin
 
