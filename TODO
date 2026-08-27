@@ -58,3 +58,18 @@
 * Clarifier le fonctionnement du collector dans les slides, ils sont pas trop synthétiques
 https://opentelemetry.io/docs/collector/
 https://opentelemetry.io/docs/demo/collector-data-flow-dashboard/
+
+* LAB 8, masquage SDK (retire de la page, trop avance pour le public): le code
+  du depot (PiiMaskingConfiguration.java, PiiRedactingLogRecordExporter.java)
+  n'a d'effet qu'avec le profil Starter. Pourquoi, si la question vient:
+  - c'est un bean Spring exposant un AutoConfigurationCustomizerProvider; le
+    Starter installe le SDK dans le contexte Spring, donc il le voit.
+  - l'agent Java initialise SON SDK au demarrage de la JVM, avant Spring et
+    dans un classloader isole: il n'ira jamais chercher un bean Spring.
+    Cote agent il faudrait une extension (JAR separe, -Dotel.javaagent.extensions=),
+    cf. https://opentelemetry.io/docs/zero-code/java/agent/extensions/
+  - c'est un decorateur d'exporter et pas un LogRecordProcessor parce que
+    onEmit peut modifier les attributs mais pas le body (API stable).
+  Les deux vrais cas d'usage du filtrage SDK: la donnee ne doit pas quitter le
+  processus (politique interne), et filtrer ce que pose l'instrumentation
+  automatique sans dependre d'une config de collecteur qu'on ne maitrise pas.

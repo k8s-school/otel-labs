@@ -95,9 +95,7 @@ L'identifiant produit reste : il est utile en cas d'incident et n'identifie pers
 >
 > D'où le second étage. Notez l'ordre : on **corrige**, *puis* on met un filet. L'inverse — masquer en aval et laisser la faute dans le code — revient à faire circuler la PII dans tout le réseau en espérant que le filtre ne tombe jamais.
 
-> 💡 **Et le masquage dans le SDK, entre les deux ?** Il existe, et il a deux justifications précises — ni l'une ni l'autre n'est le cas de ce lab. La première : votre politique interne interdit que la donnée **quitte le processus**, or le collecteur est un autre processus, souvent sur un autre nœud. La seconde : vous voulez filtrer ce que pose l'instrumentation automatique **avant** l'export, sans dépendre d'une configuration de collecteur que vous ne maîtrisez pas.
->
-> Le dépôt en garde un exemple fonctionnel, à lire : `PiiMaskingConfiguration.java` et `PiiRedactingLogRecordExporter.java` — un décorateur d'exporter qui remplace les emails du body par `***@***`, activé par la variable `MASK_PII`. Deux détails valent le détour. D'abord, c'est un **décorateur d'exporter** et pas un `LogRecordProcessor` : dans l'API stable, `onEmit` peut modifier les **attributs** mais pas le **body**. Ensuite, ce code n'a d'effet **qu'avec le Starter** du Lab 2 : c'est un bean Spring, et l'agent Java — celui que vous utilisez depuis le Lab 2 — initialise son propre SDK avant Spring, dans un classloader isolé. Côté agent, le même filtrage demanderait une [extension](https://opentelemetry.io/docs/zero-code/java/agent/extensions/) : le même code, mais dans un JAR séparé chargé par `-Dotel.javaagent.extensions=…`.
+> 💡 **Il existe un troisième endroit : le SDK de l'application.** On filtre alors avant même que la donnée ne sorte du processus — ce qu'exigent certaines politiques internes. Le dépôt en garde un exemple à lire, `PiiMaskingConfiguration.java`, qui remplace les emails des logs par `***@***`. Il ne fonctionne qu'avec le **Starter** du Lab 2, pas avec l'agent : les deux ne se branchent pas au SDK par le même endroit.
 
 ### Partie 3 — Le filet de sécurité : masquer au collecteur
 
