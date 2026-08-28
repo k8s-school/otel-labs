@@ -39,8 +39,10 @@ logger.info("Creating review for product {} by {} <{}>", ...);         // PII da
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \
-  -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "fuite", "userEmail": "leak@example.com", "userName": "Leaky User"}'
+  -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "fuite", "userEmail": "leak@example.com", "userName": "Leaky User"}'
 ```
+
+> 💡 **Pourquoi un produit qui n'existe pas ?** Pour que votre trace survive au **tail sampling du Lab 7**, qui ne garde qu'une requête ordinaire sur quatre. Celle-ci échoue, `keep-errors` conserve donc **100 %** des traces comme la vôtre — et la fuite est exactement la même : le code pose l'email et le token *avant* d'aller chercher le produit.
 
 3.  **Chercher la fuite.** Dans Jaeger, ouvrez la trace `POST /api/reviews` : que voyez-vous dans les attributs ? Puis cherchez l'email dans les logs — depuis Grafana (*Explore*, datasource `webstore-logs`), ou directement sur l'API d'OpenSearch :
 
@@ -160,7 +162,7 @@ kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \
-  -d '{"productId": "OLJCESPC7Z", "rating": 5, "comment": "collector-mask", "userEmail": "collector-mask@example.com", "userName": "Safe User"}'
+  -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "collector-mask", "userEmail": "collector-mask@example.com", "userName": "Safe User"}'
 ```
 
 Dans Jaeger : la nouvelle trace `POST /api/reviews` n'a **plus** ni `user.email` ni le header `Authorization`. Dans OpenSearch : `collector-mask@example.com` est introuvable, le log montre `***@***`.
@@ -176,10 +178,10 @@ La trace est propre alors que le code est fautif : le filet a retenu. C'est ce q
 > Relevé sur le cluster de la formation :
 >
 > ```text
-> "body" : "Creating review for product OLJCESPC7Z by Jean Dupont <***@***>"
+> "body" : "Creating review for product DOESNOTEXIST by Safe User <***@***>"
 > ```
 >
-> L'email est masqué, **le nom ne l'est pas** — et c'est une donnée personnelle au même titre. Le collecteur ne sait masquer que ce qui a une **forme reconnaissable** : un email a un `@`, un IBAN un préfixe, une carte bancaire seize chiffres. « Jean Dupont » ressemble à n'importe quelle suite de mots, et le motif qui l'attraperait masquerait aussi « Creating review ».
+> L'email est masqué, **le nom ne l'est pas** — et c'est une donnée personnelle au même titre. Le collecteur ne sait masquer que ce qui a une **forme reconnaissable** : un email a un `@`, un IBAN un préfixe, une carte bancaire seize chiffres. Un nom, non — « Safe User » ressemble à n'importe quelle suite de mots, et le motif qui l'attraperait masquerait aussi « Creating review ».
 >
 > Voilà la vraie limite du filet, et la raison pour laquelle l'étape 4 reste la correction principale : le code, lui, **sait** que ce champ est un nom.
 >

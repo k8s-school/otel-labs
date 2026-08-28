@@ -60,13 +60,18 @@ redeploy_with_agent() {
     restart_app_pf
 }
 
+# Like the lab, post a review for a product that does not exist: the request
+# fails, keep-errors (lab 7) retains 100% of failing traces, and the leak is
+# identical - the controller writes the email and the token before it ever
+# looks the product up. Without this, every trace faces the 25% draw.
 post_review() {
     local email="$1" comment="$2"
-    curl -sSf -X POST http://$PF_HOST:$APP_PORT/api/reviews \
+    # No -f here: the request is meant to fail (HTTP 500), and curl -f would
+    # turn that into exit 22 and kill the script under 'set -e'.
+    curl -sS -o /dev/null -X POST http://$PF_HOST:$APP_PORT/api/reviews \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.SECRET-JWT-TOKEN" \
-        -d "{\"productId\": \"OLJCESPC7Z\", \"rating\": 5, \"comment\": \"$comment\", \"userEmail\": \"$email\", \"userName\": \"Lab8 User\"}" \
-        > /dev/null
+        -d "{\"productId\": \"DOESNOTEXIST\", \"rating\": 5, \"comment\": \"$comment\", \"userEmail\": \"$email\", \"userName\": \"Lab8 User\"}"
 }
 
 jaeger_traces() {
@@ -74,8 +79,8 @@ jaeger_traces() {
     curl -sSf "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20%2Fapi%2Freviews&limit=20${start:+&start=$start}"
 }
 
-# NB: tail sampling (lab 7) keeps only ~25% of successful traces, so we
-# re-post the review on every retry until one trace survives the sampling
+# Retries are for indexing lag, not for sampling: post_review sends a failing
+# request, which keep-errors retains in full.
 wait_in_jaeger() {
     local marker="$1" email="$2" comment="$3"
     for i in $(seq 1 24); do
