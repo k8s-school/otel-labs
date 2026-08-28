@@ -101,6 +101,32 @@ L'identifiant produit reste : il est utile en cas d'incident et n'identifie pers
 >
 > D'où le second étage. Notez l'ordre : on **corrige**, *puis* on met un filet. L'inverse — masquer en aval et laisser la faute dans le code — revient à faire circuler la PII dans tout le réseau en espérant que le filtre ne tombe jamais.
 
+> 💡 **Où voir `url.full` et `db.statement` dans vos traces ?** Pas sur le span serveur `POST /api/reviews`, mais sur ses enfants. `url.full` est sur le span **client** nommé `GET` — l'appel sortant de `review-service` vers le `frontend` ; `db.statement` est sur les spans JDBC, nommés `SELECT otel` ou `INSERT otel`. Dépliez-les dans Jaeger, ou demandez-les à son API.
+>
+> L'appel sortant, d'abord — la trace du `curl` de l'étape 2 le contient déjà :
+>
+> ```bash
+> . ./scripts/env.sh
+> curl -s "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=GET&limit=1&lookback=1h" \
+>   | grep -o '"key":"url.full[^}]*'
+> # "key":"url.full","type":"string","value":"http://frontend:8080/api/products/DOESNOTEXIST"
+> ```
+>
+> Le SQL, ensuite. Ce `POST` échoue avant d'écrire en base : il n'a aucun span JDBC. Il faut donc une **lecture** des avis — et en lancer plusieurs, parce que le tail sampling du Lab 7 ne garde qu'une requête ordinaire sur quatre :
+>
+> ```bash
+> for i in $(seq 10); do curl -s -o /dev/null http://$PF_HOST:$APP_PORT/api/reviews; done
+> sleep 20   # le temps que le collecteur décide et exporte
+> curl -s "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=SELECT%20otel&limit=20&lookback=1h" \
+>   | grep -o '"key":"db.statement","type":"string","value":"[^"]*reviews[^"]*"' | sort -u
+> # "key":"db.statement",...,"value":"select count(*) from reviews r1_0"
+> # "key":"db.statement",...,"value":"select r1_0.id,r1_0.comment,...,r1_0.user_email,r1_0.user_name from reviews r1_0"
+> ```
+>
+> Le filtre sur `reviews` écarte les requêtes de métadonnées que le driver JDBC pose au démarrage, illisibles et sans intérêt ici.
+>
+> Ici l'URL n'a pas de `?token=…`, et le SQL ne montre que des noms de colonnes : Hibernate envoie les valeurs à part, en paramètres liés. Rien ne fuit. Ailleurs — une URL avec un token, un SQL construit par concaténation — la même instrumentation aurait tout envoyé, sans qu'une ligne de votre code soit en cause.
+
 > 💡 **Il existe un troisième endroit : le SDK de l'application.** On filtre alors avant même que la donnée ne sorte du processus — ce qu'exigent certaines politiques internes. Le dépôt en garde un exemple à lire, `PiiMaskingConfiguration.java`, qui remplace les emails des logs par `***@***`. Il ne fonctionne qu'avec le **Starter** du Lab 2, pas avec l'agent : les deux ne se branchent pas au SDK par le même endroit.
 
 ### Partie 3 — Le filet de sécurité : masquer au collecteur
