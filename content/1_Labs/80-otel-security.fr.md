@@ -125,7 +125,9 @@ L'identifiant produit reste : il est utile en cas d'incident et n'identifie pers
 >
 > Le filtre sur `reviews` écarte les requêtes de métadonnées que le driver JDBC pose au démarrage, illisibles et sans intérêt ici.
 >
-> Ici l'URL n'a pas de `?token=…`, et le SQL ne montre que des noms de colonnes : Hibernate envoie les valeurs à part, en paramètres liés. Rien ne fuit. Ailleurs — une URL avec un token, un SQL construit par concaténation — la même instrumentation aurait tout envoyé, sans qu'une ligne de votre code soit en cause.
+> Ici l'URL n'a pas de `?token=…`, et le SQL ne montre que des noms de colonnes : Hibernate envoie les valeurs à part, en paramètres liés. Rien ne fuit — et ce n'est pas un hasard : un secret n'a pas sa place dans une query string (il finit aussi dans les logs d'accès des proxies), et un SQL ne se construit pas par concaténation (c'est la porte ouverte à l'injection SQL). Ces deux règles sont antérieures à l'observabilité.
+>
+> Ce que l'agent y ajoute : il pose ces attributs **tout seul**. Le jour où un service enfreint l'une de ces règles — le vôtre, ou celui de l'équipe d'à côté —, la donnée part dans les traces sans qu'aucun `setAttribute` n'apparaisse nulle part pour vous mettre la puce à l'oreille.
 
 > 💡 **Il existe un troisième endroit : le SDK de l'application.** On filtre alors avant même que la donnée ne sorte du processus — ce qu'exigent certaines politiques internes. Le dépôt en garde un exemple à lire, `PiiMaskingConfiguration.java`, qui remplace les emails des logs par `***@***`. Il ne fonctionne qu'avec le **Starter** du Lab 2, pas avec l'agent : les deux ne se branchent pas au SDK par le même endroit.
 
