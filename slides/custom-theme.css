@@ -37,6 +37,26 @@ section.split {
     align-items: start;
 }
 
+/* Le titre occupe les deux colonnes, sinon il pousse le texte dans la 2e */
+section.split h2 {
+    grid-column: 1 / -1;
+}
+
+/* Images de fond (![bg right:30%]) : marge autour du visuel, sinon il touche
+   les bords de la slide et passe sous la pagination */
+/* !important : Marpit applique `all: initial` sur ces figure après le thème */
+[data-marpit-advanced-background="background"] figure {
+    box-sizing: border-box !important;
+    padding: 40px 60px 40px 25px !important;
+    background-origin: content-box !important;
+}
+
+/* Image seule dans son paragraphe : centrée (logo de titre, schémas pleine largeur) */
+section > p > img:only-child {
+    display: block;
+    margin: 0.6em auto;
+}
+
 /* Style des listes */
 ul li {
     margin-bottom: 15px;
@@ -72,6 +92,11 @@ footer {
     color: #666;
     position: absolute;
     bottom: 20px;
+}
+
+/* Slide dont le bloc de code EST le propos : lisible depuis le fond de la salle */
+section.bigcode pre {
+    font-size: 0.9em;
 }
 
 /* Compact code blocks so long YAML/CLI examples fit on a slide */

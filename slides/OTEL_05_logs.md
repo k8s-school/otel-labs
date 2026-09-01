@@ -39,12 +39,17 @@ backgroundColor: #ffffff
 
 ---
 
-## Logs structurés
+## Logs structurés : ce qu'on gagne, ce qu'on paie
 
-- Un log texte libre se **grep** ; un log structuré se **requête**
-- Structuré = champs séparés : severity, attributs, resource... (le LogRecord !)
-- Enrichissement contextuel : **MDC** Logback → attributs OTel
+| Ce qu'on gagne | Ce qu'on paie |
+|---|---|
+| Un log texte se **grep**, un log structuré se **requête** | Le JSON pèse plus lourd que la ligne de texte |
+| Le `trace_id` est attaché : la corrélation devient gratuite | Illisible à l'œil nu — `kubectl logs` renvoie du JSON |
+| Plus de regex de parsing à maintenir à l'ingestion | Il faut nommer les champs, et s'y tenir en équipe |
+
 - Règle d'or : des **paires clé/valeur**, pas des phrases à parser
+- Enrichissement contextuel : **MDC** Logback → attributs OTel
+- En pratique on garde les deux : la sortie console du conteneur reste lisible, le structuré part en OTLP
 
 ---
 

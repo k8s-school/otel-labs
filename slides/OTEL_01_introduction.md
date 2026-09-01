@@ -9,7 +9,7 @@ backgroundColor: #ffffff
 
 ## Chapitre 1 — Introduction
 
-<img src="images/logo.svg" alt="K8s School Logo" width="50%">
+![K8s School w:520](images/logo.svg)
 
 ---
 
@@ -23,14 +23,12 @@ backgroundColor: #ffffff
 
 ---
 
-## Monitoring vs observabilité
+## Monitoring vs observabilité (1/2)
 
 - **Monitoring** : surveiller des symptômes **connus à l'avance**
   - « le CPU dépasse 80 % », « le service ne répond plus »
   - dashboards et alertes figés, par composant
-- **Observabilité** : comprendre un état interne **à partir des signaux émis**
-  - « pourquoi les commandes des clients allemands échouent-elles depuis 14h ? »
-  - explorer des questions **qu'on n'avait pas prévues**
+
 - Le monitoring classique ne suffit plus :
   - micro-services : une requête traverse **10+ services**
   - défaillances **émergentes**, pas de « root cause » unique
@@ -38,30 +36,110 @@ backgroundColor: #ffffff
 
 ---
 
+## Monitoring vs observabilité (2/2)
+
+- **Observabilité** : comprendre un état interne **à partir des signaux émis**
+  - « pourquoi les commandes des clients allemands échouent-elles depuis 14h ? »
+  - poser des questions **non prévues** au moment de l'instrumentation
+    - sans redéployer ni ajouter de code : la réponse est déjà dans les signaux
+    - on cherche les *unknown unknowns*, pas seulement les pannes anticipées
+
+
+---
+
 ## Les trois piliers
 
-| Signal | Question | Exemple |
-|--------|----------|---------|
-| **Logs** | Que s'est-il passé ? | `Payment declined for order 42` |
-| **Métriques** | Combien / à quel rythme ? | `http_requests_total`, latence p99 |
-| **Traces** | Où, dans quel service ? | parcours d'une requête à travers 10 services |
+![bg right:40% fit](images/piliers.svg)
+
+| Signal | Exemple |
+|--------|---------|
+| **Logs** | `Payment declined for order 42` |
+| **Métriques** | `http_requests_total`, latence p99 |
+| **Traces** | parcours d'une requête à travers 10 services |
 
 - Chaque pilier seul est **insuffisant**
 - La valeur naît de la **corrélation** : de l'alerte (métrique) à la trace, de la trace au log
 
 ---
 
+## Anatomie d'une métrique
+
+<!-- _class: bigcode -->
+
+*À quoi ça sert : **détecter**. Peu volumineuse, on la garde des mois — c'est elle qui déclenche l'alerte.*
+
+```
+http_requests_total{route="/reviews", status="201"}  1428
+└────── nom ──────┘└────────── attributs ─────────┘  └──┘
+                                                    valeur
+```
+
+- **Nom** : ce qu'on compte — ici les requêtes HTTP reçues
+- **Attributs** (aussi appelés *labels* ou *dimensions*) : comment on découpe la mesure — ici la route et le code retour
+- **Valeur** : le relevé, ré-enregistré à intervalle régulier
+- Une métrique existe donc en **autant d'exemplaires que de combinaisons d'attributs**
+- Logs et traces portent le même genre d'attributs : recoupement possible
+
+---
+
+## Anatomie d'une trace
+
+<!-- _class: bigcode -->
+
+*À quoi ça sert : **localiser**. Temps consommé par service/étape*
+
+```
+trace_id 4bf92f3577b34da6 — une requête, du premier au dernier octet
+
+POST /api/reviews         ████████████████████████    82 ms  review-service
+├─ GET /api/products/42    ██████                     21 ms  frontend
+└─ ReviewRepository.save           ███████████        38 ms  review-service
+   └─ INSERT otel                     ███████         24 ms  → PostgreSQL
+```
+
+- **Span** : une opération — un nom, un instant de début, une durée, des attributs
+- **Trace** : tous les spans d'une requête, reliés par le même **`trace_id`**
+- Chaque span connaît son **parent** : cascade, et durée de chaque étage
+- La trace franchit les frontières de services (`review-service` → `frontend`) : **propagation de contexte**
+- Accès par **Jaeger** dès le lab 1
+
+---
+
+## Anatomie d'un log
+
+<!-- _class: bigcode -->
+
+*À quoi ça sert : **expliquer**. C'est le seul signal qui porte le détail de ce qui s'est passé.*
+
+```
+2026-09-01T14:32:07.412Z  ERROR  review-service
+  "Review rejected: rating out of range"
+  trace_id=4bf92f3577b34da6  span_id=00f067aa0ba902b7
+```
+
+- Horodatage, **sévérité**, message : le log que vous écrivez déjà aujourd'hui
+- Il peut être **structuré** — champs, et non plus une ligne à découper à la regex
+  - en échange, il est plus volumineux et illisible sans outil : le pour/contre au chapitre 5
+- Et il porte le **`trace_id` de la trace précédente** : un clic suffit pour passer du log à la requête qui l'a produit
+- Détaillé au chapitre/lab 5
+
+---
+
 ## Du monitoring à l'observabilité 2.0
 
 - **Corrélation** : tous les signaux partagent le même contexte (`trace_id`, `service.name`)
-- **Cardinalité** : des attributs riches (client, version, région...)
-  - la limite des métriques pré-agrégées
-- **Wide events** : un événement large et structuré par requête, qu'on interroge après coup
+- Un dashboard classique ne répond qu'aux questions posées **avant** l'incident
+  - il faut avoir décidé à l'avance ce qu'on mesure, et comment on le découpe
+- **Wide events** : **un seul événement par requête**, avec tout dedans — client, version, région, latence, code retour
+  - la question se choisit **après coup** : « les requêtes lentes du client acme »
+  - c'est ce que devient une trace enrichie d'informations métier (chapitre 7)
 - La tendance : ne plus séparer les 3 piliers en silos, mais les **relier par le contexte**
 
 ---
 
 ## OpenTelemetry : définition
+
+![bg right:28% fit](images/opentelemetry-logo.svg)
 
 - Projet **CNCF** (fusion d'OpenTracing et OpenCensus, 2019)
 - 2ᵉ projet le plus actif de la CNCF après Kubernetes
@@ -77,15 +155,7 @@ backgroundColor: #ffffff
 
 ## Écosystème et architecture
 
-```
-Application                     Collecteur                Backends
-┌───────────────┐   OTLP    ┌──────────────────┐    ┌────────────────┐
-│  API + SDK    │ ────────► │ receive/process/ │ ─► │ Jaeger (traces)│
-│  (ou agent)   │           │ export           │ ─► │ Prometheus     │
-└───────────────┘           └──────────────────┘ ─► │ OpenSearch     │
-                                                    └───────┬────────┘
-                                                     Grafana (visualisation)
-```
+![w:960](images/architecture.svg)
 
 - L'application émet via le **SDK** (ou un agent zero-code)
 - Le **collecteur** centralise, transforme, route
@@ -95,7 +165,7 @@ Application                     Collecteur                Backends
 
 ## Conventions sémantiques
 
-- Le **cœur de la valeur** d'OpenTelemetry : tout le monde nomme pareil
+- Le **cœur de la valeur** d'OpenTelemetry : une **convention de nommage** partagée par tout l'écosystème
 - `service.name`, `http.request.method`, `http.response.status_code`, `db.system`...
 - Conséquences :
   - les dashboards et alertes deviennent **portables**
@@ -107,6 +177,8 @@ Application                     Collecteur                Backends
 
 ## Le protocole OTLP
 
+![bg right:30% fit](images/otlp.svg)
+
 - **O**pen**T**e**L**emetry **P**rotocol : un protocole unique pour les 3 signaux
 - Deux transports :
   - **gRPC** — port `4317`
@@ -117,6 +189,8 @@ Application                     Collecteur                Backends
 ---
 
 ## API, SDK, distributions, fournisseurs
+
+![bg right:30% fit](images/api-sdk.svg)
 
 - **API** : les interfaces (`Tracer`, `Meter`, `Logger`) — dépendance des bibliothèques
   - no-op par défaut : instrumenter une lib ne coûte rien si le SDK est absent

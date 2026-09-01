@@ -19,7 +19,8 @@ backgroundColor: #ffffff
 - Chaque point porte des **attributs** (dimensions) : `{method="POST", status="201"}`
 - **Temporalité** : cumulative (Prometheus) ou delta
 - ⚠️ **Cardinalité** : chaque combinaison d'attributs = une série
-  - `user_id` dans une métrique = explosion mémoire garantie
+  - une note d'avis de 1 à 5 → 5 séries : gratuit
+  - `user_id` dans une métrique → une série par client = explosion mémoire garantie
   - les identifiants vont dans les **traces**, pas dans les métriques
 
 ---

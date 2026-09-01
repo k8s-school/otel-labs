@@ -1,0 +1,8 @@
+flowchart TB
+  A["<b>API</b><br/>Tracer · Meter · Logger<br/><i>no-op sans SDK</i>"]
+  S["<b>SDK</b><br/>sampling · processors<br/>exporters"]
+  D["<b>Distribution</b><br/>SDK pré-packagé<br/><i>Grafana, AWS, Elastic…</i>"]
+  F["<b>Fournisseur</b><br/>backend compatible OTLP"]
+  A --> S --> D --> F
+  style A fill:#eaf1fd,stroke:#4285f4
+  style F fill:#4285f4,stroke:#1a73e8,color:#ffffff

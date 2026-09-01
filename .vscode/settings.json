@@ -1,0 +1,5 @@
+{
+  // Aperçu Marp fidèle au PDF produit par slides/md2pdf.sh
+  "markdown.marp.themes": ["./slides/custom-theme.css"],
+  "markdown.marp.exportType": "pdf"
+}

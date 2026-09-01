@@ -1,0 +1,9 @@
+flowchart TB
+  S["SDK / agent"]
+  C["Collecteur"]
+  B["Backend"]
+  S -- "gRPC :4317<br/>HTTP :4318" --> C
+  C -- "OTLP" --> B
+  style S fill:#eaf1fd,stroke:#4285f4
+  style C fill:#4285f4,stroke:#1a73e8,color:#ffffff
+  style B fill:#eaf1fd,stroke:#4285f4

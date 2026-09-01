@@ -70,7 +70,8 @@ java -javaagent:/otel/opentelemetry-javaagent.jar -jar app.jar
 | GraalVM native | ❌ | ✔ |
 | Modification du code | aucune | aucune (juste le build) |
 
-- Les deux produisent des données **OTLP identiques** dans la même chaîne
+- Même **chaîne** côté plateforme: OTLP → collecteur → backend
+- **Contenu** diffèrent : l'agent réécrit le bytecode de ~toutes les libs Java (traces **plus détaillées**), le starter s'arrête à Spring et aux principales
 
 ---
 

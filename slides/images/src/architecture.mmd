@@ -1,0 +1,21 @@
+flowchart LR
+  subgraph APP["Application"]
+    SDK["API + SDK<br/><i>ou agent zero-code</i>"]
+  end
+  subgraph COL["Collecteur"]
+    P["receive → process → export"]
+  end
+  subgraph BE["Backends"]
+    J["Jaeger<br/><i>traces</i>"]
+    PR["Prometheus<br/><i>métriques</i>"]
+    OS["OpenSearch<br/><i>logs</i>"]
+  end
+  G["Grafana<br/><i>visualisation</i>"]
+  SDK -- "OTLP" --> P
+  P --> J
+  P --> PR
+  P --> OS
+  J --> G
+  PR --> G
+  OS --> G
+  style G fill:#4285f4,stroke:#1a73e8,color:#ffffff
