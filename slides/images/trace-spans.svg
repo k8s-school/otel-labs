@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 470" width="100%" style="background-color:transparent" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa0a6"/></marker></defs>
+<path d="M 250 40 L 1180 40" stroke="#9aa0a6" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#t)"/>
+<text x="715.0" y="30" text-anchor="middle" font-size="21" fill="#9aa0a6">temps</text>
+<path d="M 290 124 L 290 138" stroke="#9aa0a6" stroke-width="1.5" stroke-dasharray="4 4"/>
+<path d="M 325 184 L 325 198" stroke="#9aa0a6" stroke-width="1.5" stroke-dasharray="4 4"/>
+<path d="M 600 184 L 600 258" stroke="#9aa0a6" stroke-width="1.5" stroke-dasharray="4 4"/>
+<path d="M 875 184 L 875 318" stroke="#9aa0a6" stroke-width="1.5" stroke-dasharray="4 4"/>
+<rect x="250" y="78" width="930" height="46" rx="5" fill="#1a73e8"/>
+<text x="266" y="108" font-size="21" fill="#ffffff">frontend · HTTP POST</text>
+<rect x="290" y="138" width="840" height="46" rx="5" fill="#4285f4"/>
+<text x="306" y="168" font-size="21" fill="#ffffff">checkout · PlaceOrder</text>
+<rect x="325" y="198" width="235" height="46" rx="5" fill="#6ba3f7"/>
+<text x="341" y="228" font-size="21" fill="#ffffff">cart · GetCart</text>
+<rect x="600" y="258" width="235" height="46" rx="5" fill="#8db8f9"/>
+<text x="616" y="288" font-size="21" fill="#333b45">catalog · GetProduct</text>
+<rect x="875" y="318" width="215" height="46" rx="5" fill="#b3d0fb"/>
+<text x="891" y="348" font-size="21" fill="#333b45">currency · Convert</text>
+<path d="M 218 78 L 205 78 L 205 364 L 218 364" fill="none" stroke="#333b45" stroke-width="2"/>
+<text x="185" y="223.0" text-anchor="end" font-size="24" font-weight="700" fill="#333b45">Trace</text>
+<text x="185" y="251.0" text-anchor="end" font-size="19" fill="#9aa0a6">un même trace_id</text>
+<path d="M 250 378 L 250 390 L 1180 390 L 1180 378" fill="none" stroke="#333b45" stroke-width="2"/>
+<text x="715.0" y="422" text-anchor="middle" font-size="24" font-weight="700" fill="#333b45">Spans</text>
+<text x="715.0" y="448" text-anchor="middle" font-size="19" fill="#9aa0a6">chacun : un parent, un début, une durée</text>
+</svg>

@@ -15,5 +15,7 @@ else
 fi
 
 for file in "$DIR"/*.md; do
-    "${MARP[@]}" "$file" --theme-set "$DIR/custom-theme.css" --pdf --allow-local-files
+    # --no-stdin : sans terminal (CI, tâche de fond), marp lit stdin comme source
+    # markdown et attend indéfiniment au lieu de convertir "$file".
+    "${MARP[@]}" "$file" --theme-set "$DIR/custom-theme.css" --pdf --allow-local-files --no-stdin
 done

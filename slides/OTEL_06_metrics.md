@@ -9,25 +9,62 @@ backgroundColor: #ffffff
 
 ## Chapitre 6 — Métriques
 
-<img src="images/logo.svg" alt="K8s School Logo" width="50%">
+<img src="images/logo.svg" alt="K8s School Logo" width="42%">
+<img src="images/prometheus-logo.svg" alt="Prometheus" width="10%">
+
+---
+
+## Prometheus, le standard de fait
+
+- Né chez SoundCloud en 2012, inspiré de **Borgmon** (Google), open source en 2015 —
+  deuxième projet diplômé de la CNCF, après Kubernetes
+- Il sert deux besoins, et deux seulement :
+  **alerter** quand ça casse, suivre les **tendances** longues
+- Quatre partis pris qui expliquent tout le reste :
+  - **pull** : c'est lui qui va chercher la donnée, à intervalle fixe
+  - **multi-dimensionnel** : un nom + des labels = autant de séries
+  - **métriques uniquement** : ni logs, ni traces
+
+---
+
+## Le modèle pull
+
+- Chaque cible expose un `/metrics` en HTTP ; Prometheus le **scrape** (15 s par défaut), horodate lui-même, et découvre ses cibles seul (Kubernetes, Consul, fichiers)
+
+![w:940](images/prometheus.svg)
 
 ---
 
 ## Le modèle de données
 
 - Une **métrique** = nom + unité + type + points de données horodatés
-- Chaque point porte des **attributs** (dimensions) : `{method="POST", status="201"}`
+- Chaque série porte des **attributs** (dimensions) : `{method="POST", status="201"}`
 - **Temporalité** : cumulative (Prometheus) ou delta
 - ⚠️ **Cardinalité** : chaque combinaison d'attributs = une série
   - une note d'avis de 1 à 5 → 5 séries : gratuit
   - `user_id` dans une métrique → une série par client = explosion mémoire garantie
-  - les identifiants vont dans les **traces**, pas dans les métriques
+---
+
+<!-- _class: bigcode -->
+
+## Le format d'exposition
+
+```text
+# HELP http_requests_total Total number of HTTP requests made.
+# TYPE http_requests_total counter
+http_requests_total{code="200",path="/status"} 8
+```
+
+- `http_requests_total` : le **nom** — suffixe `_total` par convention pour un compteur
+- `{code="200",path="/status"}` : les **labels**, c'est-à-dire les dimensions
+- `8` : la **valeur** au moment du scrape ; l'horodatage, c'est Prometheus qui le pose
+- Du texte, lisible avec un `curl` — c'est tout le protocole
 
 ---
 
-## Les types d'instruments
+## Les types d'instruments (API OpenTelemetry)
 
-| Type | Usage | Exemple |
+| Instrument | Usage | Exemple |
 |------|-------|---------|
 | **Counter** | cumul monotone | `reviews.created` |
 | **UpDownCounter** | cumul ± | connexions actives |
@@ -36,14 +73,62 @@ backgroundColor: #ffffff
 
 - L'histogramme est le grand gagnant pour les latences :
   buckets → percentiles calculables a posteriori
+- ⚠️ Ce sont les instruments de l'**API**, pas les types du backend qui les reçoit :
+  côté Prometheus, l'`UpDownCounter` arrive en `gauge`, et le `summary` de Prometheus  n'a aucun instrument OTel qui le produise
 
 ---
 
-## Rappels Prometheus
+<!-- _class: bigcode -->
 
-- Le standard de facto des métriques : base de séries temporelles + PromQL
-- Modèle **pull** historique (scrape `/metrics`)... 
-- ...mais Prometheus parle désormais **OTLP natif** (push) — c'est le mode de la démo :
+## PromQL
+
+« Quelle proportion de requêtes HTTP échoue, par route ? »
+
+```promql
+sum by(path) (rate(http_requests_total{status="500"}[5m]))
+  / sum by(path) (rate(http_requests_total[5m]))
+```
+
+- `rate()` : la **pente** d'un compteur cumulé sur une fenêtre —
+  un compteur brut ne se lit jamais tel quel (il ne fait que monter, et repart à 0 au redémarrage)
+- `sum by(...)` : agréger en ne gardant que les dimensions utiles
+- Des fonctions font de la prospective :
+  `predict_linear(node_filesystem_free[1h], 4*3600) < 0` — « ce disque sera plein dans 4 h »
+
+---
+
+## Alerter : la règle, puis Alertmanager
+
+- La règle vit **dans Prometheus** : du YAML versionné, évalué toutes les minutes environ
+- Prometheus ne notifie personne : il **pousse ses alertes vers Alertmanager**, qui
+  - **déduplique** — dix instances qui crient la même chose font une alerte
+  - **groupe** — une notification pour tout un service, pas trente
+  - **route** vers la bonne équipe, gère les **silences** de maintenance
+- Grafana embarque son propre Alertmanager et fait la même chose (chapitre 4) ;
+  la différence est ailleurs : la règle Prometheus vit **en YAML avec le code**,
+  et elle est évaluée **même si Grafana est éteint**
+
+---
+
+## Ce que change OTLP
+
+| | Prometheus historique | OTLP |
+|---|---|---|
+| Transport | texte sur HTTP, en **pull** | protobuf, en **push** |
+| Portée | métriques | **traces, métriques, logs** |
+| Identité | labels ajoutés au scrape | **resource attributes** émis par l'appli |
+| Corrélation | par convention de nommage | `trace_id` porté par la mesure (**exemplars**) |
+
+- L'application n'écrit plus *pour Prometheus* : elle émet de l'OTLP, et la plateforme
+  choisit le backend — sans redéploiement, comme au chapitre 3
+- La **temporalité** devient explicite (delta ou cumulative) au lieu d'être implicite
+
+---
+
+## Les deux ensemble, dans la démo
+
+- Prometheus accepte l'OTLP **nativement** : la démo démarre son serveur avec
+  `--web.enable-otlp-receiver`, et le collecteur y pousse
 
 ```yaml
 exporters:
@@ -51,7 +136,11 @@ exporters:
     endpoint: http://prometheus:9090/api/v1/otlp
 ```
 
-- Traduction des noms : `reviews.created` → `reviews_created_total`
+- Traduction des noms à l'entrée : `reviews.created` → `reviews_created_total`
+- Les resource attributes deviennent des labels, sur une liste choisie
+  (`promote_resource_attributes` : `service.name`, `k8s.pod.name`, `k8s.namespace.name`…)
+- L'historique Prometheus: **PromQL**, la découverte de cibles, ses centaines d'exporters.
+  Ce qu'OTel apporte : **une** instrumentation pour les trois signaux
 
 ---
 
@@ -134,9 +223,6 @@ SdkMeterProvider.builder().registerView(
 ```
 
 - Avec l'**agent**, cela se fait par fichier YAML
-  (`otel.experimental.metrics.view.config`) :
-  `selector` (`instrument_name`, `meter_name`…) + `stream`
-  (`name`, `attribute_keys`, `aggregation`)
 - Le réflexe : **d'abord la View**, la métrique n'est pas encore émise.
   Filtrer au collecteur arrive après le transport, et coûte déjà.
 

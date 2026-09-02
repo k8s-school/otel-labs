@@ -25,31 +25,45 @@ backgroundColor: #ffffff
 
 ---
 
-## Le pipeline
+## Le pipeline (1/2)
 
-```
-receivers  ─►  processors  ─►  exporters
- (entrée)     (transformation)   (sortie)
+<!-- _footer: "Schéma : opentelemetry.io — CC BY 4.0" -->
 
-            ┌── extensions (santé, debug...)
-            └── connectors (relier deux pipelines)
-```
+![w:900](images/otel-collector.svg)
 
-- Un **pipeline** par type de signal : `traces`, `metrics`, `logs`
-- Déclaré dans `service.pipelines` — un composant configuré mais
-  **non référencé** dans un pipeline est inactif
+---
+
+## Le pipeline (2/2)
+
+- **receivers** (entrée) → **processors** (transformation) → **exporters** (sortie)
+- Un **pipeline par signal** : `traces`, `metrics`, `logs` — les deux rangées du schéma
+- Les **extensions** ne voient passer aucune donnée
+- Les **connectors** relient deux pipelines (la sortie de l'un devient l'entrée de l'autre)
 
 ---
 
 ## Installation & modes de déploiement
 
 - Un binaire Go unique, configuré en YAML — chart Helm officiel
-- **Agent** : un collecteur près de chaque application
-  - en K8s : **DaemonSet** (un par nœud) — le mode de la démo
-  - collecte locale (hostmetrics, logs de fichiers), faible latence
-- **Gateway** : un pool central de collecteurs
-  - point de contrôle unique : filtrage, sampling, routage multi-backends
-- En pratique : souvent **les deux**, agents → gateway
+- **Agent** : un collecteur près de chaque application — en K8s un **DaemonSet**,
+  un pod par nœud (le mode de la démo)
+- **Gateway** : un pool central de collecteurs — un **Deployment** que l'on scale
+
+![w:820](images/deploiement.svg)
+
+---
+
+## Pourquoi souvent les deux ?
+
+- L'**agent** fait ce qui ne peut se faire que sur place :
+  - lire les métriques du nœud (`hostmetrics`) et les logs de fichiers (`filelog`)
+  - retrouver le pod émetteur pour l'annoter (`k8sattributes`) — vue de la gateway,
+    l'IP source est celle d'un nœud, pas celle d'un pod
+- La **gateway** porte les règles communes à toute la flotte :
+  - sampling cohérent (voir toutes les parties d'une trace au même endroit)
+  - routage multi-backends, et les **secrets** des backends, en un seul endroit
+- Conséquence : changer de backend ne touche que la gateway,
+  ni les agents, ni les applications
 
 ---
 
@@ -58,18 +72,46 @@ receivers  ─►  processors  ─►  exporters
 - **Core** : les composants essentiels, maintenus par le projet
 - **Contrib** : ~100 receivers/processors/exporters communautaires
   - c'est l'image de la démo (`otel/opentelemetry-collector-contrib`)
-- **Distributions vendors** : AWS ADOT, Grafana Alloy, Datadog...
-- **Builder (`ocb`)** : composer son collecteur sur mesure
-  (uniquement les composants nécessaires → surface d'attaque réduite)
+- **Distributions vendors** : [AWS ADOT](https://aws-otel.github.io/) · [Grafana Alloy](https://grafana.com/docs/alloy/latest/) · [Splunk](https://github.com/signalfx/splunk-otel-collector) · [Datadog DDOT](https://docs.datadoghq.com/opentelemetry/setup/ddot_collector/)
+  - des **builds du collecteur upstream**, sous Apache 2.0 comme lui : composants présélectionnés, réglages par défaut du vendor, support commercial
+  - le propriétaire, c'est le **backend** derrière, pas le collecteur
+- **Builder `ocb`** : composer son collecteur sur mesure — uniquement les composants nécessaires, donc une surface d'attaque réduite ([doc](https://opentelemetry.io/docs/collector/custom-collector/))
+
+---
+
+## Configuration : les 4 sections
+
+```yaml
+receivers:                 # 1. ce qui fait ENTRER la donnée
+  otlp:
+    protocols: { grpc: { endpoint: 0.0.0.0:4317 } }
+processors:                # 2. ce qu'on lui fait au passage
+  batch: {}
+exporters:                 # 3. ce qui la fait SORTIR
+  debug: { verbosity: detailed }
+service:                   # 4. ce qui est réellement ACTIF
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+```
+
+- Les trois premières sections **déclarent** des composants, `service` les **branche**
+- Un composant déclaré mais absent de `service.pipelines` n'est **jamais chargé**
+- Deux sections optionnelles suivent la même règle : `extensions`, `connectors`
 
 ---
 
 ## Receivers
 
-- Font entrer la donnée : en **push** (l'appli envoie) ou en **pull** (le collecteur interroge)
-- **`otlp`** : LE receiver standard — gRPC 4317 / HTTP 4318
-- **`hostmetrics`** : CPU, mémoire, disque, réseau du nœud (scrapers)
-- Receivers « produit » : `postgresql`, `kafkametrics`, `prometheus`, `filelog`...
+- Font entrer la donnée : en **push** (la source envoie) ou en **pull** (le collecteur interroge)
+- **`otlp`** : LE receiver standard, en **push** — gRPC 4317 / HTTP 4318.
+  C'est l'appli qui ouvre la connexion ; le collecteur ne connaît pas ses clients
+- **`hostmetrics`** : CPU, mémoire, disque, réseau du nœud — en **pull**
+- Autres receivers en pull : `postgresql`, `kafkametrics`, `prometheus`
+  - ils interrogent la source à chaque `collection_interval`
+- `filelog` : suit des fichiers de logs sur le nœud
 
 ```yaml
 receivers:
@@ -133,8 +175,8 @@ transform:
 ## Connectors
 
 - Relient la **sortie** d'un pipeline à l'**entrée** d'un autre
-- **`forward`** : chaînage simple
-- **`routing`** : aiguiller selon une condition (par tenant, par environnement)
+- **[`forward`](https://github.com/open-telemetry/opentelemetry-collector/tree/main/connector/forwardconnector)** : chaînage simple
+- **[`routing`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/connector/routingconnector)** : aiguiller selon une condition (par tenant, par environnement)
 - **`count`** / **`spanmetrics`** : dériver des **métriques** depuis des spans
   - la démo utilise `spanmetrics` : latences/débits par opération calculés
     depuis le pipeline traces, sans instrumenter les applis
@@ -150,10 +192,13 @@ transform:
 - Dans la démo :
 
 ```yaml
-traces  → otlp/jaeger        (gRPC vers Jaeger)
-metrics → otlphttp/prometheus (OTLP natif Prometheus)
-logs    → opensearch
+traces  → otlp/jaeger         (OTLP gRPC, port 4317)
+metrics → otlphttp/prometheus (OTLP HTTP, /api/v1/otlp)
+logs    → opensearch          (HTTP/JSON, API _bulk, port 9200)
 ```
+
+- OpenSearch **ne parle pas OTLP** : l'exporter traduit les LogRecords en JSON et
+  les POSTe par paquets sur son API `_bulk`, dans l'index `otel-logs-AAAA-MM-JJ`
 
 ---
 
@@ -174,19 +219,7 @@ service:
 
 ## Synthèse : le collecteur de la démo
 
-```
-review-service ─┐                                    ┌─► Jaeger
-frontend, cart ─┼─► otlp ──► TRACES ──────────────────┤
-   (OTLP push)  │            │                       └─► spanmetrics ─┐
-                │            └── k8sattributes, memory_limiter,       │
-                │               resourcedetection, resource,          │
-                │               transform (OTTL), batch               │
-                │                                                     │
-kafka ──────────┼─► kafkametrics ──► METRICS ◄────────────────────────┘
-kubelet ────────┘   kubeletstats      └──────────────────► Prometheus
-   (pull)           k8s_cluster
-                                      LOGS ──────────────► OpenSearch
-```
+![w:1000](images/collecteur-demo.svg)
 
 - **3 pipelines** indépendants, une même config, **zéro modification applicative**
 - Un composant n'existe que s'il est **cité dans `service.pipelines`**

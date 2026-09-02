@@ -1,0 +1,9 @@
+flowchart LR
+  A["<b>review-service</b><br/>agent Java + SDK<br/><i>crée les spans</i>"]
+  C["<b>collecteur OTel</b><br/>DaemonSet<br/><i>enrichit · échantillonne</i>"]
+  J["<b>Jaeger</b><br/><i>stocke et indexe</i>"]
+  U["<b>UI Jaeger</b><br/><i>le waterfall</i>"]
+  A -- "OTLP<br/>gRPC :4317" --> C
+  C -- "OTLP<br/>gRPC :4317" --> J
+  J -- "HTTP" --> U
+  style J fill:#4285f4,stroke:#1a73e8,color:#ffffff

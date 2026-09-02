@@ -1,0 +1,8 @@
+flowchart LR
+  SDK["SDK du service<br/>mesure la durée<br/><b>+ trace_id du span</b>"]
+  PROM["Prometheus<br/><i>--enable-feature=<br/>exemplar-storage</i>"]
+  G["Panel Grafana<br/>p95 · heatmap<br/><b>marqueurs cliquables</b>"]
+  J["Jaeger<br/><i>LA requête lente</i>"]
+  SDK -- "métrique<br/>+ exemplar" --> PROM --> G
+  G -- "exemplarTraceIdDestinations<br/><i>(datasource)</i>" --> J
+  style J fill:#4285f4,stroke:#1a73e8,color:#ffffff

@@ -18,7 +18,7 @@ backgroundColor: #ffffff
 - Le backend d'observabilité est rarement protégé comme la base de prod
   - accès larges (toute l'équipe, parfois l'entreprise), rétention longue, sauvegardes
 - Fuites **fréquentes** (vues au lab, dans un code réaliste) :
-  - header **`Authorization`** / token **JWT** copié en attribut de span → rejouable !
+  - header **`Authorization`** / token **JWT** copiés attribut de span
   - **mot de passe / secret** dans un message de log ou une stack trace
   - **payload** complet (body de requête) en attribut « pour debug »
   - header **`Cookie`** / `X-Api-Key`
@@ -40,37 +40,58 @@ backgroundColor: #ffffff
 
 ---
 
-## Défense en profondeur : 3 niveaux
+## Défense en profondeur : 3 niveaux (1/2)
 
-1. **Applicatif** (le seul vrai correctif) :
-   ne pas émettre — pas de `setAttribute("user.email", ...)`, pas de PII dans les logs
-2. **SDK** (dans le processus) :
-   - **`Sampler`** : ne pas créer certaines traces
-   - **`SpanProcessor` / `LogRecordProcessor`** : filtrer, enrichir, masquer les *attributs*
-   - le *body* d'un log se réécrit via un **wrapper d'exporter** (API stable)
-3. **Collecteur** (le filet de sécurité central) :
-   protège **tous** les services, même ceux qu'on ne contrôle pas
+1. **Applicatif** (le seul vrai correctif) : ne pas émettre — pas de `setAttribute("user.email", ...)`, pas de PII dans les logs
+2. **SDK** : possible, mais **lourd** —
+   1. objets SDK sur mesure propres à chaque langage
+   2. code à recompiler/redéployer
+   3. une logique de nettoyage à maintenir
+   4. A n'implémenter que si la donnée ne doit **jamais quitter la mémoire** du processus ([exemple d'extension](https://github.com/open-telemetry/opentelemetry-java-instrumentation/tree/main/examples/extension))
+
+---
+
+## Défense en profondeur : 3 niveaux (2/2)
+
+3. **Collecteur** — le choix par défaut en production :
+   - **zéro code** : les applications émettent normalement
+   - un **YAML déclaratif et centralisé** ([`attributes`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/attributesprocessor), OTTL) : une clé sensible
+     apparaît → on modifie le collecteur, pas les microservices
+   - il protège **tous** les services, même ceux qu'on ne contrôle pas
+
+⚠️ Rien de tout cela n'efface après coup : aux niveaux 1 et 2 la donnée n'a pas quitté le processus, au niveau 3 elle n'a pas quitté le cluster. Après le backend, il est trop tard.
 
 ---
 
 ## Masquage au collecteur : OTTL
 
 ```yaml
-transform/pii-spans:
-  trace_statements:
-    - context: span
-      statements:
-        - delete_key(span.attributes, "user.email")
-        - delete_key(span.attributes, "http.request.header.authorization")
-transform/pii-logs:
-  log_statements:
-    - context: log
-      statements:
-        - replace_pattern(log.body, "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+", "***@***")
+processors:                    # deux INSTANCES du même processor : transform
+  transform/pii-spans:
+    trace_statements:
+      - context: span
+        statements:
+          - delete_key(span.attributes, "user.email")
+          - delete_key(span.attributes, "http.request.header.authorization")
+  transform/pii-logs:
+    log_statements:
+      - context: log
+        statements:
+          - replace_pattern(log.body, "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+", "***@***")
+service:
+  pipelines:                   # sans ce branchement, rien ne s'applique (chapitre 3)
+    traces: { processors: [..., transform/pii-spans, batch] }
+    logs:   { processors: [..., transform/pii-logs,  batch] }
 ```
 
-- Variantes : `replace_pattern(..., hash)` (pseudonymiser), processor **`redaction`**
-  (approche **allowlist** : seuls les attributs autorisés passent — plus sûr)
+- `transform` est **un** processor (celui du langage OTTL) ; le suffixe après `/` est un **nom libre**, qui distingue deux instances : spans/logs
+
+---
+
+## Masquage au collecteur : Variantes
+
+- [`replace_pattern(..., hash)`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md#replace_pattern) pour pseudonymiser, ou le processor
+- [**`redaction`**](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/redactionprocessor) — **allowlist** : seuls les attributs autorisés passent, plus sûr
 
 ---
 
@@ -88,12 +109,11 @@ transform/pii-logs:
 ## 🧪 LAB 8 — Masquer les données sensibles
 
 - **Constater** : JWT + email dans Jaeger, email dans OpenSearch
-- **Masquer au SDK** : wrapper d'exporter de logs (`MASK_PII=true`)
-  → le log est propre... le span fuit toujours !
+- **Corriger le code** : les 3 lignes fautives de `ReviewController` — le seul vrai
+  correctif... mais il ne couvre que le code que vous écrivez
 - **Masquer au collecteur** : OTTL `delete_key` + `replace_pattern`
-  → plus rien ne fuit, pour tous les services
-- **Corriger le code** : supprimer les 3 lignes fautives
+  → plus rien ne fuit, **pour tous les services**, y compris ceux restés fautifs
 
 ➡ [Lab 8 — Sécurité & conformité](https://k8s-school.fr/labs/otel/fr/1_labs/80-otel-security/index.html)
 
-*Livrable : la preuve avant/après.*
+*Livrable : la preuve avant/après — la même requête, le code fautif inchangé, et plus rien ne fuit.*

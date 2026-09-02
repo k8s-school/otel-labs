@@ -1,0 +1,31 @@
+flowchart LR
+  subgraph SRC["Sources"]
+    direction TB
+    APPS["frontend, cart,<br/>review-service…<br/><i>OTLP · push</i>"]
+    INFRA["kafka, kubelet,<br/>API server<br/><i>pull</i>"]
+  end
+  subgraph COL["Collecteur"]
+    direction TB
+    T["pipeline <b>traces</b>"]
+    SM["connector<br/><i>spanmetrics</i>"]
+    M["pipeline <b>metrics</b>"]
+    L["pipeline <b>logs</b>"]
+  end
+  subgraph BE["Backends"]
+    direction TB
+    J["Jaeger"]
+    P["Prometheus"]
+    OS["OpenSearch"]
+  end
+  APPS --> T
+  APPS --> M
+  APPS --> L
+  INFRA --> M
+  T --> SM --> M
+  T --> J
+  M --> P
+  L --> OS
+  style SM fill:#f8f9fa,stroke:#4285f4
+  style J fill:#4285f4,stroke:#1a73e8,color:#ffffff
+  style P fill:#4285f4,stroke:#1a73e8,color:#ffffff
+  style OS fill:#4285f4,stroke:#1a73e8,color:#ffffff

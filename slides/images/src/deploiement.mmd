@@ -1,0 +1,12 @@
+flowchart LR
+  subgraph N1["Nœud 1"]
+    A1["Applications"] --> C1["Collecteur<br/><i>agent · DaemonSet</i>"]
+  end
+  subgraph N2["Nœud 2"]
+    A2["Applications"] --> C2["Collecteur<br/><i>agent · DaemonSet</i>"]
+  end
+  GW["Collecteur<br/><b>gateway</b> · Deployment<br/><i>filtrage · sampling · routage</i>"]
+  C1 -- "OTLP" --> GW
+  C2 -- "OTLP" --> GW
+  GW --> BE["Backends"]
+  style GW fill:#4285f4,stroke:#1a73e8,color:#ffffff

@@ -13,14 +13,71 @@ backgroundColor: #ffffff
 
 ---
 
-## Le modèle de données
+## Une trace, c'est des spans dans le temps
 
-- **Span** : une opération (nom, début, durée, statut) +
-  - **attributs** : `http.route`, `db.system`, `app.product.id`...
-  - **events** : points datés dans le span (exception, retry...)
-  - **links** : relations entre traces (batch, fan-out)
-- **Trace** = l'arbre des spans reliés par `trace_id` + parenté
-- `SpanKind` : SERVER, CLIENT, INTERNAL, PRODUCER, CONSUMER
+![w:900](images/trace-spans.svg)
+
+- Un enfant **tient dans les bornes de son parent** : il commence après lui et finit avant —
+  le parent, c'est l'appel qui attend (pointillés : qui a déclenché qui)
+- Deux frères ne se recouvrent **que** s'ils sont exécutés en parallèle ;
+  ici les trois appels de `checkout` sont séquentiels
+
+---
+
+## La même trace, dans Jaeger
+
+<!-- _footer: "Capture : opentelemetry.io — CC BY 4.0" -->
+
+![w:850](images/jaeger-trace-view.png)
+
+- À gauche l'arbre des appels, à droite la même chose à l'échelle du temps
+- Quels services sont intervenus, dans quel ordre, pour quelle durée
+
+---
+
+## Le chemin d'une trace
+
+![w:1100](images/trace-chemin.svg)
+
+- L'application n'écrit jamais dans Jaeger : elle émet de l'**OTLP** vers le collecteur,
+  qui décide de la suite (chapitre 3) — changer de backend ne la concerne pas
+
+---
+
+<!-- _class: bigcode -->
+
+## Un span
+
+```text
+trace_id  = a91c…          span_id = 7d24…       parent_span_id = 3f01…
+name      = "GET /api/reviews"                   kind  = SERVER
+début     = 12:04:07.412   durée = 38 ms         statut = OK
+attributs = { http.route: "/api/reviews", db.system: "postgresql" }
+events    = [ 12:04:07.430 : "exception", … ]
+```
+
+- Les **attributs** décrivent l'opération : des clés/valeurs, normalisées par les
+  conventions sémantiques (`http.*`, `db.*`) ou à vous (`app.review.rating`)
+- Les **events** sont des instants datés **à l'intérieur** du span : une exception, un retry
+- Les **links** pointent vers une **autre** trace : le message publié ici, consommé ailleurs
+
+---
+
+## Une trace
+
+- Tous les spans qui partagent le même **`trace_id`** forment une trace
+- Chacun nomme son **`parent_span_id`** : c'est ce qui reconstitue l'**arbre**
+  (celui de gauche dans Jaeger) — un seul span n'a pas de parent, la **racine**
+- Le **`SpanKind`** dit le rôle tenu dans l'échange :
+
+| Kind | Qui l'émet |
+|---|---|
+| `SERVER` / `CLIENT` | celui qui **reçoit** l'appel / celui qui l'**émet** |
+| `PRODUCER` / `CONSUMER` | messagerie : publication / consommation (Kafka) |
+| `INTERNAL` | une opération interne, sans échange réseau |
+
+- Une seule requête HTTP produit donc **deux** spans : le `CLIENT` chez l'appelant
+  et le `SERVER` chez l'appelé, reliés par le contexte propagé
 
 ---
 
