@@ -166,11 +166,11 @@ Ouvrez l'URL affichée : la règle **« Latence p95 du review-service »** y est
 
 7.  **La faire sonner.** Votre `review-service` n'a de trafic que celui que vous lui envoyez, et il est rapide : au repos, son p95 tourne autour de **4 ms**. D'où le seuil à 20 ms — cinq fois le repos. Un seuil ne se choisit pas dans l'absolu, il se calibre sur le service qu'il surveille.
 
-Pour le faire monter, ce n'est pas le **nombre** de requêtes qui compte, c'est le nombre de requêtes **en même temps** : trente clients en parallèle pendant trois minutes.
+Pour le faire monter, ce n'est pas le **nombre** de requêtes qui compte, c'est le nombre de requêtes **en même temps** : cent clients en parallèle pendant trois minutes.
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
-for i in $(seq 1 30); do
+for i in $(seq 1 100); do
   ( fin=$((SECONDS+180))
     while [ $SECONDS -lt $fin ]; do
       curl -s -o /dev/null --max-time 10 http://$PF_HOST:$APP_PORT/api/reviews
@@ -179,7 +179,26 @@ done
 wait
 ```
 
-Pendant que ça tourne, remettez la variable `service_name` sur **`review-service`** et regardez **le panel** « Latence p95 » : la courbe décolle et franchit la ligne rouge — mesuré en salle, ~40 ms, soit le double du seuil. Puis la page *Alerting → Alert rules*, où la règle change d'état :
+> ⚠️ **Ce nombre dépend de la machine, et c'est instructif.** Mesuré sur le serveur de
+> formation (16 vCPU) : **30 clients** donnent 2 260 req/s pour un p95 de **4,3 ms** —
+> l'alerte ne sonne jamais. Il faut **100 clients** pour atteindre 2 100 req/s à
+> **26,8 ms** et franchir le seuil. Sur un portable, trente suffisent largement.
+>
+> Si l'alerte reste obstinément `Normal`, ne cherchez pas ailleurs : regardez d'abord
+> **où en est le p95**, dans le panel ou dans Prometheus.
+>
+> ```promql
+> histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name="review-service"}[2m])) by (le))
+> ```
+>
+> S'il stagne sous 20 ms, doublez le nombre de clients. C'est exactement la leçon de
+> l'étape : **un seuil se calibre sur le service et sur la machine qui l'héberge**, il
+> ne se recopie pas d'un environnement à l'autre.
+>
+> 💡 Gardez la fenêtre `[2m]`. Avec `[1m]`, la requête renvoie souvent *vide* : le
+> collecteur exporte toutes les 60 s, la fenêtre ne contient alors qu'un seul point, et
+> `rate()` en exige deux.
+Pendant que ça tourne, remettez la variable `service_name` sur **`review-service`** et regardez **le panel** « Latence p95 » : la courbe décolle et franchit la ligne rouge — mesuré sur le serveur de formation, **26,8 ms** contre un seuil de 20. Puis la page *Alerting → Alert rules*, où la règle change d'état :
 
 * `Normal` — le p95 est sous le seuil ;
 * `Pending` — il vient de passer au-dessus, mais la règle attend que le dépassement **dure** (son `for`, 1 minute) ;

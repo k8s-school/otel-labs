@@ -389,7 +389,7 @@ kubectl get configmap otel-collector-agent -n otel-demo -o jsonpath='{.data.rela
 echo "http://$PF_HOST:$ZPAGES_PORT/debug/pipelinez"
 ```
 
-> Le collecteur vient d'être redéployé, donc son pod a changé — l'accès aux zPages a été rouvert tout seul par `open-ui.sh`.
+> Le collecteur vient d'être redéployé, donc son pod a changé — l'accès aux zPages a été rouvert tout seul par `open-ui.sh`. **Comptez-lui quelques secondes** : si la page ne répond pas du premier coup, attendez et rechargez, ne changez rien.
 
 Ouvrez l'URL affichée : vos deux receivers doivent apparaître dans le pipeline `metrics`.
 
