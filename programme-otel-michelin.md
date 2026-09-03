@@ -1,7 +1,7 @@
 # Formation OpenTelemetry — Michelin DevOps
 ## Programme détaillé formateur (2 jours)
 
-> Run-sheet minuté à usage du formateur. Ratio labs / théorie visé : **~65 % labs**.
+> Run-sheet minuté à usage du formateur. Ratio labs / théorie : **60 % de labs** (425 min de labs pour 280 min de théorie), durées calées sur des mesures — voir la note en fin de document.
 > Base technique : cluster **Kind** + **démo officielle OpenTelemetry** (collecteur, Grafana, Jaeger, Prometheus, OpenSearch, Kafka, PostgreSQL, load generator, Ad Service Java) + **micro-service Spring Boot** custom (`review-service`) pour l'instrumentation manuelle.
 
 ---
@@ -23,7 +23,9 @@
 | **J1** | 1. Introduction · 2. Zero-code · 3. Collecteur · 4. Grafana | Labs 1 → 4 |
 | **J2** | 5. Logs · 6. Métriques · 7. Traces · 8. Sécurité & conformité · 9. Spring (facultatif) · 10. Conclusion | Labs 5 → 8 |
 
-> ⚠️ **Point de vigilance J1** : 4 chapitres + 4 labs en une journée, c'est dense (Introduction et Collecteur sont deux gros blocs théoriques). Le planning ci-dessous compresse la théorie au strict nécessaire et bascule un maximum en live-demo pendant les labs. Si le groupe est lent sur le Lab 3 (Collecteur), le Lab 4.1 (Exemplars) est la variable d'ajustement : c'est de la lecture guidée, il se fait en démo au tableau ou se reporte au Jour 2.
+> ⚠️ **Point de vigilance J1** : 4 chapitres + 4 labs en une journée, c'est dense (Introduction et Collecteur sont deux gros blocs théoriques). Le planning ci-dessous compresse la théorie au strict nécessaire et bascule un maximum en live-demo pendant les labs.
+>
+> **Les deux variables d'ajustement, dans cet ordre** : le **Lab 4.1** (Exemplars) — de la lecture guidée, qui se fait en démo au tableau ou se reporte au Jour 2 — puis l'**étape 1 du Lab 3** (lecture commentée de la configuration), que le lab lui-même désigne comme « à lire à froid ». Ne rognez pas sur le Lab 4 : c'est celui dont le temps est le moins compressible, l'alerte devant réellement passer en `Firing`.
 
 ---
 
@@ -35,20 +37,21 @@
 |---------|-------|------|---------|
 | 09:00 | 20 | Admin | Accueil, tour de table, rappel des objectifs, auto-positionnement |
 | 09:20 | 40 | 🖥️ Slides | **Ch.1 — Introduction** |
-| 10:00 | 45 | 🧪 **Lab 1** | Démarrage de la stack |
-| 10:45 | 15 | ☕ | Pause |
-| 11:00 | 40 | 🖥️ Slides | **Ch.2 — Instrumentation zero-code** |
-| 11:40 | 50 | 🧪 **Lab 2** | Instrumentation d'un micro-service Java (partie 1) |
-| 12:30 | — | 🍽️ | Déjeuner |
-| 14:00 | 20 | 🧪 **Lab 2** | Instrumentation (partie 2 — Spring Boot Starter) |
-| 14:20 | 55 | 🖥️ Slides | **Ch.3 — Collecteur** |
-| 15:15 | 60 | 🧪 **Lab 3** | Configuration du collecteur |
-| 16:15 | 15 | ☕ | Pause |
-| 16:30 | 25 | 🖥️ Slides | **Ch.4 — Grafana** |
-| 16:55 | 30 | 🧪 **Lab 4** | Dashboard unifié logs/métriques/traces + alerte déclenchée |
-| 17:25 | 10 | 🧪 **Lab 4.1** | Exemplars : du point de métrique à la trace (lecture guidée) |
+| 10:00 | 40 | 🧪 **Lab 1** | Démarrage de la stack |
+| 10:40 | 15 | ☕ | Pause |
+| 10:55 | 40 | 🖥️ Slides | **Ch.2 — Instrumentation zero-code** |
+| 11:35 | 50 | 🧪 **Lab 2** | Instrumentation d'un micro-service Java (agent **et** starter) |
+| 12:25 | — | 🍽️ | Déjeuner |
+| 14:00 | 45 | 🖥️ Slides | **Ch.3 — Collecteur** |
+| 14:45 | 55 | 🧪 **Lab 3** | Configuration du collecteur |
+| 15:40 | 15 | ☕ | Pause |
+| 15:55 | 25 | 🖥️ Slides | **Ch.4 — Grafana** |
+| 16:20 | 50 | 🧪 **Lab 4** | Dashboard unifié + alerte déclenchée |
+| 17:10 | 15 | 🧪 **Lab 4.1** | Exemplars : du point de métrique à la trace (lecture guidée) |
+| 17:25 | 5 | Bilan | Retour sur la journée |
 
-**Bilan J1** intégré à la fin du Lab 4.1. Labs J1 ≈ 3h30 · Théorie ≈ 2h40.
+**Labs J1 = 210 min · Théorie = 150 min**, dans une enveloppe utile de 370 min
+(10 min de marge).
 
 ---
 
@@ -66,7 +69,7 @@ Contenu slides :
 - Protocole OTLP (gRPC / HTTP, signals unifiés)
 - API vs SDK vs distributions vs fournisseurs
 
-### 🧪 Lab 1 — Démarrage de la stack Grafana *(45 min, entièrement guidé)*
+### 🧪 Lab 1 — Démarrage de la stack Grafana *(40 min, entièrement guidé)*
 **But** : chacun a une stack qui tourne et sait accéder aux UIs.
 - Vérifier les prérequis (`kubectl get pods -A`, tous `Running`)
 - Accéder à **Grafana**, **Jaeger**, au **frontend** de la démo (port-forward ou ingress)
@@ -84,7 +87,7 @@ Contenu slides :
 - Spring Boot Starter : quand le préférer à l'agent, installation (dépendance), configuration (`application.properties`)
 - Comparaison agent vs starter (couverture, granularité, cas d'usage)
 
-### 🧪 Lab 2 — Instrumentation d'un micro-service Java *(50 + 20 min)*
+### 🧪 Lab 2 — Instrumentation d'un micro-service Java *(50 min, d'un seul tenant)*
 **But** : voir la même appli instrumentée par deux voies.
 - **Partie 1** : lancer le micro-service Spring Boot custom avec l'**agent Java** (`-javaagent`), pointer vers le collecteur, générer une requête, retrouver la trace
 - **Partie 2** : reprendre l'appli avec le **Spring Boot Starter** à la place de l'agent, comparer les spans produits
@@ -93,7 +96,7 @@ Contenu slides :
 
 ---
 
-## Chapitre 3 — Collecteur *(slides, 55 min)*
+## Chapitre 3 — Collecteur *(slides, 45 min)*
 
 **Objectif** : comprendre le pipeline receivers → processors → exporters et savoir le configurer.
 
@@ -108,7 +111,7 @@ Contenu slides :
 - **Exporters** : Debug, File, OTLP
 - **Extensions** : Health check, zPages
 
-### 🧪 Lab 3 — Configuration du collecteur *(60 min)*
+### 🧪 Lab 3 — Configuration du collecteur *(55 min)*
 **But** : modifier une config collecteur et voir l'effet.
 - Éditer la ConfigMap du collecteur (pas de rebuild — juste `kubectl apply` + `rollout restart`)
 - Ajouter un receiver **hostmetrics** → collecte des métriques système
@@ -128,7 +131,7 @@ Contenu slides :
 - Dashboards (variables, organisation)
 - Alerting (principe, règle simple)
 
-### 🧪 Lab 4 — Dashboard unifié *(30 min)*
+### 🧪 Lab 4 — Dashboard unifié *(50 min)*
 **But** : rassembler les 3 signaux sur un écran.
 - Ajouter une variable (`service_name`) alimentée par les données
 - Construire **deux** panels : métriques (Prometheus) et traces (Jaeger)
@@ -136,7 +139,7 @@ Contenu slides :
 - Installer la règle d'alerte (p95 > 100 ms) et **la faire sonner** en chargeant le service : `Normal` → `Pending` → `Firing`
 - **Livrable** : un dashboard « vue service » exporté en JSON (à committer dans le repo).
 
-### 🧪 Lab 4.1 — Exemplars *(10 min, lecture guidée)*
+### 🧪 Lab 4.1 — Exemplars *(15 min, lecture guidée)*
 **But** : montrer le chaînon entre métrique et trace, sur le dashboard « Cart Service Exemplars » livré par la démo. Rien à construire : on lit une heatmap, on survole un exemplar, on clique jusqu'à Jaeger.
 
 > 📖 **Lab 4 bonus** (hors séance) : le PromQL des histogrammes — d'où sort un p95, ce qu'il cache, et ce qu'une heatmap montre de plus.
@@ -151,21 +154,21 @@ Contenu slides :
 |---------|-------|------|---------|
 | 09:00 | 15 | Rappel | Réveil / retour sur J1, questions |
 | 09:15 | 30 | 🖥️ Slides | **Ch.5 — Logs** |
-| 09:45 | 55 | 🧪 **Lab 5** | Logs applicatives structurées |
-| 10:40 | 15 | ☕ | Pause |
-| 10:55 | 30 | 🖥️ Slides | **Ch.6 — Métriques** |
-| 11:25 | 55 | 🧪 **Lab 6** | Métriques (partie 1) |
-| 12:20 | — | 🍽️ | Déjeuner |
-| 14:00 | 15 | 🧪 **Lab 6** | Métriques (partie 2) |
-| 14:15 | 30 | 🖥️ Slides | **Ch.7 — Traces** |
-| 14:45 | 55 | 🧪 **Lab 7** | Traces & échantillonnage |
-| 15:40 | 15 | ☕ | Pause |
-| 15:55 | 25 | 🖥️ Slides | **Ch.8 — Sécurité & conformité** |
-| 16:20 | 40 | 🧪 **Lab 8** | Masquage & anti-fuite de données sensibles |
+| 09:45 | 45 | 🧪 **Lab 5** | Logs applicatives structurées |
+| 10:30 | 15 | ☕ | Pause |
+| 10:45 | 30 | 🖥️ Slides | **Ch.6 — Métriques** |
+| 11:15 | 60 | 🧪 **Lab 6** | Métriques (parties 1 et 2) |
+| 12:15 | — | 🍽️ | Déjeuner |
+| 14:00 | 30 | 🖥️ Slides | **Ch.7 — Traces** |
+| 14:30 | 65 | 🧪 **Lab 7** | Traces & échantillonnage |
+| 15:35 | 15 | ☕ | Pause |
+| 15:50 | 25 | 🖥️ Slides | **Ch.8 — Sécurité & conformité** |
+| 16:15 | 45 | 🧪 **Lab 8** | Masquage & anti-fuite de données sensibles |
 | 17:00 | 15 | 🖥️ Slides | **Ch.10 — Conclusion** (Ch.9 Spring en démo si le groupe a de l'avance) |
 | 17:15 | 15 | Éval | Questionnaire final + bilan |
 
-Labs J2 ≈ 3h40 · Théorie ≈ 2h25.
+**Labs J2 = 215 min · Théorie = 130 min**, dans une enveloppe utile de 360 min
+(15 min de marge).
 
 **Ratio global sur les 2 jours ≈ 65 % labs.** Pour monter vers 70 %, basculer une partie de la théorie Ch.5/6/7 en live-demo pendant les labs (voir notes formateur des decks).
 
@@ -185,7 +188,7 @@ Contenu slides :
 - Collecteur : receivers **filelog**, **syslog** · processor **Log Transform**
 - ⚠️ *Amorce sécurité* : un log = un canal de fuite fréquent (payload, mot de passe). Le masquage via **LogRecordProcessor** est traité au Ch.8.
 
-### 🧪 Lab 5 — Logs structurées *(60 min)*
+### 🧪 Lab 5 — Logs structurées *(45 min)*
 **But** : émettre → collecter → centraliser.
 - Configurer l'appender Logback OTel dans le micro-service
 - Produire des logs structurés corrélés aux traces (trace_id dans le log)
@@ -206,7 +209,7 @@ Contenu slides :
 - Agent Java · rappels **Prometheus**
 - Collecteur : receiver/exporter **Prometheus** · connectors **count**, **signal to metric**
 
-### 🧪 Lab 6 — Métriques *(50 + 20 min)*
+### 🧪 Lab 6 — Métriques *(60 min, d'un seul tenant)*
 **But** : émettre → collecter → grapher.
 - **Partie 1** : instrumenter le micro-service avec un compteur + un histogramme (Micrometer ou SDK)
 - **Partie 2** : exposer via Prometheus, collecter, grapher dans Grafana ; utiliser un connector **count** pour dériver une métrique depuis des spans
@@ -253,7 +256,7 @@ Contenu slides :
   3. **Masquage collecteur** (filet de sécurité central) : processors **Filter** / **Transform (OTTL)** / **Redaction**, `delete_key` / `hash` sur les attributs sensibles
 - **Techniques** : suppression vs hachage vs troncature · **allowlist plutôt que denylist** · tests de non-régression anti-fuite · revue des attributs custom
 
-### 🧪 Lab 8 — Masquage & anti-fuite *(40 min)*
+### 🧪 Lab 8 — Masquage & anti-fuite *(45 min)*
 **But** : détecter une fuite, puis la neutraliser à deux niveaux (appli/SDK **et** collecteur).
 - **Provoquer la fuite** : ajouter volontairement un attribut sensible dans le micro-service (header `Authorization` / JWT, `user.email`, un `password`), générer une requête, **constater** la fuite dans Jaeger et OpenSearch
 - **Masquer côté SDK** : implémenter un **SpanProcessor** qui supprime/hache l'attribut sensible + un **LogRecordProcessor** qui redact le message de log
@@ -285,15 +288,27 @@ Contenu slides :
 
 | # | Titre | Chapitre | Durée | Livrable |
 |---|-------|----------|-------|----------|
-| 1 | Démarrage de la stack | Introduction | 45 | Trace de bout en bout dans Jaeger |
-| 2 | Instrumentation micro-service Java | Zero-code | 70 | 2 traces (agent + starter) |
-| 3 | Configuration du collecteur | Collecteur | 60 | Métriques système + produit collectées |
-| 4 | Dashboard unifié | Grafana | 30 | Dashboard 3-signaux exporté + alerte p95 déclenchée |
-| 4.1 | Exemplars (lecture) | Grafana | 10 | — |
-| 5 | Logs structurées | Logs | 55 | Log corrélé à sa trace |
-| 6 | Métriques | Métriques | 70 | Graphe latence + compteur métier |
-| 7 | Traces & sampling | Traces | 55 | Trace multi-services + tail sampling |
-| 8 | Masquage & anti-fuite | Sécurité & conformité | 40 | JWT + email masqués (SDK + collecteur) |
+| 1 | Démarrage de la stack | Introduction | 40 | Trace de bout en bout dans Jaeger |
+| 2 | Instrumentation micro-service Java | Zero-code | 50 | 2 traces (agent + starter) |
+| 3 | Configuration du collecteur | Collecteur | 55 | Métriques système + produit collectées |
+| 4 | Dashboard unifié | Grafana | 50 | Dashboard 3-signaux exporté + alerte p95 déclenchée |
+| 4.1 | Exemplars (lecture) | Grafana | 15 | — |
+| 5 | Logs structurées | Logs | 45 | Log corrélé à sa trace |
+| 6 | Métriques | Métriques | 60 | Graphe latence + compteur métier |
+| 7 | Traces & sampling | Traces | 65 | Trace multi-services + tail sampling |
+| 8 | Masquage & anti-fuite | Sécurité & conformité | 45 | JWT + email masqués (SDK + collecteur) |
+
+> ⏱️ **D'où viennent ces durées.** Le volume de lecture de chaque lab a été mesuré
+> (mots de prose + lignes de code), converti à 170 mots/min, puis complété par les temps
+> machine relevés sur le serveur de formation (`up.sh` ≈ 3 min, un `deploy.sh` ≈ 45 s,
+> un `helm upgrade` ≈ 2 min) et par les attentes incompressibles d'observabilité
+> (cycle d'export 60 s, `for: 1m` d'une règle d'alerte, fenêtre `rate(...[2m])`).
+>
+> Les deux corrections principales par rapport à la version précédente : le **Lab 4**
+> passe de 30 à 50 min — 21 min de lecture seule, et le déclenchement de l'alerte a un
+> temps de propagation qu'on ne peut pas comprimer — et le **Lab 7** passe de 55 à
+> 65 min, à cause de l'écriture du fichier de values `tail_sampling`. À l'inverse, les
+> **Labs 1, 2 et 5** avaient une marge inutilisée.
 
 ---
 

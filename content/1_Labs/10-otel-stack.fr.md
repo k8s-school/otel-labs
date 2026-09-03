@@ -77,10 +77,27 @@ kubectl get pods -n otel-demo -o wide
 >
 > Un accès qui n'existe pas encore n'est pas une erreur : le `review-service` est celui que vous déploierez au Lab 2, son URL répondra à ce moment-là.
 
-* La boutique : [http://localhost:8080/](http://localhost:8080/)
-* Grafana : [http://localhost:8080/grafana/](http://localhost:8080/grafana/)
-* Jaeger : [http://localhost:8080/jaeger/ui/](http://localhost:8080/jaeger/ui/)
-* Load generator : [http://localhost:8080/loadgen/](http://localhost:8080/loadgen/)
+**Utilisez les URLs que le script vient d'afficher**, et elles seules :
+
+```text
+  Astronomy Shop   http://localhost1:8080/        <- exemple pour student1
+  Grafana          http://localhost1:8080/grafana/
+  Jaeger           http://localhost1:8080/jaeger/ui/
+  Load generator   http://localhost1:8080/loadgen/
+```
+
+> ⚠️ **N'écrivez jamais `localhost` en dur sur le serveur partagé.** Chaque compte a
+> son adresse (`student1` → `localhost1`, `student2` → `localhost2`…), et `localhost`
+> tout court est celle de `student1`. Un participant qui tape `http://localhost:8080/`
+> tombe donc sur **la boutique de son voisin** — elle répond, tout a l'air normal, et
+> il cherchera ensuite sa trace dans le Jaeger de quelqu'un d'autre.
+>
+> Le même piège vaut pour les URLs affichées par **Helm** à la fin de l'installation :
+> elles annoncent `http://localhost:8080` parce que le chart ne connaît pas votre
+> compte. Fiez-vous à `open-ui.sh`, pas à elles.
+>
+> Sur un poste individuel, `$PF_HOST` vaut simplement `localhost` et la question ne
+> se pose pas.
 
 4.  **Générer votre propre trafic :**
 
@@ -90,7 +107,7 @@ Ouvrez la boutique, choisissez un télescope et passez une commande complète (p
 
 Pour isoler votre commande, mettez le générateur en pause avant de commander :
 
-* ouvrez le load generator ([http://localhost:8080/loadgen/](http://localhost:8080/loadgen/)), cliquez sur **Stop** ;
+* ouvrez le load generator (l'URL `/loadgen/` affichée par `open-ui.sh`), cliquez sur **Stop** ;
 * attendez ~30 s (le temps que les requêtes en cours se terminent), puis notez l'heure et passez votre commande ;
 * relancez le générateur (**Start swarming**) après l'étape 5 : les labs suivants ont besoin de ce trafic de fond.
 
@@ -118,6 +135,8 @@ L'équipe Java vient de livrer le micro-service **`review-service`** (avis produ
 
 {{%expand "Réponse" %}}
 Il n'y est pas ! `review-service` n'est même pas encore déployé — et surtout, il n'est **pas instrumenté** : même déployé, il n'émettrait aucune télémétrie.
+
+⚠️ **Ne le confondez pas avec `product-reviews`**, que la liste de Jaeger contient bel et bien. C'est un service **de la démo**, écrit en Python, qui gère les avis de la boutique. Le vôtre s'appelle `review-service`, il est en Java, et il n'apparaîtra qu'au Lab 2. Les deux écrivent d'ailleurs dans la même base, dans deux tables différentes — un détail qui resservira au Lab 3.
 
 C'est tout l'objet des prochains labs : le rendre observable de bout en bout, **sans modifier son code** pour commencer (Lab 2).
 {{% /expand%}}

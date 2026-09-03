@@ -98,12 +98,33 @@ curl http://$PF_HOST:$APP_PORT/api/reviews
 
 Cherchez le service `review-service`. Ouvrez une trace de `GET /api/reviews`. Quels spans l'agent a-t-il créés automatiquement, sans une ligne de code ?
 
+> ⏳ **Laissez-lui une quinzaine de secondes.** Le pod vient d'être remplacé, l'accès se
+> rouvre sur le nouveau, et le SDK exporte par lots. Une requête envoyée dans la foulée
+> du `deploy.sh` peut n'apparaître qu'après — voire pas du tout si elle a été servie par
+> l'ancien pod. Si `review-service` est bien dans la liste mais que `GET /api/reviews`
+> manque, ne changez rien : refaites un `curl`, attendez, et regardez à nouveau.
+
 {{%expand "Réponse" %}}
 Typiquement deux niveaux :
 * un span **serveur HTTP** `GET /api/reviews` (instrumentation de Tomcat/Spring MVC) avec les attributs `http.request.method`, `http.route`, `http.response.status_code`... ;
 * un ou plusieurs spans **SQL** enfants (instrumentation JDBC) avec `db.system=postgresql` et la requête `SELECT` exécutée.
 
 L'agent instrumente **par manipulation de bytecode** les bibliothèques qu'il connaît (Tomcat, Spring, JDBC, Kafka, HTTP clients... plus de 100 frameworks).
+
+> 💡 **Deux surprises dans le waterfall.**
+>
+> **Un span s'appelle `otel`.** Ce n'est pas OpenTelemetry qui parle de lui-même : `otel`
+> est le nom de la **base de données** (`DB_NAME` dans le manifest). La convention de
+> nommage JDBC est `{opération} {base}` — d'où `SELECT otel`. Ce span-là n'a ni
+> `db.operation` ni `db.statement` : l'instrumentation n'a pas su classer l'opération
+> (acquisition de connexion, commit), il ne reste donc que le nom de la base.
+>
+> **Le nom du span SQL a été réécrit en route.** Dépliez-le : il porte un attribut
+> `unsanitized_span_name = SELECT otel.reviews`. Son nom d'origine mentionnait la
+> **table**, et c'est le **collecteur** qui l'a raccourci, avec une règle OTTL que vous
+> lirez au Lab 3. La normalisation des noms de spans sert à contenir la cardinalité —
+> mais elle vous fait perdre ici une information utile. Une décision de plateforme,
+> visible dans vos traces avant même que vous ne sachiez qu'elle existe.
 
 Comparez avec le service `ad` de la démo : lui aussi est un service Java instrumenté par l'agent — vous y verrez la même structure de spans.
 {{% /expand%}}
@@ -138,7 +159,20 @@ La chaîne d'activation, du plus haut au plus bas niveau :
 > À retenir : l'agent est **toujours** présent dans l'image mais **inactif** sans `JAVA_TOOL_OPTIONS` ; le Starter, lui, est actif **dès qu'il est compilé**. D'où la règle : jamais les deux ensemble.
 {{% /expand%}}
 
-8.  **Rebâtir avec le Starter.** **Re-commentez d'abord `JAVA_TOOL_OPTIONS`** dans le manifest : agent et starter sont deux **alternatives**, pas deux compléments. Les laisser ensemble installe deux SDK dans la même JVM — l'application démarre malgré tout, mais vous ne sauriez plus lequel des deux produit la télémétrie que vous observez, et la comparaison qui suit n'aurait plus de sens. Puis :
+8.  **Rebâtir avec le Starter.**
+
+> 🛑 **Avant la commande : re-commentez `JAVA_TOOL_OPTIONS`** dans
+> `apps/review-service/k8s/review-service.yaml`. Agent et starter sont deux
+> **alternatives**, pas deux compléments.
+>
+> Rien ne vous préviendra si vous l'oubliez : l'application démarre, les traces
+> arrivent, et elles sont **identiques** — mesuré, les deux SDK ne dupliquent pas les
+> spans. C'est précisément le problème : vous ne sauriez plus lequel des deux les
+> produit, et la comparaison de l'étape 9 n'aurait plus de sens.
+>
+> Pour vérifier après coup :
+> `kubectl logs -n otel-demo deploy/review-service | grep javaagent` — s'il affiche
+> `opentelemetry-javaagent - version`, l'agent est encore là.
 
 ```bash
 ./scripts/deploy.sh -p starter
