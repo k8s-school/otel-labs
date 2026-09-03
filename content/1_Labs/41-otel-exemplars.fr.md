@@ -82,6 +82,17 @@ Les seaux du bas sont les plus peuplés — la plupart des requêtes sont rapide
 
 **Survolez un marqueur** : une infobulle donne la valeur, le `trace_id` et un lien. **Cliquez** : Jaeger s'ouvre sur cette requête précise. Au lieu de chercher dans Jaeger une trace qui ressemblerait au symptôme, c'est le symptôme qui vous donne son identifiant.
 
+> ⚠️ **Sur le serveur partagé, l'infobulle propose deux liens.** La démo officielle
+> déclare **deux** destinations pour le même exemplar dans sa datasource Prometheus
+> (`kubectl get cm grafana-datasources -n otel-demo -o yaml`) : une correcte, résolue
+> côté serveur Grafana par son `datasourceUid` ; l'autre porte une URL **en dur**,
+> `http://localhost:8080/jaeger/ui/trace/…`. Un artefact du chart amont, pas de ce
+> cours — et un cas de plus du piège du Lab 1 : `localhost`, sur ce serveur, c'est
+> `student1`. Si vous cliquez ce second lien et n'êtes pas `student1`, Jaeger s'ouvre
+> **chez votre voisin**, sur une trace qu'il n'a probablement pas. Prenez le premier
+> lien de l'infobulle ; à défaut, copiez le `trace_id` et collez-le dans **votre**
+> Jaeger (*Search → Trace ID*).
+
 > 💡 **La seule différence avec vos panels du Lab 4 tient en une case cochée** : dans les options de la requête, *Exemplars*. Elle vaut `"exemplar": true` dans le JSON du panel — allez le vérifier, *Panel → Inspect → Panel JSON*.
 
 6.  **Pourquoi cette métrique en porte, et pas les vôtres.** `app_cart_get_cart_latency_seconds_bucket` est produite par le **SDK OpenTelemetry du service `cart`** : au moment où il enregistre la durée, le SDK a le `trace_id` du span en cours sous la main, et l'attache à la mesure. Vos panels, eux, affichent `traces_span_metrics_*`, que le **collecteur** recalcule après coup à partir des spans — il ne joint aucun `trace_id`, sauf si on le lui demande.
