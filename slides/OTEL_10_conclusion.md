@@ -53,7 +53,7 @@ backgroundColor: #ffffff
 - La démo utilisée en formation : <https://opentelemetry.io/docs/demo/>
 - Conventions sémantiques : <https://opentelemetry.io/docs/specs/semconv/>
 - Livre : *Learning OpenTelemetry* (Young & Parker, O'Reilly)
-- Micrometer vs OTel : [article ITNext](https://itnext.io/distributed-tracing-with-spring-boot-3-micrometer-vs-opentelemetry-b3593546f61b)
+- Micrometer vs OTel : [Tracing (Spring Boot)](https://docs.spring.io/spring-boot/reference/actuator/tracing.html) et [starter OTel](https://opentelemetry.io/docs/zero-code/java/spring-boot-starter/)
 - Les labs de cette formation : <https://k8s-school.fr/labs/otel/>
 
 ---

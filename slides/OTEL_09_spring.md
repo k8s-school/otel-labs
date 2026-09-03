@@ -83,8 +83,8 @@ backgroundColor: #ffffff
 - **`Observation`** (Micrometer) réunit les deux : **un seul appel** produit le span,
   le timer et les logs corrélés — et dessous c'est **OpenTelemetry** qui travaille,
   via `micrometer-tracing-bridge-otel` : API Spring, moteur OTel, sortie OTLP
-- ➡ [API Java OTel](https://opentelemetry.io/docs/languages/java/api/) · [API Observation](https://docs.micrometer.io/micrometer/reference/observation.html) · [Observability Spring Boot](https://docs.spring.io/spring-boot/reference/actuator/observability.html) ·
-  [comparaison des deux](https://itnext.io/distributed-tracing-with-spring-boot-3-micrometer-vs-opentelemetry-b3593546f61b)
+- Spring documente `Observation` comme l'API à appeler, et auto-configure **OTel + OTLP** pour la sortie ([Tracing, doc Spring Boot](https://docs.spring.io/spring-boot/reference/actuator/tracing.html))
+- ➡ [API Java OTel](https://opentelemetry.io/docs/languages/java/api/) · [API Observation](https://docs.micrometer.io/micrometer/reference/observation.html) · [Micrometer Tracing](https://docs.micrometer.io/tracing/reference/index.html)
 
 ---
 
