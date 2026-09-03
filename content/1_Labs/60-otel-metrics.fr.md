@@ -16,6 +16,12 @@ Le Lab 3 collectait des métriques d'**infrastructure** (système, PostgreSQL) ;
 
 ## Étapes
 
+> ⏱️ **Trois parties, dont deux courtes.**
+>
+> **En séance** : la **partie 1** (le compteur et l'histogramme, l'essentiel du lab), puis la **partie 2** — un seul flag à poser, dix minutes.
+>
+> **À lire ensuite** : la **partie 3**, le connector `count`. Elle se lit et s'applique en autonomie, sur le modèle du fichier de values du Lab 3. C'est pourtant la démonstration la plus frappante du chapitre — une métrique qui naît **sans une ligne de code** — alors ne la sautez pas définitivement.
+
 ### Partie 1 — Un compteur et un histogramme avec l'API OpenTelemetry
 
 1.  **Lire l'instrumentation** dans `apps/review-service/src/main/java/fr/k8sschool/reviews/ReviewController.java`. Les deux instruments sont créés une fois, dans le constructeur :
@@ -334,6 +340,9 @@ Les deux cohabitent sans problème dans une même JVM, comme ici : ce service ex
 > Quant à `review-service`, il n'embarque **aucun** registry d'export et n'expose qu'`/actuator/health` : sans le pont de l'agent, ses meters Micrometer existent bel et bien en mémoire — et ne sont visibles nulle part.
 
 ### Partie 3 — Dériver une métrique depuis les spans (connector `count`)
+
+> 📖 **Se fait très bien à froid.** Aucune des parties précédentes n'en dépend, et le fichier de values suit exactement le modèle du Lab 3.
+
 
 7.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values, `manifests/60-otel-metrics-values.yaml`. Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
 

@@ -28,6 +28,12 @@ echo "$PROM_PORT $ZPAGES_PORT"
 
 ## Étapes
 
+> ⏱️ **Ce lab est dense — voici comment le parcourir.**
+>
+> **En séance** : l'étape **1a** (où vit la configuration), puis les étapes **2 à 6** — c'est là que vous modifiez le collecteur et voyez le résultat.
+>
+> **À lire ensuite, à froid** : les étapes **1c, 1d et 1e**, la lecture commentée de la configuration réelle. Elles expliquent *pourquoi* elle est écrite ainsi — l'ordre des processors, le receiver déclaré qui ne tourne pas, ce qui se passe quand `memory_limiter` mord. Rien dans la suite du lab n'en dépend, mais c'est ce que vous relirez le jour où une configuration vous résistera.
+
 ### 1. Lire la configuration réelle du collecteur
 
 #### a. Où vit cette configuration ?
@@ -79,6 +85,9 @@ Sortez avec `exit`. Le conteneur éphémère ne redémarre pas, mais reste attac
 > 🚫 N'utilisez **pas** `kubectl debug --copy-to=...` ici. Cette variante crée un **pod indépendant**, copie du collecteur, qui réclame les mêmes `hostPort` (4317, 4318, 14250, 14268, 9411). Il reste `Pending` tant que le DaemonSet tourne, donc invisible — mais au prochain `helm upgrade` il s'empare des ports libérés et le nouveau pod du collecteur ne peut plus être planifié. Si vous en avez créé un : `kubectl delete pod <nom> -n otel-demo`.
 
 #### c. Les sections qui comptent
+
+> 📖 **Lecture à froid.** Si vous êtes en séance et que le temps presse, passez directement à l'[étape 2](#2-constater-ce-qui-manque-dans-prometheus) : vous reviendrez ici après.
+
 
 Voici la configuration de la démo, **condensée et remise dans l'ordre logique** du flux de données — de l'entrée vers la sortie (dans le fichier réel, les blocs sont dans un tout autre ordre). Les clés sans valeur sont celles dont le détail a été coupé :
 

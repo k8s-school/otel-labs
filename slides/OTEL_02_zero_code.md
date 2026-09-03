@@ -75,6 +75,26 @@ java -javaagent:/otel/opentelemetry-javaagent.jar -jar app.jar
 
 ---
 
+## Ce que coûte l'agent
+
+- La doc officielle **refuse de donner un chiffre unique** : trop de facteurs
+  (JVM, machine, libs instrumentées, volume de spans) — elle demande de **mesurer chez soi**
+- Ordres de grandeur, mesurés sur un « hello world » (JDK 21, 10 exécutions) :
+
+| | sans agent | avec agent |
+|---|---|---|
+| Démarrage JVM | 0,02 s | **~1,45 s** (+1,4 s d'initialisation) |
+| Mémoire résidente | 40 Mo | **~390 Mo** (heap fixé à 256 Mo) |
+
+- ⚠️ C'est le **pire cas relatif** : sur une appli Spring Boot qui démarre déjà en
+  plusieurs secondes, le surcoût de démarrage se dilue
+- Repère de cette formation : `review-service` (Spring Boot, PostgreSQL, agent)
+  tourne avec une limite de **512 Mio**
+- Mesurer chez vous coûte peu : la même image, avec et sans `JAVA_TOOL_OPTIONS`
+  ([méthode officielle](https://opentelemetry.io/docs/zero-code/java/agent/performance/))
+
+---
+
 ## 🧪 LAB 2 — Instrumenter review-service
 
 - **Partie 1** : déployer `review-service` tel que livré → invisible,

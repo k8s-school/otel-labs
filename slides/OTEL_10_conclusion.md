@@ -36,6 +36,24 @@ backgroundColor: #ffffff
 
 ---
 
+## Et chez vous, par où commencer ?
+
+1. **Un service pilote**, pas le parc — celui dont on parle en réunion d'incident.
+   L'agent, une variable d'environnement, zéro ligne de code (Lab 2)
+2. **Un collecteur**, tenu par l'équipe plateforme : c'est lui qui porte les
+   secrets des backends et les règles communes. Les applis n'en connaissent qu'un (Lab 3)
+3. **Le backend que vous avez déjà.** OTLP se branche sur la plupart des solutions
+   du marché — inutile d'attendre d'avoir tranché pour commencer
+4. **Un dashboard et une alerte** sur ce service : c'est ce qui prouve la valeur
+   à ceux qui financent la suite (Lab 4)
+5. **Puis élargir** : les autres services d'abord, l'instrumentation manuelle
+   seulement là où le métier le demande (Labs 6, 7)
+
+- ⚠️ Deux décisions à prendre **avant** de généraliser : qui exploite le collecteur,
+  et quelles données on refuse d'émettre (Lab 8)
+
+---
+
 ## Aller plus loin
 
 - **[Opérateur Kubernetes OpenTelemetry](https://opentelemetry.io/docs/platforms/kubernetes/operator/)** : injection automatique des agents
