@@ -151,11 +151,16 @@ Le pipeline `logs` de la démo :
 ```yaml
 logs:
   receivers: [otlp]
-  processors: [memory_limiter, resourcedetection, resource, batch]
+  processors: [k8sattributes, memory_limiter, resourcedetection, resource, batch]
   exporters: [opensearch, debug]
 ```
 
 Les LogRecords arrivent en **OTLP** (poussés par l'agent), sont enrichis, puis indexés dans **OpenSearch** (index `otel-logs-*`) — celui que requête la datasource Grafana.
+
+> `k8sattributes` en tête n'a rien de spécifique aux logs : c'est le même preset
+> `kubernetesAttributes` du chart, vu au Lab 3 sur le pipeline `traces` — il attache
+> `k8s.pod.name`, `k8s.namespace.name`… avant que quoi que ce soit d'autre ne s'exécute,
+> puisqu'il a besoin du contexte de connexion.
 {{% /expand%}}
 
 ## Pour aller plus loin — l'autre chemin, lire les fichiers
