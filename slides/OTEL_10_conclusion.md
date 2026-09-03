@@ -38,12 +38,12 @@ backgroundColor: #ffffff
 
 ## Aller plus loin
 
-- **Opérateur Kubernetes OpenTelemetry** : injection automatique des agents
-  (`instrumentation.opentelemetry.io/inject-java: "true"`), gestion des collecteurs
-- **eBPF / OBI (OpenTelemetry eBPF Instrumentation)** : instrumentation noyau,
+- **[Opérateur Kubernetes OpenTelemetry](https://opentelemetry.io/docs/platforms/kubernetes/operator/)** : injection automatique des agents
+  ([`inject-java: "true"`](https://opentelemetry.io/docs/platforms/kubernetes/operator/automatic/)), gestion des collecteurs
+- **[eBPF / OBI](https://github.com/open-telemetry/opentelemetry-ebpf-instrumentation)** (OpenTelemetry eBPF Instrumentation) : instrumentation noyau,
   zéro agent dans le process
-- **Profiles** : le 4ᵉ signal (profiling continu), en cours de standardisation
-- Head → tail sampling à l'échelle : exporter `loadbalancing`, mode gateway
+- **[Profiles](https://opentelemetry.io/docs/specs/otel/profiles/)** : le 4ᵉ signal (profiling continu), en cours de standardisation
+- Head → tail sampling à l'échelle : exporter [`loadbalancing`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/loadbalancingexporter), mode gateway
 
 ---
 

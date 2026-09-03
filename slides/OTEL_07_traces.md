@@ -121,7 +121,10 @@ Baggage.current().toBuilder().put("app.review.channel", "web").build().makeCurre
 - Tracer 100 % en prod = coût stockage/réseau élevé
 - **Head sampling** (dans le SDK) : décision **à la création** de la trace
   - simple, pas cher... mais aveugle : jette aussi les erreurs
-  - `OTEL_TRACES_SAMPLER=parentbased_traceidratio`
+  - deux variables **indissociables** — sans la seconde, le taux vaut 1.0 :
+    `OTEL_TRACES_SAMPLER=parentbased_traceidratio` + `OTEL_TRACES_SAMPLER_ARG=0.1`
+  - le tirage porte sur le **`trace_id`** : tous les services décident pareil,
+    jamais de trace à trous (défaut de l'agent : `parentbased_always_on`, tout passe)
 - **Tail sampling** (dans le collecteur) : décision **une fois la trace complète**
   - garder 100 % des erreurs et des requêtes lentes, échantillonner le reste
   - coût : mémoire (retenir les spans) + tous les spans d'une trace
