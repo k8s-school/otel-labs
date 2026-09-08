@@ -138,7 +138,9 @@ Ouvrez l'URL affichée (`http://localhost:9090` sur un poste individuel) et cher
 >
 > Vous n'obtenez que des applications (`otel-demo/load-generator`...) : dans Prometheus, `job` identifie le service émetteur — c'est `service.namespace/service.name`, les attributs que l'application déclare. Trois applications publient donc **trois copies** de la même mesure, étiquetées à leur nom : rien ne dit au lecteur qu'il s'agit du nœud, et une quatrième application ajouterait une quatrième copie. Comparez `sum by (job) (system_cpu_time_seconds_total{state="idle"})` : les totaux sont identiques à 0,01 % près, c'est bien la même machine mesurée plusieurs fois.
 >
-> Cette mesure de rencontre est en plus **incomplète** : le SDK Python publie 4 états CPU (`idle`, `irq`, `system`, `user`) là où `hostmetrics` en publie 8 (`nice`, `steal`, `wait`... s'y ajoutent), d'où 64 séries par application contre 128 pour le collecteur — 16 CPU × 4 contre 16 × 8. Et surtout, elle ignore la **charge** : c'est pourquoi le critère du lab est `system_cpu_load_average_15m`, qu'aucune de ces applications ne produit.
+> Cette mesure de rencontre est en plus **incomplète** : le SDK Python publie 4 états CPU (`idle`, `irq`, `system`, `user`) là où `hostmetrics` en publie 8 (`nice`, `steal`, `wait`... s'y ajoutent). Chaque série étant une paire (cœur, état), comptez `nb_cœurs × 4` séries par application contre `nb_cœurs × 8` pour le collecteur — sur une machine à 22 cœurs, 88 contre 176. Et surtout, cette mesure ignore la **charge** : c'est pourquoi le critère du lab est `system_cpu_load_average_15m`, qu'aucune de ces applications ne produit.
+>
+> 🧮 **Lire un `count by` sans se tromper** : les groupes qu'il affiche sont **disjoints**, et `{}` n'est pas un total — c'est le groupe des séries **dépourvues** du label. Après l'étape 4, la requête donne par exemple `{}` 176, puis 88 pour chacune des trois applications : le total est bien `176 + 3 × 88 = 440`, que vous pouvez vérifier avec `count(system_cpu_time_seconds_total)`.
 
 ### 3. Écrire le fichier de values qui ajoute les deux receivers
 

@@ -27,10 +27,14 @@
   produit postgresql_commits_total, postgresql_operations_total, postgresql_rows,
   postgresql_blocks_read_total, postgresql_backends... Corrige a l'etape 6.
 
-* [A VERIFIER] etape 6, ligne "count by (job) (system_cpu_time_seconds_total)": verifier
-  quel label job/service_name porte la serie emise par le collecteur (hostmetrics n'a
-  pas de service.name -> probablement unknown_service). Requete coupee par la perte
-  d'acces SSH.
+* [VERIFIE SUR LE CLUSTER LOCAL, 2026-09-08] etape 6, "count by (job)
+  (system_cpu_time_seconds_total)": les series de hostmetrics n'ont NI job NI
+  service_name -- pas "unknown_service" comme suppose. Leur seul repere est
+  host_name = le pod du collecteur. Le lab dit deja juste (ligne {} sans nom de job,
+  selection par job=""). Chiffres observes sur une machine a 22 coeurs: 176 series
+  pour le collecteur (22 x 8 etats) et 88 par application Python (22 x 4 etats:
+  idle, irq, system, user), total 440. Le lab annonçait 128 et 64 (machine a 16
+  coeurs) sans dire que ça depend du nombre de coeurs -> corrige.
 
 * Acces SSH a student1 intermittent: coupe apres quelques connexions successives
   (fail2ban ?), puis revient. Espacer les commandes lors des validations a distance.
