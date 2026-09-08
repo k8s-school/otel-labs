@@ -28,6 +28,24 @@ echo "$APP_PORT"     # 8090, pour tout le monde
 
 > `$PF_HOST` est le nom par lequel vous joignez vos services : `localhost` sur un poste individuel, mais sur le serveur partagé votre compte a le sien (`student3` → `localhost3`), ce qui permet à tous les participants d'utiliser les mêmes ports sans se marcher dessus. Gardez donc `$PF_HOST` dans les URLs plutôt que `localhost` en dur.
 
+* **Le load generator en marche.** Vous l'avez arrêté au Lab 1 pour isoler votre commande ; ce lab a besoin de son trafic de fond, sans quoi les services de la démo (`ad`, `checkout`...) n'émettent plus rien à comparer. Vérifiez-le :
+
+```bash
+curl -s http://$PF_HOST:$UI_PORT/loadgen/stats/requests | head -c 200
+```
+
+Vous devez y lire `"state": "running"` et `"user_count": 10`. Sinon, ouvrez l'UI du load generator (`http://$PF_HOST:$UI_PORT/loadgen/`) et cliquez **Start swarming**.
+
+> 🔧 **Si l'UI reste bloquée sur `spawning` avec 0 utilisateur**, le processus Locust est planté — ça arrive, son pilotage de navigateur Playwright casse de temps en temps (`RuntimeError: Cannot run the event loop while another loop is running` dans les logs). Cliquer **Start** ne suffit pas : il faut relancer le pod.
+>
+> ```bash
+> kubectl logs -n otel-demo deploy/load-generator --tail=20     # confirmer le plantage
+> kubectl rollout restart deployment/load-generator -n otel-demo
+> kubectl rollout status deployment/load-generator -n otel-demo
+> ```
+>
+> Le trafic redémarre tout seul, sans rien cliquer : le déploiement porte `LOCUST_AUTOSTART=true` et `LOCUST_USERS=10`. Comptez une trentaine de secondes, puis revérifiez avec le `curl` ci-dessus.
+
 ## Étapes
 
 ### Partie 1 — L'agent Java
