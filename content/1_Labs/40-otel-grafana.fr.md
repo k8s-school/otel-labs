@@ -162,7 +162,7 @@ Ouvrez l'URL affichée : la règle **« Latence p95 du review-service »** y est
 >
 > Le `X-Disable-Provenance: true` mérite un mot : sans lui, Grafana marque la règle « provisionnée » et l'interface **interdit de la modifier**. Avec lui, vous pourrez ouvrir la règle et changer le seuil à la souris.
 >
-> Notez enfin le service, écrit **en dur** dans la requête : `service_name="review-service"`. Une règle d'alerte n'a pas de menu déroulant — la variable `$service_name` du dashboard n'existe pas pour elle. Si vous créez une règle depuis un panel (*Panel → More → New alert rule*), Grafana y fige la valeur affichée au moment du clic, sans le dire.
+> Notez enfin le service, écrit **en dur** dans la requête : `service_name="review-service"`. Une règle d'alerte n'a pas de menu déroulant — la variable `$service_name` du dashboard n'existe pas pour elle. Si vous créez une règle depuis un panel (*Panel → More... → New alert rule*), Grafana y fige la valeur affichée au moment du clic, sans le dire.
 
 7.  **La faire sonner.** Votre `review-service` n'a de trafic que celui que vous lui envoyez, et il est rapide : au repos, son p95 tourne autour de **4 ms**. D'où le seuil à 20 ms — cinq fois le repos. Un seuil ne se choisit pas dans l'absolu, il se calibre sur le service qu'il surveille.
 
@@ -248,7 +248,7 @@ Enfin, évitez de charger en **POST** : chaque appel insère un avis, et comme `
 >
 > Pourquoi ce lab ne la déploie pas de ce côté-là : la démo désactive `alertmanager` (aucune notification à recevoir) **et** `configmapReload` (Prometheus ne relit pas sa configuration à chaud). Il faudrait un `helm upgrade` **et** un redémarrage de Prometheus pour voir passer trois lignes de YAML.
 
-8.  **Exporter votre dashboard en JSON** (*Share → Export → Save to file*) : c'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et vos deux panels.
+8.  **Exporter votre dashboard en JSON** — bouton *Export* de la barre d'outils du dashboard → *Export as JSON* → *Save to file*. Sur une version plus ancienne de Grafana, le même écran est sous *Share* → onglet *Export*. C'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et vos deux panels.
 
 ## Pour aller plus loin
 

@@ -91,7 +91,7 @@ Les seaux du bas sont les plus peuplés — la plupart des requêtes sont rapide
 > `student1`. Si vous cliquez ce second lien et n'êtes pas `student1`, Jaeger s'ouvre
 > **chez votre voisin**, sur une trace qu'il n'a probablement pas. Prenez le premier
 > lien de l'infobulle ; à défaut, copiez le `trace_id` et collez-le dans **votre**
-> Jaeger (*Search → Trace ID*).
+> Jaeger, dans le champ *Lookup by Trace ID...* de la barre du haut.
 
 > 💡 **La seule différence avec vos panels du Lab 4 tient en une case cochée** : dans les options de la requête, *Exemplars*. Elle vaut `"exemplar": true` dans le JSON du panel — allez le vérifier, *Panel → Inspect → Panel JSON*.
 
