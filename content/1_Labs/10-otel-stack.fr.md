@@ -55,16 +55,14 @@ kubectl get pods -n otel-demo
 
 > `kubectl get pods -n otel-demo` liste les conteneurs qui tournent dans le namespace `otel-demo`. Tous doivent être en état `Running` avec `READY 1/1`.
 
-Combien de micro-services applicatifs identifiez-vous ? Lesquels sont écrits en **Java** ?
+Combien de micro-services applicatifs identifiez-vous ? Lesquels tournent sur la **JVM** ?
 
 {{%expand "Réponse" %}}
-Une vingtaine de pods applicatifs. Les services **Java** sont :
-* `ad` (Ad Service) — instrumenté avec l'**agent Java** OpenTelemetry : c'est notre service de référence pour le Lab 2 ;
-* `fraud-detection` (Kotlin, JVM également).
+Une vingtaine de pods applicatifs. Deux tournent sur la JVM :
+* `ad` (Ad Service), écrit en **Java** et instrumenté avec l'**agent Java** OpenTelemetry : c'est notre service de référence pour le Lab 2 ;
+* `fraud-detection`, écrit en **Kotlin** — un autre langage, mais la même JVM et le même agent Java.
 
-```bash
-kubectl get pods -n otel-demo -o wide
-```
+`kubectl` ne dit pas dans quel langage un service est écrit : il ne voit que des conteneurs, et les images de la démo portent toutes le même nom. Le langage se lit dans la [Language feature reference](https://opentelemetry.io/docs/demo/#language-feature-reference) de la démo — ou, une fois la télémétrie en place, dans l'attribut `telemetry.sdk.language` que chaque SDK ajoute à ses données : il vaut `java` pour ces deux services.
 {{% /expand%}}
 
 3.  **Accéder aux interfaces web :**
