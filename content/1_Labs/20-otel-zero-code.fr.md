@@ -126,7 +126,18 @@ L'agent instrumente **par manipulation de bytecode** les bibliothèques qu'il co
 > mais elle vous fait perdre ici une information utile. Une décision de plateforme,
 > visible dans vos traces avant même que vous ne sachiez qu'elle existe.
 
-Comparez avec le service `ad` de la démo : lui aussi est un service Java instrumenté par l'agent — vous y verrez la même structure de spans. Choisissez bien l'opération **`oteldemo.AdService/GetAds`** dans le formulaire de recherche.
+Comparez avec le service `ad` de la démo : lui aussi est un service Java instrumenté par l'agent. Choisissez l'opération **`oteldemo.AdService/GetAds`** dans le formulaire de recherche.
+
+Sa trace est plus courte que la vôtre, et c'est instructif :
+
+```text
+ad   oteldemo.AdService/GetAds   (server)     <- l'agent a reconnu gRPC, pas Tomcat
+ad   getAdsByCategory            (internal)   <- une méthode métier, pas une requête
+```
+
+**Aucun span SQL** : `ad` sert ses publicités depuis une liste en mémoire, il n'a pas de base de données. L'agent ne produit un span que pour ce qu'il trouve : ici un serveur gRPC là où votre service avait un serveur HTTP et du JDBC.
+
+Le second span mérite un coup d'œil. Dépliez-le : `otel.scope.name = io.opentelemetry.opentelemetry-instrumentation-annotations`, avec `code.function = getAdsByCategory` et des attributs métier (`app.ads.category`, `app.ads.count`). Il ne vient d'aucune bibliothèque reconnue : un développeur a simplement posé une annotation **`@WithSpan`** sur sa méthode. C'est le premier pas hors du zéro-code — vous ferez la même chose dans votre service au Lab 6.
 
 > ⚠️ **Sans ce filtre, `ad` vous montre surtout des traces en erreur** — deux spans nommés `flagd.evaluation.v1.Service/EventStream`, durée 600 s, marqués `ERROR` avec `stream closed due to server-side timeout`. Rien n'est cassé : chaque service garde un flux gRPC ouvert vers `flagd` pour être prévenu des changements de *feature flags*, et `flagd` referme ce flux toutes les 10 minutes ; le client le rouvre aussitôt. Le span est marqué en erreur alors que le service va bien. Vous croiserez ces flux chez `cart`, `fraud-detection`, `product-reviews`... : ignorez-les.
 {{% /expand%}}
