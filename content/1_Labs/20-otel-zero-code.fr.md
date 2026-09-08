@@ -190,14 +190,17 @@ La chaîne d'activation, du plus haut au plus bas niveau :
 > `apps/review-service/k8s/review-service.yaml`. Agent et starter sont deux
 > **alternatives**, pas deux compléments.
 >
-> Rien ne vous préviendra si vous l'oubliez : l'application démarre, les traces
-> arrivent, et elles sont **identiques** — mesuré, les deux SDK ne dupliquent pas les
-> spans. C'est précisément le problème : vous ne sauriez plus lequel des deux les
-> produit, et la comparaison de l'étape 9 n'aurait plus de sens.
+> Rien ne vous préviendra si vous l'oubliez : l'application démarre et les traces
+> arrivent. Elles ne sont pas dupliquées — mesuré : avec les deux en place, on obtient
+> 6 spans, pas 9 — mais ce sont celles de l'**agent** : il détecte le starter et le
+> neutralise. Vous croiriez donc observer le starter en regardant l'agent, et la
+> comparaison de l'étape 9 tomberait à plat.
 >
-> Pour vérifier après coup :
+> Deux façons de vérifier après coup. Côté pod :
 > `kubectl logs -n otel-demo deploy/review-service | grep javaagent` — s'il affiche
-> `opentelemetry-javaagent - version`, l'agent est encore là.
+> `opentelemetry-javaagent - version`, l'agent est encore là. Côté trace : le span
+> serveur porte `otel.scope.name = io.opentelemetry.tomcat-10.0` avec l'agent, et
+> `io.opentelemetry.spring-webmvc-6.0` avec le starter.
 
 ```bash
 ./scripts/deploy.sh -p starter
@@ -226,7 +229,27 @@ Les deux produisent le span serveur HTTP et les spans JDBC — mais par des **m�
 * **Agent** = un programme **externe** attaché à la JVM (`-javaagent`) qui **réécrit le bytecode** des bibliothèques connues *au chargement*, sans que l'appli ni son build ne le sachent.
 * **Starter** = une **dépendance compilée dans** l'appli, qui se branche sur les **points d'extension de Spring** (auto-configuration) — pas de manipulation de bytecode.
 
-Sur ce lab, le cas courant (Spring MVC + JDBC) est couvert des deux côtés, d'où des traces quasi identiques. La différence n'apparaît qu'**aux extrémités** (libs exotiques, drivers hors Spring) et sur les propriétés opérationnelles :
+Et la différence se voit tout de suite dans le waterfall — **l'agent produit une trace deux fois plus détaillée** (mesuré sur le cluster, 10 requêtes de chaque côté) :
+
+```text
+AGENT — 5 à 6 spans
+  GET /api/reviews                    server     io.opentelemetry.tomcat-10.0
+  ReviewRepository.findAll            internal   io.opentelemetry.spring-data-1.8
+  SELECT fr.k8sschool.reviews.Review  internal   io.opentelemetry.hibernate-6.0
+  SELECT otel                         client     io.opentelemetry.jdbc
+  Transaction.commit                  internal   io.opentelemetry.hibernate-6.0
+
+STARTER — 3 spans
+  GET /api/reviews                    server     io.opentelemetry.spring-webmvc-6.0
+  HikariDataSource.getConnection      internal   io.opentelemetry.jdbc
+  SELECT otel                         client     io.opentelemetry.jdbc
+```
+
+Chaque ligne trahit son mécanisme. L'agent instrumente **Tomcat** (le serveur, sous Spring), plus **Hibernate** et **Spring Data** : trois bibliothèques qu'il a reconnues au chargement, et qui lui donnent la requête JPA et le commit. Le starter instrumente **Spring WebMVC** — un point d'extension du framework, pas le serveur — et s'arrête au JDBC. Même endpoint, même base, deux niveaux de détail.
+
+L'attribut de ressource le dit aussi, sans ouvrir un seul span : `telemetry.distro.name` vaut `opentelemetry-java-instrumentation` avec l'agent, `opentelemetry-spring-boot-starter` avec le starter.
+
+Reste que le **cas courant est couvert des deux côtés** : requête HTTP tracée, requête SQL tracée, contexte propagé. Le choix se joue donc moins sur ce waterfall que sur les propriétés opérationnelles :
 
 | | Agent Java | Spring Boot Starter |
 |---|---|---|
@@ -245,3 +268,5 @@ Sur ce lab, le cas courant (Spring MVC + JDBC) est couvert des deux côtés, d'o
 ## Livrable
 
 Deux traces du même endpoint `GET /api/reviews` dans Jaeger : une produite par l'agent, une par le starter.
+
+Les deux captures doivent laisser voir la différence — 5 à 6 spans contre 3 — et, si vous dépliez le span serveur, son `otel.scope.name` : `tomcat-10.0` d'un côté, `spring-webmvc-6.0` de l'autre.

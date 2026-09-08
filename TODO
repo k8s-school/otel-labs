@@ -128,3 +128,31 @@ https://opentelemetry.io/docs/demo/collector-data-flow-dashboard/
   code.function = getAdsByCategory, attributs app.ads.category / app.ads.count) --
   bonne amorce vers le lab 6, mais il faut aller le chercher dans une trace de 13 spans,
   ce qui coute plus de temps que ca n'en rapporte en fin de partie 1.
+
+* [VERIFIE, 2026-09-08] le bloc cors du receiver OTLP n'est PAS utilise par la demo.
+  Detail garde ici, l'encadre du lab 3 bonus est reduit a une phrase (trop touffu).
+  Le JS de la boutique utilise bien le SDK OTel navigateur (otel.scope.name =
+  @opentelemetry/instrumentation-fetch 0.208.0, attributs browser.brands /
+  browser.language / browser.platform), mais il poste sur
+  PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:8080/otlp-http/v1/traces,
+  soit la MEME origine que la page: pas de requete cross-origin, donc pas de CORS.
+  C'est Envoy (frontend-proxy) qui repond au preflight -- un OPTIONS sur cette route
+  renvoie 204 + access-control-allow-origin reflete (meme pour un Origin bidon) --
+  et qui relaie vers le collecteur; les spans frontend-web portent d'ailleurs
+  k8s.deployment.name = frontend-proxy. Le bloc cors du collecteur ne servirait que
+  dans le montage ou le collecteur est expose et recoit du navigateur en direct.
+  A l'oral: en production on liste les origines reelles, pas "*".
+
+* [MESURE SUR LE CLUSTER, 2026-09-08] lab 2, agent contre starter sur GET /api/reviews,
+  10 requetes de chaque cote:
+  - AGENT: 5 spans (6 quand l'acquisition de connexion est tracee). Scopes
+    tomcat-10.0 (serveur), spring-data-1.8 (ReviewRepository.findAll),
+    hibernate-6.0 (SELECT fr.k8sschool.reviews.Review + Transaction.commit),
+    jdbc (SELECT otel). telemetry.distro.name = opentelemetry-java-instrumentation.
+  - STARTER: 3 spans, invariablement. Scopes spring-webmvc-6.0 (serveur) et jdbc
+    (HikariDataSource.getConnection + SELECT otel). Ni hibernate ni spring-data.
+    telemetry.distro.name = opentelemetry-spring-boot-starter.
+  - LES DEUX ACTIFS: 6 spans, scopes de l'agent uniquement, distro.name de l'agent.
+    Donc pas de duplication, mais c'est l'agent qui gagne et le starter est neutralise
+    -- on croit observer le starter en regardant l'agent.
+  Le lab annonçait des "traces quasi identiques": faux, 5-6 spans contre 3. Corrige.
