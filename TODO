@@ -108,3 +108,19 @@ https://opentelemetry.io/docs/demo/collector-data-flow-dashboard/
   les votres du frontend" -- vrai sur le papier, mais faux tant que ce bug dure:
   toutes les traces du generateur portent alors un span load-generator, ce qui rend
   l'indice PLUS fiable qu'annonce. Verifier avant la session et ajuster l'oral.
+
+* [SUPPRIME DU LAB 2, 2026-09-08] la comparaison avec le service `ad` en fin de partie 1.
+  Ce qui etait ecrit etait faux, mesure sur le cluster:
+  - "sa trace est plus courte que la votre": non. Une trace de ad fait 13 spans
+    (load-generator -> frontend-proxy -> frontend -> ad), dont seulement 2 chez ad;
+    une trace de review-service en fait 1 a 3. C'est l'inverse.
+  - "sans filtre, ad montre surtout des traces en erreur": faux des que le load
+    generator tourne. Sur 20 traces recentes: 0 erreur, toutes racine user_get_ads.
+    Les flux flagd EventStream de 600 s en ERROR ne dominent la liste que lorsque le
+    generateur est ARRETE -- c'est ce que j'observais pendant qu'il etait plante.
+  Ce qui reste vrai et peut se dire a l'oral: ad n'a AUCUN span SQL (pas de base, pubs
+  en memoire), et son span interne getAdsByCategory vient d'une annotation @WithSpan
+  (otel.scope.name = io.opentelemetry.opentelemetry-instrumentation-annotations-1.16,
+  code.function = getAdsByCategory, attributs app.ads.category / app.ads.count) --
+  bonne amorce vers le lab 6, mais il faut aller le chercher dans une trace de 13 spans,
+  ce qui coute plus de temps que ca n'en rapporte en fin de partie 1.
