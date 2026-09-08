@@ -120,9 +120,13 @@ Dans Jaeger, cherchez les traces du service `checkout` (opération `oteldemo.Che
 Combien de services différents cette trace traverse-t-elle ? Que représente chaque barre horizontale ?
 
 {{%expand "Réponse" %}}
-La trace de checkout traverse typiquement **8 à 10 services** : `frontend` → `checkout` → `cart`, `currency`, `payment`, `shipping`, `email`, `product-catalog`... et passe même par **Kafka** vers `accounting` et `fraud-detection`.
+La trace de checkout traverse une douzaine de services : `frontend` → `checkout` → `cart`, `currency`, `payment`, `shipping`, `quote`, `email`, `product-catalog`, `flagd`, `valkey-cart`.
 
 Chaque barre horizontale est un **span** : une opération unitaire (requête HTTP, appel gRPC, requête SQL, publication Kafka) avec sa durée. L'ensemble des spans liés forme la **trace** : le parcours complet de la requête à travers le système distribué.
+
+Le dernier span de la trace est **`publish orders`** : `checkout` dépose la commande dans **Kafka**. C'est le seul span Kafka de la trace.
+
+Et les services qui lisent cette file, `accounting` et `fraud-detection` ? Ils ne sont **pas** dans votre trace. Un consommateur de file ne peut pas être un « enfant » de la requête HTTP : celle-ci est déjà terminée quand il dépile le message. Il ouvre donc sa **propre trace**, rattachée à la vôtre par un **lien**. Pour la voir : cherchez le service `fraud-detection`, opération `process orders`, et ouvrez la trace la plus récente — la section **References** du span y affiche l'identifiant de votre trace de checkout, et un clic vous y ramène.
 {{% /expand%}}
 
 6.  **Une première métrique dans Grafana :**
@@ -143,4 +147,8 @@ C'est tout l'objet des prochains labs : le rendre observable de bout en bout, **
 
 ## Livrable
 
-Une capture d'écran d'une trace de checkout de bout en bout dans Jaeger (avec les spans Kafka visibles).
+Une capture d'écran d'une trace de checkout de bout en bout dans Jaeger, montrant le span Kafka `publish orders`.
+
+> 🔍 **Comment l'afficher sans dérouler 48 spans** : dans la barre **Find** en haut de la trace, tapez `kafka`, puis cliquez sur l'icône **cible** ⌖ juste à droite du champ (entre le `?` et les flèches). Jaeger masque tout le reste et ouvre les résultats, détails dépliés. Cliquez à nouveau sur la cible pour revenir à la trace entière.
+>
+> `kafka` remonte **deux** résultats, et c'est normal : le champ Find ne cherche pas que dans les noms d'opération, il fouille aussi les attributs et les events de chaque span. Le second résultat est le span `oteldemo.CheckoutService/PlaceOrder`, qui contient un event d'évaluation du *feature flag* `kafkaQueueProblems` — un des interrupteurs de panne de la démo. Cherchez `publish orders` si vous voulez atterrir directement sur le bon span.
