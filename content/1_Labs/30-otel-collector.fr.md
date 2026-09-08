@@ -140,7 +140,11 @@ Ouvrez l'URL affichée (`http://localhost:9090` sur un poste individuel) et cher
 >
 > Cette mesure de rencontre est en plus **incomplète** : le SDK Python publie 4 états CPU (`idle`, `irq`, `system`, `user`) là où `hostmetrics` en publie 8 (`nice`, `steal`, `wait`... s'y ajoutent). Chaque série étant une paire (cœur, état), comptez `nb_cœurs × 4` séries par application contre `nb_cœurs × 8` pour le collecteur — sur une machine à 22 cœurs, 88 contre 176. Et surtout, cette mesure ignore la **charge** : c'est pourquoi le critère du lab est `system_cpu_load_average_15m`, qu'aucune de ces applications ne produit.
 >
-> 🧮 **Lire un `count by` sans se tromper** : les groupes qu'il affiche sont **disjoints**, et `{}` n'est pas un total — c'est le groupe des séries **dépourvues** du label. Après l'étape 4, la requête donne par exemple `{}` 176, puis 88 pour chacune des trois applications : le total est bien `176 + 3 × 88 = 440`, que vous pouvez vérifier avec `count(system_cpu_time_seconds_total)`.
+> 🧮 **Lire un `count by` sans se tromper.** Deux pièges, et c'est la requête la plus utile du lab.
+>
+> D'abord, `count` compte des **séries**, pas des secondes de CPU : il répond « combien de courbes portent ce nom de métrique », jamais « combien de temps processeur ». Pour additionner les valeurs, c'est `sum`. Sur les mêmes données : `count(system_cpu_time_seconds_total)` vaut **440** (le nombre de séries) et `sum(...)` plus de **3,6 millions** (des secondes de CPU cumulées depuis le démarrage). Deux questions différentes ; ici, on dénombre les émetteurs, donc `count`.
+>
+> Ensuite, les groupes affichés sont **disjoints**, et `{}` n'est pas un total : c'est le groupe des séries **dépourvues** du label. Après l'étape 4, la requête donne `{}` 176, puis 88 pour chacune des trois applications — le total est bien `176 + 3 × 88 = 440`.
 
 ### 3. Écrire le fichier de values qui ajoute les deux receivers
 
