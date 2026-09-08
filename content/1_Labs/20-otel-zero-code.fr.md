@@ -126,7 +126,9 @@ L'agent instrumente **par manipulation de bytecode** les bibliothèques qu'il co
 > mais elle vous fait perdre ici une information utile. Une décision de plateforme,
 > visible dans vos traces avant même que vous ne sachiez qu'elle existe.
 
-Comparez avec le service `ad` de la démo : lui aussi est un service Java instrumenté par l'agent — vous y verrez la même structure de spans.
+Comparez avec le service `ad` de la démo : lui aussi est un service Java instrumenté par l'agent — vous y verrez la même structure de spans. Choisissez bien l'opération **`oteldemo.AdService/GetAds`** dans le formulaire de recherche.
+
+> ⚠️ **Sans ce filtre, `ad` vous montre surtout des traces en erreur** — deux spans nommés `flagd.evaluation.v1.Service/EventStream`, durée 600 s, marqués `ERROR` avec `stream closed due to server-side timeout`. Rien n'est cassé : chaque service garde un flux gRPC ouvert vers `flagd` pour être prévenu des changements de *feature flags*, et `flagd` referme ce flux toutes les 10 minutes ; le client le rouvre aussitôt. Le span est marqué en erreur alors que le service va bien. Vous croiserez ces flux chez `cart`, `fraud-detection`, `product-reviews`... : ignorez-les.
 {{% /expand%}}
 
 ### Partie 2 — Le Spring Boot Starter
