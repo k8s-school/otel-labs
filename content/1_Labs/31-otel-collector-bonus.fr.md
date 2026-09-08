@@ -30,9 +30,9 @@ receivers:
         # navigateur du client, relayées par frontend-proxy
         endpoint: ${env:MY_POD_IP}:4318
         cors:
-          # le JavaScript de la boutique émet ses traces DEPUIS le navigateur du
-          # client : sans cette autorisation, c'est le navigateur lui-même qui
-          # bloquerait l'envoi (voir l'encadré sous la question a)
+          # autorise un navigateur à poster ses traces ici directement.
+          # Activé par le chart -- mais inutilisé dans cette démo : voir
+          # l'encadré sous la question a
           allowed_origins: ["http://*", "https://*"]
 
   # receiver « produit », en mode PULL : c'est LE MODÈLE À SUIVRE à l'étape 3
@@ -156,11 +156,13 @@ Répondez maintenant, configuration sous les yeux. Chaque question a sa réponse
 {{%expand "Réponse" %}}
 Par le receiver **`otlp`**, sur `${env:MY_POD_IP}:4317` (gRPC) et `:4318` (HTTP) : le collecteur écoute donc sur **l'IP de son pod**. Les applications ne connaissent pas cette IP — elles s'adressent au Service Kubernetes `otel-collector`, qui redirige vers ce pod. C'est lui que pointe `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` au Lab 2. Les receivers `jaeger` et `zipkin` sont là pour les applications non OTLP.
 
-> 🌐 **Le bloc `cors` du port 4318 n'existe que pour un émetteur : le navigateur.** La boutique est instrumentée côté client — c'est ce qui produit les spans `frontend-web` en tête de vos traces de checkout. Ces spans-là ne partent pas d'un pod : ils partent du **JavaScript exécuté dans le navigateur du client**, qui poste directement en OTLP/HTTP.
+> 🌐 **Le bloc `cors`, et le trajet des traces du navigateur.** La boutique est instrumentée **côté client** : le JavaScript de la page utilise le **SDK OpenTelemetry pour navigateur**, c'est lui qui produit les spans `frontend-web` en tête de vos traces de checkout. Dépliez l'un d'eux, il le dit : `otel.scope.name = @opentelemetry/instrumentation-fetch`, et des attributs de ressource que seul un navigateur peut fournir — `browser.brands`, `browser.language`, `browser.platform`.
 >
-> Or un navigateur s'interdit d'appeler une autre origine que celle de la page (*same-origin policy*). Avant le vrai `POST`, il envoie une requête `OPTIONS` — le *preflight* — et attend un en-tête `Access-Control-Allow-Origin` en réponse. S'il ne l'obtient pas, **c'est lui qui annule l'envoi** : le collecteur n'a rien refusé, la trace n'est simplement jamais partie, et l'erreur ne se lit que dans la console du navigateur.
+> Où ce JavaScript envoie-t-il ses spans ? Pas au collecteur. Le frontend est configuré avec `PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:8080/otlp-http/v1/traces` : **la même origine que la page**, servie par `frontend-proxy`, qui relaie vers le collecteur. La preuve est dans les spans eux-mêmes : ils portent `k8s.deployment.name = frontend-proxy`.
 >
-> `allowed_origins: ["http://*", "https://*"]` répond donc « j'accepte les spans de n'importe quelle page ». Deux conséquences : vos services (`review-service`, `checkout`, `ad`) ne sont **pas** concernés — le CORS est une règle que les navigateurs s'appliquent à eux-mêmes, un `curl` sur le même port passe sans rien demander ; et en production on n'écrit pas `*`, mais les origines réelles du frontend, sans quoi n'importe quel site peut faire écrire dans votre plateforme d'observabilité par le navigateur de ses visiteurs.
+> Le `cors` du receiver sert donc au montage **inverse** — celui où le collecteur est exposé et reçoit les traces du navigateur en direct. Là, la *same-origin policy* s'applique : avant le vrai `POST`, le navigateur envoie un `OPTIONS` (le *preflight*) et attend un `Access-Control-Allow-Origin` ; sans lui **c'est le navigateur qui annule l'envoi**, le serveur n'ayant rien refusé. Le chart active ce bloc par défaut, mais **notre déploiement ne s'en sert pas** : c'est Envoy qui répond au preflight, pas le collecteur.
+>
+> À retenir : une option présente dans une configuration n'est pas une option utilisée. Et en production, on n'écrit pas `["http://*", "https://*"]` mais les origines réelles du frontend — sinon n'importe quel site peut faire écrire dans votre plateforme d'observabilité par le navigateur de ses visiteurs.
 {{% /expand%}}
 
 **b. Vers quels backends partent les traces, les métriques, les logs ? Quel composant apparaît *à la fois* en exporter et en receiver ?**
