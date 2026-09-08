@@ -328,6 +328,10 @@ Il ne lit **aucun log** et n'installe **rien** dans la base. Toutes les 10 s, il
 # l'IP du pod collecteur, pour reconnaître ses lignes
 kubectl get pods -n otel-demo -o wide | grep otel-collector-agent
 
+# pg_stat_activity ne liste QUE les connexions ouvertes à cet instant : une ligne par
+# connexion vivante, avec sa requête en cours ou, si elle est inactive, la dernière
+# qu'elle a exécutée. Une connexion fermée disparaît de la vue : ce n'est pas un
+# journal des requêtes passées.
 kubectl exec -n otel-demo deploy/postgresql -- psql -U root -d otel -c "
 SELECT client_addr,
        date_trunc('second', now() - query_start) AS il_y_a,
