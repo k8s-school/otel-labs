@@ -133,11 +133,19 @@ Cherchez le service `review-service`. Ouvrez une trace de `GET /api/reviews`. Qu
 > manque, ne changez rien : refaites un `curl`, attendez, et regardez à nouveau.
 
 {{%expand "Réponse" %}}
-Typiquement deux niveaux :
-* un span **serveur HTTP** `GET /api/reviews` (instrumentation de Tomcat/Spring MVC) avec les attributs `http.request.method`, `http.route`, `http.response.status_code`... ;
-* un ou plusieurs spans **SQL** enfants (instrumentation JDBC) avec `db.system=postgresql` et la requête `SELECT` exécutée.
+Cinq spans, parfois six — et surtout **quatre bibliothèques** différentes, que l'attribut `otel.scope.name` de chaque span vous nomme :
 
-L'agent instrumente **par manipulation de bytecode** les bibliothèques qu'il connaît (Tomcat, Spring, JDBC, Kafka, HTTP clients... plus de 100 frameworks).
+```text
+GET /api/reviews                    io.opentelemetry.tomcat-10.0        <- le serveur HTTP
+ReviewRepository.findAll            io.opentelemetry.spring-data-1.8    <- le dépôt Spring Data
+SELECT fr.k8sschool.reviews.Review  io.opentelemetry.hibernate-6.0      <- la requête JPA
+SELECT otel                         io.opentelemetry.jdbc               <- le SQL réellement exécuté
+Transaction.commit                  io.opentelemetry.hibernate-6.0      <- la validation
+```
+
+Le span serveur porte `http.request.method`, `http.route`, `http.response.status_code`... ; les spans JDBC portent `db.system`, `db.name`, `db.statement`, `db.sql.table`. Un sixième span apparaît par intermittence, l'acquisition d'une connexion dans le pool.
+
+Personne n'a écrit une ligne pour cela : l'agent instrumente **par manipulation de bytecode** les bibliothèques qu'il reconnaît au chargement (Tomcat, Spring, Hibernate, JDBC, Kafka, clients HTTP... plus de 100 frameworks). Retenez ce niveau de détail : la partie 2 le compare à celui du starter.
 
 > 💡 **Deux surprises dans le waterfall.**
 >
