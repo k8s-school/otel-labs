@@ -40,7 +40,9 @@ La réponse attendue, en deux lignes :
 ```text
 "state": "running"
 "user_count": 10
-``` Sinon, ouvrez l'UI du load generator (`http://$PF_HOST:$UI_PORT/loadgen/`) et cliquez **Start swarming**.
+```
+
+Sinon, ouvrez l'UI du load generator (`http://$PF_HOST:$UI_PORT/loadgen/`), cliquez **New** en haut à droite, puis **Start** dans la fenêtre *Start new load test* (laissez les valeurs proposées).
 
 > 🔧 **Si l'UI reste bloquée sur `spawning` avec 0 utilisateur**, le processus Locust est planté — ça arrive, son pilotage de navigateur Playwright casse de temps en temps (`RuntimeError: Cannot run the event loop while another loop is running` dans les logs). Cliquer **Start** ne suffit pas : il faut relancer le pod.
 >

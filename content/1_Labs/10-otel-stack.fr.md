@@ -107,7 +107,7 @@ Pour isoler votre commande, mettez le générateur en pause avant de commander :
 
 * ouvrez le load generator (l'URL `/loadgen/` affichée par `open-ui.sh`), cliquez sur **Stop** ;
 * attendez ~30 s (le temps que les requêtes en cours se terminent), puis notez l'heure et passez votre commande ;
-* relancez le générateur (**Start swarming**) après l'étape 5 : les labs suivants ont besoin de ce trafic de fond.
+* relancez le générateur après l'étape 5 — bouton **New** en haut à droite, puis **Start** dans la fenêtre *Start new load test* : les labs suivants ont besoin de ce trafic de fond.
 
 5.  **Retrouver votre commande dans Jaeger :**
 
