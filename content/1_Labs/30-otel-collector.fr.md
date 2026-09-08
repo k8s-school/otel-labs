@@ -310,6 +310,10 @@ postgresql_operations_total{operation="ins", postgresql_table_name="public.revie
 
 Les deux dernières lignes sont la clé : une métrique produite par un receiver *pull* décrit une machine (`instance`) mais est estampillée par celle qui l'a collectée (`host_name`). C'est aussi pourquoi ces séries n'ont **pas** de label `job` : personne ne les a déclarées au nom d'un service.
 
+> 🔎 **Aucun label ne dit quelle *application* a écrit** — il n'y a pas non plus de `service_name` sur ces séries, vérifiez-le. C'est logique : le receiver interroge PostgreSQL, et PostgreSQL compte ses écritures sans rendre compte de qui les a demandées. Le seul rattachement disponible est le nom de la table, par convention de schéma : `public.reviews` pour votre service, `accounting.order` pour `accounting`, `reviews.productreviews` pour `product-reviews`. Une convention, pas une donnée : deux services écrivant dans la même table seraient indistinguables.
+>
+> Ce qui sait *qui* écrit, c'est la **trace**. Le span SQL porte le service émetteur, la requête et sa durée, sous le span de la requête utilisateur qui l'a déclenchée — c'est celui que vous avez ouvert au Lab 2. La métrique répond « combien d'insertions dans cette table », la trace répond « qui, quand, et dans quel appel ». Voilà les deux signaux à leur place, sur le même événement.
+
 #### Comment le receiver `postgresql` s'y prend
 
 Il ne lit **aucun log** et n'installe **rien** dans la base. Toutes les 10 s, il ouvre une connexion SQL avec les identifiants de votre fichier de values et interroge les vues statistiques que PostgreSQL tient à jour en permanence pour lui-même (`pg_stat_database`, `pg_stat_user_tables`, `pg_locks`...). Vous pouvez le prendre sur le fait, depuis la base :
