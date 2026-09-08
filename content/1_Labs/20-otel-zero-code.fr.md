@@ -31,10 +31,16 @@ echo "$APP_PORT"     # 8090, pour tout le monde
 * **Le load generator en marche.** Vous l'avez arrêté au Lab 1 pour isoler votre commande ; ce lab a besoin de son trafic de fond, sans quoi les services de la démo (`ad`, `checkout`...) n'émettent plus rien à comparer. Vérifiez-le :
 
 ```bash
-curl -s http://$PF_HOST:$UI_PORT/loadgen/stats/requests | head -c 200
+curl -s http://$PF_HOST:$UI_PORT/loadgen/stats/requests |
+  grep -o '"state": "[a-z]*"\|"user_count": [0-9]*'
 ```
 
-Vous devez y lire `"state": "running"` et `"user_count": 10`. Sinon, ouvrez l'UI du load generator (`http://$PF_HOST:$UI_PORT/loadgen/`) et cliquez **Start swarming**.
+La réponse attendue, en deux lignes :
+
+```text
+"state": "running"
+"user_count": 10
+``` Sinon, ouvrez l'UI du load generator (`http://$PF_HOST:$UI_PORT/loadgen/`) et cliquez **Start swarming**.
 
 > 🔧 **Si l'UI reste bloquée sur `spawning` avec 0 utilisateur**, le processus Locust est planté — ça arrive, son pilotage de navigateur Playwright casse de temps en temps (`RuntimeError: Cannot run the event loop while another loop is running` dans les logs). Cliquer **Start** ne suffit pas : il faut relancer le pod.
 >
