@@ -124,6 +124,8 @@ curl http://$PF_HOST:$APP_PORT/api/reviews
 
 Cherchez le service `review-service`. Ouvrez une trace de `GET /api/reviews`. Quels spans l'agent a-t-il créés automatiquement, sans une ligne de code ?
 
+**Notez le nombre de spans de cette trace** (Jaeger l'affiche en haut, *Total Spans*) : vous le comparerez à celui du starter en partie 2.
+
 > ⏳ **Laissez-lui une quinzaine de secondes.** Le pod vient d'être remplacé, l'accès se
 > rouvre sur le nouveau, et le SDK exporte par lots. Une requête envoyée dans la foulée
 > du `deploy.sh` peut n'apparaître qu'après — voire pas du tout si elle a été servie par
@@ -221,7 +223,9 @@ Sans ces requêtes, aucune trace du starter n'arrivera : le service ne parle que
 
 9.  **Comparer les traces.**
 
-Comparez dans Jaeger une trace `GET /api/reviews` produite par le **starter** avec celle produite par l'**agent** (partie 1).
+Ouvrez une trace `GET /api/reviews` fraîche — celle du **starter** — et relevez son nombre de spans. Comparez-le à celui que vous avez noté à l'étape 6, du temps de l'**agent**. Combien en moins ? Lesquels ont disparu ?
+
+> 💾 **Ne cherchez pas votre ancienne trace, elle a peut-être déjà disparu.** Jaeger, dans cette démo, garde ses traces **en mémoire** et plafonne à 25 000 (`MEMORY_MAX_TRACES`) : les plus anciennes sont écrasées par les nouvelles. Avec le trafic du load generator, cela représente une quinzaine de minutes d'historique — moins si le trafic monte. C'est pour cela que l'on note le chiffre au passage plutôt que de compter sur une comparaison côte à côte. Et pourquoi une trace qui vous intéresse se capture **tout de suite** : capture d'écran, ou son *trace ID* copié quelque part.
 
 {{%expand "Réponse" %}}
 Les deux produisent le span serveur HTTP et les spans JDBC — mais par des **mécanismes opposés**, et c'est ce qui explique tout le reste :
@@ -267,6 +271,6 @@ Reste que le **cas courant est couvert des deux côtés** : requête HTTP tracé
 
 ## Livrable
 
-Deux traces du même endpoint `GET /api/reviews` dans Jaeger : une produite par l'agent, une par le starter.
+Le nombre de spans relevé de chaque côté sur `GET /api/reviews` — avec l'agent, puis avec le starter — et une capture d'écran de la trace produite par le **starter**.
 
-Les deux captures doivent laisser voir la différence — 5 à 6 spans contre 3 — et, si vous dépliez le span serveur, son `otel.scope.name` : `tomcat-10.0` d'un côté, `spring-webmvc-6.0` de l'autre.
+Si vous voulez la preuve de ce qui produit la trace, dépliez son span serveur : `otel.scope.name` vaut `io.opentelemetry.spring-webmvc-6.0` avec le starter, `io.opentelemetry.tomcat-10.0` avec l'agent.
