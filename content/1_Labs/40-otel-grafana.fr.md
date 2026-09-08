@@ -248,7 +248,9 @@ Enfin, évitez de charger en **POST** : chaque appel insère un avis, et comme `
 >
 > Pourquoi ce lab ne la déploie pas de ce côté-là : la démo désactive `alertmanager` (aucune notification à recevoir) **et** `configmapReload` (Prometheus ne relit pas sa configuration à chaud). Il faudrait un `helm upgrade` **et** un redémarrage de Prometheus pour voir passer trois lignes de YAML.
 
-8.  **Exporter votre dashboard en JSON** — bouton *Export* de la barre d'outils du dashboard → *Export as JSON* → *Save to file*. Sur une version plus ancienne de Grafana, le même écran est sous *Share* → onglet *Export*. C'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et vos deux panels.
+8.  **Exporter votre dashboard en JSON.** Ce n'est pas dans le menu *Share*, qui ne propose que *Share internally* / *Share externally*. L'export est l'**icône ⤓ de la barre verticale, à droite du dashboard** (infobulle *Export*) : cliquez-la, puis *Export as code*. Le panneau *Export dashboard* affiche le JSON ; le bouton **Download file** l'enregistre.
+
+    C'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et vos deux panels.
 
 ## Pour aller plus loin
 
