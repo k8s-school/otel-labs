@@ -73,3 +73,21 @@ https://opentelemetry.io/docs/demo/collector-data-flow-dashboard/
   Les deux vrais cas d'usage du filtrage SDK: la donnee ne doit pas quitter le
   processus (politique interne), et filtrer ce que pose l'instrumentation
   automatique sans dependre d'une config de collecteur qu'on ne maitrise pas.
+
+* [DIAGNOSTIQUE SUR LE POSTE LOCAL, 2026-09-08] lab1 etape 5, heures aberrantes dans Jaeger:
+  toutes les traces de checkout s'affichaient "an hour ago" avec une duree de "1h 3m",
+  alors que les traces venaient d'etre generees. Ce n'est PAS un probleme UTC/heure locale:
+  Jaeger UI affiche bien l'heure locale du navigateur et le "x ago" est coherent avec elle.
+  Cause reelle: le service quote (SDK PHP) datait ses spans 3795 s dans le passe, un ecart
+  CONSTANT, egal a la duree de la mise en veille du portable (journalctl: "PM: suspend entry"
+  16:36:12 -> "PM: suspend exit" 17:39:33, soit 3801 s). Le SDK ancre son horloge au demarrage
+  du process puis avance avec une horloge monotone, qui ne compte pas le temps de veille.
+  Les autres services de la demo n'etaient pas touches. Comme Jaeger date une trace par son
+  span le PLUS ANCIEN, et que tout checkout passe par shipping -> quote, c'est le span quote
+  decale qui donnait a la fois l'heure affichee et la duree de 1h3m.
+  Remede: kubectl rollout restart deployment/quote -n otel-demo (verifie: ecart retombe a 7 ms).
+  A refaire apres chaque reveil du portable. Sur le serveur de formation, qui ne dort pas,
+  le probleme ne se pose pas -> volontairement hors de la page du lab.
+  Mesure au passage: une trace est interrogeable dans Jaeger ~4 s apres la requete (jamais
+  "plusieurs minutes"). L'impression de lenteur venait du meme decalage: la trace fraiche
+  etait classee 1h03 trop tot dans le tri Most Recent.

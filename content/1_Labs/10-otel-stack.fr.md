@@ -113,6 +113,8 @@ Pour isoler votre commande, mettez le générateur en pause avant de commander :
 
 Dans Jaeger, cherchez les traces du service `checkout` (opération `oteldemo.CheckoutService/PlaceOrder`) et ouvrez la plus récente — celle dont l'horodatage correspond à votre clic.
 
+> ⏱️ Une trace met **quelques secondes** à devenir visible (le SDK et le collecteur envoient par paquets, pas span par span). Si vous ne la voyez pas tout de suite, relancez la recherche (**Find Traces**) au bout de 5 à 10 secondes.
+
 > 💡 Si vous n'avez pas arrêté le load generator, triez par *Most Recent* et repérez la trace à l'heure de votre commande — c'est le critère le plus fiable. Indice complémentaire : les traces issues des requêtes HTTP du générateur contiennent un span du service **`load-generator`** (visible dans les badges de services de la liste de résultats), que les vôtres n'ont pas. Attention, ce n'est pas infaillible : le générateur pilote aussi un vrai navigateur, dont les traces partent comme les vôtres du `frontend`. D'où l'intérêt de l'arrêter.
 
 Combien de services différents cette trace traverse-t-elle ? Que représente chaque barre horizontale ?
