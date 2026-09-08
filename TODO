@@ -91,3 +91,20 @@ https://opentelemetry.io/docs/demo/collector-data-flow-dashboard/
   Mesure au passage: une trace est interrogeable dans Jaeger ~4 s apres la requete (jamais
   "plusieurs minutes"). L'impression de lenteur venait du meme decalage: la trace fraiche
   etait classee 1h03 trop tot dans le tri Most Recent.
+
+* [A REGARDER PLUS TARD, releve le 2026-09-08] load-generator: le trafic NAVIGATEUR
+  est casse a 100%, le trafic HTTP va bien. Dans l'API Locust
+  (curl .../loadgen/stats/requests), les deux taches Playwright echouent a chaque
+  execution: WebsiteBrowserUser.add_product_to_cart 706 req / 706 echecs et
+  WebsiteBrowserUser.open_cart_page_and_change_currency 664 / 664, toutes avec
+  AttributeError("'WebsiteBrowserUser' object has no attribute 'tracer'").
+  Total agrege: 1924 requetes, 1370 echecs -- tous du navigateur.
+  Bug de la demo 2.2.0 (l'attribut tracer n'est pas initialise sur la classe user),
+  pas de notre fait. A voir aussi: le pod se bloque en "spawning" avec 0 utilisateur
+  apres quelques heures (RuntimeError: Cannot run the event loop while another loop
+  is running) -> rollout restart du deploiement, documente en prerequis du lab 2.
+  IMPACT sur les labs: plus aucune trace frontend-web/Playwright. Le lab 1 explique
+  que le generateur "pilote aussi un vrai navigateur, dont les traces partent comme
+  les votres du frontend" -- vrai sur le papier, mais faux tant que ce bug dure:
+  toutes les traces du generateur portent alors un span load-generator, ce qui rend
+  l'indice PLUS fiable qu'annonce. Verifier avant la session et ajuster l'oral.

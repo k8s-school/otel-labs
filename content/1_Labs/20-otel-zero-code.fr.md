@@ -215,7 +215,18 @@ La chaîne d'activation, du plus haut au plus bas niveau :
 ./scripts/deploy.sh -p starter
 ```
 
-Dans les logs de build, repérez la ligne Maven qui confirme le profil actif, puis re-générez du trafic (mêmes `curl` qu'à l'étape 2).
+Dans les logs de build, repérez la ligne Maven qui confirme le profil actif, puis re-générez du trafic — ce sont les mêmes commandes qu'à l'étape 2 :
+
+```bash
+. ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
+curl http://$PF_HOST:$APP_PORT/api/reviews
+curl http://$PF_HOST:$APP_PORT/api/reviews/product/OLJCESPC7Z
+curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
+  -H "Content-Type: application/json" \
+  -d '{"productId": "OLJCESPC7Z", "rating": 4, "comment": "Bonne optique", "userEmail": "marie.martin@example.com", "userName": "Marie Martin"}'
+```
+
+Sans ces requêtes, aucune trace du starter n'arrivera : le service ne parle que lorsqu'on l'appelle.
 
 9.  **Comparer les traces.**
 
