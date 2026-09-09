@@ -46,7 +46,21 @@ curl -s http://$PF_HOST:$UI_PORT/grafana/api/datasources/name/Prometheus \
 "exemplarTraceIdDestinations":[{"datasourceUid":"webstore-traces","name":"trace_id"}, ...]
 ```
 
-Traduction : « quand tu rencontres un `trace_id` dans une métrique, va ouvrir la trace dans la datasource dont l'UID est `webstore-traces` » — c'est-à-dire Jaeger. Sans cette ligne, Grafana saurait qu'il tient un identifiant, mais pas où aller. La même configuration se lit dans l'interface, sur la page de la datasource, et à la source dans la ConfigMap qui la provisionne : `kubectl get configmap grafana-datasources -n otel-demo -o yaml`.
+Traduction : « quand tu rencontres un `trace_id` dans une métrique, va ouvrir la trace dans la datasource dont l'UID est `webstore-traces` » — c'est-à-dire Jaeger. Sans cette ligne, Grafana saurait qu'il tient un identifiant, mais pas où aller. La même configuration se lit dans l'interface, sur la page de la datasource, et à la source dans la ConfigMap qui la provisionne — pour Prometheus, le fichier `default.yaml` :
+
+```bash
+kubectl get configmap grafana-datasources -n otel-demo -o jsonpath='{.data.default\.yaml}'
+```
+
+```yaml
+    jsonData:
+      timeInterval: "60s"
+      exemplarTraceIdDestinations:
+        - datasourceUid: webstore-traces
+          name: trace_id
+```
+
+`name: trace_id` est le nom de l'étiquette que Prometheus attache à un exemplar : c'est là que Grafana va lire l'identifiant de trace.
 
 4.  **Lire la première heatmap.** Le dashboard a deux rangées, une par opération du panier (*GetCart*, *AddItem*), et dans chacune deux vues de la **même** mesure. Commençons par la première, **« GetCart Latency Heatmap with Exemplars »** :
 
