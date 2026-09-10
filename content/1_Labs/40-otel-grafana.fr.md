@@ -158,7 +158,7 @@ Ce qu'on lui demande, ici, c'est de répondre d'un coup d'œil à « ça va, ou 
 
     C'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et vos deux panels.
 
-## Le pic fantôme : pourquoi `rate` avant `sum`
+## Quand le dashboard invente un pic
 
 L'encadré de l'étape 3 posait la règle sans la démontrer. La voici, sur un incident que tous les clusters connaissent : le redémarrage d'un pod.
 
@@ -212,6 +212,8 @@ Les deux écritures donnent le même résultat partout, **sauf sur la ligne du r
 À droite, la même comparaison se fait sur le total, 1090 contre 1920. Baisse, donc reset, donc delta = 1090 → `1090 / 15 ≈ 73/s`. Ce 1090, ce sont les **requêtes cumulées de `A` depuis son propre démarrage**, comptées d'un coup comme si elles venaient d'arriver en 15 secondes. Le pic n'est pas du trafic : c'est l'historique de `A` relâché sur un intervalle. Et plus `A` tourne depuis longtemps, pire c'est — à 50 000 au compteur, le faux pic monterait à 3 300/s.
 
 Deux détails que le tableau simplifie : un vrai `rate[2m]` étale ce pic sur la fenêtre au lieu de le concentrer sur un point (plus bas, plus large, même erreur totale) ; et PromQL rend d'ailleurs la mauvaise écriture malaisée — `rate(sum(...)[2m])` est invalide, il faut une *subquery* pour y arriver.
+
+Cette écriture-là, PromQL la rend d'ailleurs difficile à commettre. Ce qui se transpose, c'est le réflexe : **un pic sur un dashboard peut être un artefact du calcul et pas un événement**. Devant une valeur spectaculaire, la première question à se poser est de savoir si elle décrit le système ou la façon dont on l'interroge.
 
 ## Pour aller plus loin
 
