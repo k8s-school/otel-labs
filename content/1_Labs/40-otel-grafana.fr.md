@@ -152,7 +152,7 @@ histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_buck
 
 **Et il ne coûte rien à produire.** La métrique interrogée, `traces_span_metrics_duration_milliseconds_bucket`, sort du même connector **spanmetrics** que le compteur du panel 1 : le collecteur chronomètre déjà chaque span qu'il voit passer. Personne n'a ajouté de timer dans le `review-service`, ni bibliothèque, ni ligne de code — tracer suffit. Et comme le nom et les labels sont les mêmes partout, ce panel unique donne la latence des quinze services de la boutique, quel que soit leur langage.
 
-Ce qu'on lui demande, ici, c'est de répondre d'un coup d'œil à « ça va, ou pas ? ». Le trait rouge à 20 ms est un repère de lecture calibré sur le `review-service`, qui tourne autour de 4 ms au repos : au-delà, quelque chose a changé. Ce que ce panel mesure exactement, et le piège qu'évite son filtre `span_kind`, sont le sujet du [Lab 4.2]({{% relref "43-otel-spanmetrics" %}}).
+Ce qu'on lui demande, ici, c'est de répondre d'un coup d'œil à « ça va, ou pas ? ». Le trait rouge à 20 ms est un repère de lecture calibré sur le `review-service`, qui tourne autour de 4 ms au repos : au-delà, quelque chose a changé. Ce que ce panel mesure exactement, et le piège qu'évite son filtre `span_kind`, sont le sujet du [Lab 4 bonus]({{% relref "43-otel-spanmetrics" %}}).
 
 6.  **Exporter votre dashboard en JSON.** Ce n'est pas dans le menu *Share*, qui ne propose que *Share internally* / *Share externally*. L'export est l'**icône ⤓ de la barre verticale, à droite du dashboard** (infobulle *Export*) : cliquez-la, puis *Export as code*. Le panneau *Export dashboard* affiche le JSON ; le bouton **Download file** l'enregistre.
 
@@ -215,9 +215,9 @@ Deux détails que le tableau simplifie : un vrai `rate[2m]` étale ce pic sur la
 
 ## Pour aller plus loin
 
-* [**Lab 4.1 — Exemplars : du point de métrique à la trace**]({{% relref "41-otel-exemplars" %}}) — le chaînon qui manque entre le p95 et Jaeger, sur un dashboard livré par la démo. Rien à construire, tout à lire.
-* [**Lab 4.2 — spanmetrics : des traces aux métriques RED**]({{% relref "43-otel-spanmetrics" %}}) — d'où sortent les métriques `traces_span_metrics_*`, le dashboard que la démo livre, et une alerte déclenchée par un feature flag.
-* [**Lab 4 bonus — Lire un histogramme : de la heatmap au p95**]({{% relref "42-otel-grafana-bonus" %}}) — le PromQL des seaux, comment une heatmap se construit, et pourquoi le p95 n'en est que le résumé.
+* [**Lab 4.1 — Lire un histogramme : de la heatmap au p95**]({{% relref "41-otel-histogramme" %}}) — le PromQL des seaux, comment une heatmap se construit, et pourquoi le p95 n'en est que le résumé. La théorie derrière le panel « Latence p95 ».
+* [**Lab 4.2 — Exemplars : du point de métrique à la trace**]({{% relref "42-otel-exemplars" %}}) — le chaînon qui manque entre le p95 et Jaeger, sur un dashboard livré par la démo. Rien à construire, tout à lire.
+* [**Lab 4 bonus — Le dashboard spanmetrics de la démo**]({{% relref "43-otel-spanmetrics" %}}) — le trio RED pour tous les services, et le piège que le filtre `span_kind` évite.
 
 ## Livrable
 

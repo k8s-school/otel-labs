@@ -1,12 +1,14 @@
 ---
-title: 'Lab 4 bonus — Lire un histogramme : de la heatmap au p95'
+title: 'Lab 4.1 — Lire un histogramme : de la heatmap au p95'
 date: 2026-08-18T10:30:00+02:00
 draft: false
-weight: 42
+weight: 41
 tags: ["Grafana", "PromQL", "histogramme", "heatmap", "Prometheus"]
+aliases:
+  - /fr/1_labs/42-otel-grafana-bonus/
 ---
 
-Page de lecture : rien à construire, rien à déployer. Le dashboard du Lab 4.1 met face à face deux panels pour la même opération du panier : une **heatmap** et une courbe de **p95**. Ils affichent la **même métrique**. On commence par la heatmap — c'est la distribution entière —, et le p95 s'en déduit par une seule opération de lecture.
+Page de lecture : rien à construire, rien à déployer. Le dashboard « Cart Service Exemplars », livré par la démo, met face à face deux panels pour la même opération du panier : une **heatmap** et une courbe de **p95**. Ils affichent la **même métrique**. On commence par la heatmap — c'est la distribution entière —, et le p95 s'en déduit par une seule opération de lecture.
 
 ## 1. La heatmap, mot à mot
 

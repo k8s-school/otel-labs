@@ -1,9 +1,11 @@
 ---
-title: 'Lab 4.1 — Exemplars : du point de métrique à la trace'
+title: 'Lab 4.2 — Exemplars : du point de métrique à la trace'
 date: 2026-08-18T10:00:00+02:00
 draft: false
-weight: 41
+weight: 42
 tags: ["Grafana", "exemplars", "Prometheus", "Jaeger", "heatmap"]
+aliases:
+  - /fr/1_labs/41-otel-exemplars/
 ---
 
 Le Lab 4 s'est arrêté sur une frustration : le panel « Latence p95 » dit que le service est lent, mais pas **quelle requête** l'a été. Une métrique est une agrégation — « 30 requêtes, p95 à 400 ms » ne désigne personne.
@@ -142,7 +144,7 @@ curl -s "http://$PF_HOST:$PROM_PORT/api/v1/status/flags" | tr ',' '\n' | grep -i
 >
 > Appliquée sur le modèle du Lab 3 — un fichier de values de plus, empilé sur les précédents —, elle rendrait cliquables jusqu'à la trace tous les panels bâtis sur ces métriques. Deux réserves : un exemplar n'est gardé que le temps d'un cycle d'export, et `max_per_data_point` en limite le nombre par point de mesure.
 
-7.  **Le constater sans Grafana.** L'API de Prometheus répond directement :
+7.  **Le constater sans Grafana.** L'interface web de Prometheus ne sait pas les afficher — son panneau *Graph settings* ne propose que « Start Y axis at 0 », et aucun onglet ne les montre. Son API, elle, répond directement :
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
@@ -151,8 +153,7 @@ curl -s "http://$PF_HOST:$PROM_PORT/api/v1/status/flags" | tr ',' '\n' | grep -i
 curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
   --data-urlencode 'query=app_cart_get_cart_latency_seconds_bucket' \
   --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)" \
-  | head -c 400
-echo
+  | grep -o '"trace_id":"[^"]*"' | head -3
 
 # celle que le collecteur recalcule à partir des spans
 curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
@@ -160,10 +161,25 @@ curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
   --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)"
 ```
 
-La première réponse est pleine de `trace_id` en clair : le maillon 1 a fait son travail. La seconde tient en une ligne — `{"status":"success","data":[]}` — puisque `spanmetrics` n'en produit aucun.
+La première commande sort trois identifiants de trace, prêts à coller dans Jaeger :
+
+```text
+"trace_id":"ed7c34b2530189ca4abb983a57acfebd"
+"trace_id":"48aea9fd96d1d28a2c7967782d1cb5be"
+"trace_id":"8d2f2b5cefcb8886bb8e73e7d38cfc2c"
+```
+
+La seconde ne sort rien du tout, et la réponse complète tient en une ligne — `{"status":"success","data":[]}` — puisque `spanmetrics` ne produit aucun exemplar.
+
+> 💡 **La réponse complète a deux étages.** `data` contient une entrée par série, c'est-à-dire **par seau `le`** : d'abord `seriesLabels`, l'identité de la série, puis `exemplars`, les échantillons eux-mêmes. C'est le second étage qui nous intéresse, et il vient après plusieurs centaines de caractères d'étiquettes — d'où le `grep` plutôt qu'un affichage brut. Un exemplar ressemble à ceci, la durée étant en secondes :
+>
+> ```json
+> {"labels":{"span_id":"fe46190114011810","trace_id":"ed7c34b2530189ca4abb983a57acfebd"},
+>  "value":"0.0002403","timestamp":1789060204.185}
+> ```
 
 ## À retenir
 
 Un exemplar est le pont entre deux signaux : la **métrique** repère l'incident et le situe dans le temps, l'**exemplar** désigne une requête précise, la **trace** l'explique. C'est le trajet complet que fait un astreinte — et il tient en un clic quand la chaîne est câblée de bout en bout : SDK qui attache le `trace_id`, Prometheus qui le stocke, datasource qui sait où ouvrir la trace.
 
-La lecture détaillée du PromQL de ces panels — les seaux, le p95, la heatmap — est dans le [Lab 4 bonus]({{% relref "42-otel-grafana-bonus" %}}).
+La lecture détaillée du PromQL de ces panels — les seaux, le p95, la heatmap — est dans le [Lab 4.1]({{% relref "41-otel-histogramme" %}}).
