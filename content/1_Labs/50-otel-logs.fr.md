@@ -1,5 +1,5 @@
 ---
-title: 'Lab 5 — Logs structurées et corrélées'
+title: 'Lab 5 — Logs structurés et corrélés'
 date: 2026-07-06T09:50:00+02:00
 draft: false
 weight: 50
@@ -133,7 +133,7 @@ Le bouton porte le nom de la datasource cible — d'où le sobre **Jaeger**. Pou
 >
 > Le `editable: true` de la configuration **autorise** la modification ; il ne la rend pas **durable**. Deux notions distinctes, et une confusion fréquente.
 >
-> Si le cas se présente, refaites la manip — c'est l'affaire de dix secondes. Mais retenez la leçon : en production, ce lien ne se règle pas à la souris, il s'écrit dans le fichier de provisioning et se versionne dans Git. Exactement le même raisonnement que pour la règle d'alerte du Lab 4, qu'on écrirait côté Prometheus plutôt que dans Grafana.
+> Si le cas se présente, refaites la manip — c'est l'affaire de dix secondes. Mais retenez la leçon : en production, ce lien ne se règle pas à la souris, il s'écrit dans le fichier de provisioning et se versionne dans Git. Exactement le même raisonnement que pour le dashboard du Lab 4, que vous avez exporté en JSON pour le committer plutôt que de le laisser vivre dans Grafana.
 
 6.  **Du log à la trace en un clic :**
 
@@ -142,7 +142,7 @@ Toujours dans le log déplié, cliquez le bouton **Jaeger** de la section *Links
 7.  **Comprendre le trajet côté collecteur :**
 
 ```bash
-kubectl get configmap otel-collector-agent -n otel-demo -o yaml | grep -A8 "logs:"
+kubectl get configmap otel-collector-agent -n otel-demo -o yaml | grep -A12 "logs:"
 ```
 
 {{%expand "Réponse" %}}
