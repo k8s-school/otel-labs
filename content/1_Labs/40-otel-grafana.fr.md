@@ -145,14 +145,15 @@ Il contient **quatre panels** : vos deux (débit, traces), plus les deux que vou
 Le quatrième panel, **« Latence p95 (ms) »**, arrive avec l'import : vous ne l'avez pas écrit.
 
 ```promql
-histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~"$service_name", span_kind=~"SPAN_KIND_SERVER|SPAN_KIND_CONSUMER"}[2m])) by (le, span_kind))
+topk(5, histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{
+  service_name=~"$service_name", span_name=~"$span_name"}[2m])) by (le, span_name)))
 ```
 
 > 💡 **Le p95 en une phrase** : 95 % des requêtes ont été **plus rapides** que la valeur affichée ; une sur vingt a été plus lente. On le préfère à la moyenne parce qu'une moyenne noie les lentes — sur 100 requêtes dont 90 à 4 ms et 10 à 500 ms, elle annonce 54 ms, une durée que personne n'a connue. Le p95, lui, affiche 500 ms : ce que vit un utilisateur sur dix.
 
 **Et il ne coûte rien à produire.** La métrique interrogée, `traces_span_metrics_duration_milliseconds_bucket`, sort du même connector **spanmetrics** que le compteur du panel 1 : le collecteur chronomètre déjà chaque span qu'il voit passer. Personne n'a ajouté de timer dans le `review-service`, ni bibliothèque, ni ligne de code — tracer suffit. Et comme le nom et les labels sont les mêmes partout, ce panel unique donne la latence des quinze services de la boutique, quel que soit leur langage.
 
-Ce qu'on lui demande, ici, c'est de répondre d'un coup d'œil à « ça va, ou pas ? ». Le trait rouge à 20 ms est un repère de lecture calibré sur le `review-service`, qui tourne autour de 4 ms au repos : au-delà, quelque chose a changé. Ce que ce panel mesure exactement, et le piège qu'évite son filtre `span_kind`, sont le sujet du [Lab 4 bonus]({{% relref "43-otel-spanmetrics" %}}).
+Ce qu'on lui demande, ici, c'est de répondre d'un coup d'œil à « ça va, ou pas ? ». Le trait rouge à 20 ms est un repère de lecture calibré sur le `review-service`, qui tourne autour de 4 ms au repos : au-delà, quelque chose a changé. Il arrive aussi avec une **seconde variable**, `span_name` : chaque opération du service y est listée, et le `by (le, span_name)` de la requête calcule un p95 **par opération** plutôt qu'un chiffre unique pour tout le service. Le `topk(5)` garde les cinq plus lentes à l'écran — de quoi voir tout de suite *laquelle* traîne, là où un seul chiffre agrégé ne dirait rien. Ce que ce panel mesure exactement, et le piège qu'évite son filtre `span_kind`, sont le sujet du [Lab 4 bonus]({{% relref "43-otel-spanmetrics" %}}).
 
 6.  **Exporter votre dashboard en JSON.** Ce n'est pas dans le menu *Share*, qui ne propose que *Share internally* / *Share externally*. L'export est l'**icône ⤓ de la barre verticale, à droite du dashboard** (infobulle *Export*) : cliquez-la, puis *Export as code*. Le panneau *Export dashboard* affiche le JSON ; le bouton **Download file** l'enregistre.
 

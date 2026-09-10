@@ -56,11 +56,13 @@ Sans filtre, le chiffre annoncé comme un p95 suit en réalité le p85 des requ�
 D'où le filtre du dashboard du Lab 4 :
 
 ```promql
-histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{
-  service_name=~"$service_name", span_kind=~"SPAN_KIND_SERVER|SPAN_KIND_CONSUMER"}[2m])) by (le, span_kind))
+topk(5, histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{
+  service_name=~"$service_name", span_name=~"$span_name"}[2m])) by (le, span_name)))
 ```
 
-Le filtre ne retient que le **travail entrant**, `SERVER` et `CONSUMER`. Les deux sont nécessaires : `accounting` et `fraud-detection` ne sont jamais appelés en HTTP, ils consomment du Kafka, et le filtre `SERVER` seul laisse leur panel vide.
+Le `by (le, span_name)` fait le tri à la source : les seaux d'opérations différentes ne sont jamais additionnés, donc aucune moyenne ne se forme entre un `SELECT` d'une milliseconde et une commande d'une seconde. Chaque courbe est le p95 d'**une** opération.
+
+Le réglage utile est le **travail entrant**, `SERVER` et `CONSUMER`. Les deux sont nécessaires : `accounting` et `fraud-detection` ne sont jamais appelés en HTTP, ils consomment du Kafka, et le filtre `SERVER` seul laisse leur panel vide.
 
 ## 3. Le dashboard que la démo livre
 
@@ -70,7 +72,7 @@ Ouvrez **« Spanmetrics Demo Dashboard »** :
 echo "http://$PF_HOST:$UI_PORT/grafana/d/W2gX2zHVk48"
 ```
 
-Il affiche les trois signaux RED, et surtout il ajoute une variable que le Lab 4 n'avait pas : **`span_name`**. Sélectionnez une opération précise et les latences cessent d'être un mélange — c'est la parade au piège ci-dessus, prise par l'autre bout.
+Il affiche les trois signaux RED pour **tous** les services à la fois, là où le dashboard du Lab 4 en regarde un seul. Sa variable `span_name`, elle, joue le même rôle que chez vous — à une différence près : ses panels groupent `by (le, service_name)` et non `by (le, span_name)`, donc tant qu'on laisse l'opération sur *All*, les latences affichées **sont** le mélange décrit ci-dessus. Mesuré sur le cluster de la formation, le `frontend` y annonce 197 ms au lieu de 843 ms.
 
 Trois panels à regarder :
 

@@ -28,6 +28,24 @@
           "text": "review-service",
           "value": "review-service"
         }
+      },
+      {
+        "name": "span_name",
+        "label": "Opération",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "webstore-metrics"
+        },
+        "query": "label_values(traces_span_metrics_calls_total{service_name=~\"$service_name\"}, span_name)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
@@ -71,8 +89,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service_name\", span_kind=~\"SPAN_KIND_SERVER|SPAN_KIND_CONSUMER\"}[2m])) by (le, span_kind))",
-          "legendFormat": "p95 {{span_kind}}"
+          "expr": "topk(5, histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service_name\", span_name=~\"$span_name\"}[2m])) by (le, span_name)))",
+          "legendFormat": "{{span_name}}"
         }
       ],
       "description": "Seuil à 20 ms, matérialisé en rouge : un repère de lecture, calibré sur le review-service, qui tourne à ~4 ms au repos. La requête ne compte que le travail entrant (span_kind) — voir le Lab 4.2.",
