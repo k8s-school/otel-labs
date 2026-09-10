@@ -107,30 +107,50 @@ Les seaux du bas sont les plus peuplés — la plupart des requêtes sont rapide
 > lien de l'infobulle ; à défaut, copiez le `trace_id` et collez-le dans **votre**
 > Jaeger, dans le champ *Lookup by Trace ID...* de la barre du haut.
 
-> 💡 **La seule différence avec vos panels du Lab 4 tient en une case cochée** : dans les options de la requête, *Exemplars*. Elle vaut `"exemplar": true` dans le JSON du panel — allez le vérifier, *Panel → Inspect → Panel JSON*.
+> 💡 **Côté panel, tout tient dans une case cochée** : *Exemplars*, dans les options de la requête. Elle vaut `"exemplar": true` dans le JSON du panel — allez le vérifier, *Panel → Inspect → Panel JSON*. Décochée, les marqueurs disparaissent sans que la courbe ne bouge.
 
-6.  **Pourquoi cette métrique en porte, et pas les vôtres.** `app_cart_get_cart_latency_seconds_bucket` est produite par le **SDK OpenTelemetry du service `cart`** : au moment où il enregistre la durée, le SDK a le `trace_id` du span en cours sous la main, et l'attache à la mesure. Vos panels, eux, affichent `traces_span_metrics_*`, que le **collecteur** recalcule après coup à partir des spans — il ne joint aucun `trace_id`, sauf si on le lui demande.
+6.  **La chaîne qui produit un exemplar.** Quatre maillons, du code jusqu'au clic. Le service `cart` les a tous les quatre ; il suffit qu'un seul manque pour qu'il n'y ait rien à cliquer.
 
-{{%expand "Ce qu'il faudrait pour que vos panels en aient" %}}
-Trois conditions doivent être réunies ; la démo en remplit deux :
+**1 — Le SDK attache le `trace_id` à la mesure.** Rien à configurer : quand le SDK du service `cart` enregistre la durée d'un appel, le span de cet appel est encore ouvert dans le contexte. Le SDK y lit le `trace_id` et le range à côté de la valeur mesurée. Il n'en garde pas un par requête, mais **un échantillon par seau de l'histogramme, à chaque cycle d'export** — la spécification OpenTelemetry appelle cela un *exemplar reservoir*, et c'est bien le SDK qui l'applique, pas Prometheus. Sur le cluster de la formation, l'export a lieu toutes les 60 secondes : un quart d'heure de trafic laisse donc au plus 15 exemplars par seau.
 
-1. **Prometheus doit les stocker** — il est démarré avec `--enable-feature=exemplar-storage` (visible dans `/api/v1/status/flags`) ; sans ce drapeau, il les jette à l'ingestion. ✔
-2. **La datasource doit savoir où ouvrir la trace** — c'est le `"exemplarTraceIdDestinations": [{"datasourceUid": "webstore-traces"}]` de l'étape 3 : l'UID de Jaeger, et rien d'autre, fait le lien. ✔
-3. **La métrique doit en porter** — et c'est là que ça coince : `spanmetrics` est configuré avec `{}`, et cette configuration par défaut ne produit **aucun** exemplar. ✘
+**2 — Le transport doit les porter.** Le collecteur reçoit ces mesures en OTLP et les repousse telles quelles vers Prometheus, avec l'exporter `otlphttp/prometheus` :
 
-Rien n'est cassé, il manque une ligne. Le connector sait le faire, l'option est simplement désactivée par défaut :
-
-```yaml
-opentelemetry-collector:
-  config:
-    connectors:
-      spanmetrics:
-        exemplars:
-          enabled: true
+```bash
+kubectl get cm otel-collector-agent -n otel-demo -o jsonpath='{.data.relay}' | grep -A1 'otlphttp/prometheus:'
 ```
 
-Appliquée sur le modèle du Lab 3 (un fichier de values de plus, empilé sur les précédents), elle rendrait votre panel « Latence p95 » cliquable jusqu'à la trace, pour le service de votre choix. Deux réserves alors : un exemplar n'est gardé **que le temps d'un cycle d'export**, et `max_per_data_point` en limite le nombre à 5 par point de mesure.
-{{% /expand%}}
+```yaml
+  otlphttp/prometheus:
+    endpoint: http://prometheus:9090/api/v1/otlp
+```
+
+Le protocole OTLP transporte les exemplars nativement : ils voyagent dans le même message que les seaux, sans réglage particulier.
+
+**3 — Prometheus doit les stocker.** Il est démarré avec `--enable-feature=exemplar-storage` ; sans ce drapeau, il les jette à l'ingestion, silencieusement. Et comme le collecteur lui parle en OTLP, il lui faut aussi `--web.enable-otlp-receiver` :
+
+```bash
+curl -s "http://$PF_HOST:$PROM_PORT/api/v1/status/flags" | tr ',' '\n' | grep -i 'exemplar\|otlp-receiver'
+```
+
+```text
+"enable-feature":"exemplar-storage"
+"web.enable-otlp-receiver":"true"
+```
+
+**4 — Grafana doit savoir où ouvrir la trace.** C'est le `exemplarTraceIdDestinations` de l'étape 3 — l'UID de Jaeger — et, sur le panel, la case *Exemplars*. Le premier dit *où aller*, la seconde dit *va chercher*.
+
+> ⚠️ **Toutes les métriques n'en portent pas.** Les séries `traces_span_metrics_*` n'ont aucun exemplar : le collecteur les recalcule après coup à partir des spans, et le connector `spanmetrics` de la démo est configuré avec `{}` — or cette configuration par défaut n'en produit pas. Rien n'est cassé, il manque une ligne :
+>
+> ```yaml
+> opentelemetry-collector:
+>   config:
+>     connectors:
+>       spanmetrics:
+>         exemplars:
+>           enabled: true
+> ```
+>
+> Appliquée sur le modèle du Lab 3 — un fichier de values de plus, empilé sur les précédents —, elle rendrait cliquables jusqu'à la trace tous les panels bâtis sur ces métriques. Deux réserves : un exemplar n'est gardé que le temps d'un cycle d'export, et `max_per_data_point` en limite le nombre par point de mesure.
 
 7.  **Le constater sans Grafana.** L'API de Prometheus répond directement :
 
@@ -144,13 +164,13 @@ curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
   | head -c 400
 echo
 
-# celle de vos panels, recalculée par le collecteur
+# celle que le collecteur recalcule à partir des spans
 curl -s -G "http://$PF_HOST:$PROM_PORT/api/v1/query_exemplars" \
   --data-urlencode 'query=traces_span_metrics_duration_milliseconds_bucket' \
   --data-urlencode "start=$(date -d '-1 hour' +%s)" --data-urlencode "end=$(date +%s)"
 ```
 
-La première réponse est pleine de `trace_id` en clair. La seconde tient en une ligne : `{"status":"success","data":[]}` — aucun exemplar, comme annoncé.
+La première réponse est pleine de `trace_id` en clair : le maillon 1 a fait son travail. La seconde tient en une ligne — `{"status":"success","data":[]}` — puisque `spanmetrics` n'en produit aucun.
 
 ## À retenir
 
