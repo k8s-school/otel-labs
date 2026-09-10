@@ -12,7 +12,29 @@ Page de lecture : rien à construire, rien à déployer. La démo livre un dashb
 
 * Lab 4 terminé, les accès ouverts (`./scripts/open-ui.sh`), les variables chargées (`. ./scripts/env.sh`).
 
-## 1. Le piège : une requête n'est pas un span
+## 1. `span_kind`, en une minute
+
+Chaque span porte une étiquette `span_kind` qui dit **quel bout de l'appel il mesure**. Cinq valeurs, toutes présentes dans la démo :
+
+| `span_kind` | Le span mesure… | Vu dans la démo |
+|---|---|---|
+| `SPAN_KIND_SERVER` | une requête **reçue** (HTTP, gRPC) | `GET /api/reviews` du `review-service` |
+| `SPAN_KIND_CLIENT` | un appel **émis** vers un autre service ou une base | le `SELECT` envoyé à PostgreSQL |
+| `SPAN_KIND_INTERNAL` | un traitement **interne**, ni entrant ni sortant | `HikariDataSource.getConnection` |
+| `SPAN_KIND_PRODUCER` | un message **déposé** dans une file | `publish orders`, chez `checkout` |
+| `SPAN_KIND_CONSUMER` | un message **lu** dans une file | `receive orders`, chez `accounting` |
+
+Pour les lister sur votre cluster, dans *Explore* :
+
+```promql
+count by (span_kind) (traces_span_metrics_calls_total)
+```
+
+`SERVER` et `CONSUMER` sont les deux formes de **travail entrant** : ce sont elles qui correspondent à « une requête que ce service a traitée ». Les trois autres décrivent ce qui se passe *à l'intérieur* de ce traitement, ou ce qu'il déclenche ailleurs.
+
+> 💡 `span_kind` dit quel bout de l'appel un span mesure, **pas** sa profondeur dans l'arbre.
+
+## 2. Le piège : une requête n'est pas un span
 
 Un `GET /api/reviews` de votre `review-service` produit **trois** spans :
 
@@ -38,11 +60,9 @@ histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_buck
   service_name=~"$service_name", span_kind=~"SPAN_KIND_SERVER|SPAN_KIND_CONSUMER"}[2m])) by (le, span_kind))
 ```
 
-`SPAN_KIND_SERVER` retient une requête HTTP ou gRPC reçue, `SPAN_KIND_CONSUMER` un message lu dans une file — les deux formes de **travail entrant**. Les deux sont nécessaires : `accounting` et `fraud-detection` ne sont jamais appelés en HTTP, ils consomment du Kafka, et le filtre `SERVER` seul laisse leur panel vide.
+Le filtre ne retient que le **travail entrant**, `SERVER` et `CONSUMER`. Les deux sont nécessaires : `accounting` et `fraud-detection` ne sont jamais appelés en HTTP, ils consomment du Kafka, et le filtre `SERVER` seul laisse leur panel vide.
 
-> 💡 `span_kind` dit quel bout de l'appel un span mesure, **pas** sa profondeur dans l'arbre. Chez `accounting`, la racine est un span `INTERNAL` et le `CONSUMER` est son enfant.
-
-## 2. Le dashboard que la démo livre
+## 3. Le dashboard que la démo livre
 
 Ouvrez **« Spanmetrics Demo Dashboard »** :
 

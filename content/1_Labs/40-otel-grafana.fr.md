@@ -93,7 +93,7 @@ sum(rate(traces_span_metrics_calls_total{service_name=~"$service_name"}[2m]))
 > * **`rate(...[2m])`** — *à quelle vitesse ?* Un compteur brut ne se lit pas : « 48 219 spans depuis le démarrage » n'apprend rien. `rate` en prend la pente sur les **2 dernières minutes** et rend des **spans par seconde**. C'est cela qu'on veut voir monter et descendre.
 > * **`sum(...)`** — *combien en tout ?* spanmetrics ne tient pas un compteur par service, mais un par **opération** (`span_name`), sens d'appel (`span_kind`) et statut. Sans `sum`, le panel afficherait des dizaines de courbes ; `sum` les écrase en une seule, le débit total du service.
 >
-> **L'ordre compte : toujours `rate` d'abord, `sum` ensuite.** `rate` sait reconnaître qu'un compteur est reparti de zéro — un pod du collecteur qui redémarre — et corriger ; mais il ne le peut que série par série. Additionnez avant, et la baisse se lit comme une remise à zéro du total : le panel affiche alors un **pic de trafic au moment précis où un pod est mort**. La démonstration chiffrée est en fin de page.
+> **L'ordre compte : toujours `rate` d'abord, `sum` ensuite.** `rate` sait reconnaître qu'un compteur est reparti de zéro — un pod du collecteur qui redémarre — et corriger ; mais il ne le peut que série par série. Additionnez avant, et la baisse se lit comme une remise à zéro du total : le panel affiche alors un **pic de trafic au moment précis où un pod est mort**. La démonstration chiffrée est dans le [Lab 4.1]({{% relref "41-otel-histogramme" %}}).
 
 4.  **Panel 2 — traces (Jaeger) :** datasource **Jaeger**, query type *Search*, service `$service_name`, limit 20.
 
@@ -157,63 +157,6 @@ Ce qu'on lui demande, ici, c'est de répondre d'un coup d'œil à « ça va, ou 
 6.  **Exporter votre dashboard en JSON.** Ce n'est pas dans le menu *Share*, qui ne propose que *Share internally* / *Share externally*. L'export est l'**icône ⤓ de la barre verticale, à droite du dashboard** (infobulle *Export*) : cliquez-la, puis *Export as code*. Le panneau *Export dashboard* affiche le JSON ; le bouton **Download file** l'enregistre.
 
     C'est le **livrable**, à committer dans votre dépôt — même s'il ne contient que la variable et vos deux panels.
-
-## Quand le dashboard invente un pic
-
-L'encadré de l'étape 3 posait la règle sans la démontrer. La voici, sur un incident que tous les clusters connaissent : le redémarrage d'un pod.
-
-Deux pods de collecteur, `A` et `B`, 2 requêtes/s chacun — donc **4 req/s en réalité**, stable. Scrape toutes les 15 s. `B` redémarre à t=45 s.
-
-<svg viewBox="0 0 920 486" width="100%" role="img" aria-label="Le pic fantome : un pod qui redemarre, vu par sum(rate) et par rate(sum)" style="max-width:920px;height:auto;display:block;margin:1.2rem auto">
-<defs><marker id="ph" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker></defs>
-<text x="14" y="24" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="15.5" font-weight="700" text-anchor="start" fill="currentColor">Ce que Prometheus scrape : deux compteurs, dont l’un repart de zéro</text><line x1="80" y1="176" x2="890" y2="176" stroke="currentColor" stroke-width="1.2" opacity="0.35"/>
-<line x1="96" y1="176" x2="96" y2="181" stroke="currentColor" stroke-width="1.2" opacity="0.35"/>
-<text x="96" y="197" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="normal" text-anchor="middle" fill="currentColor" opacity="0.8">0 s</text><line x1="246" y1="176" x2="246" y2="181" stroke="currentColor" stroke-width="1.2" opacity="0.35"/>
-<text x="246" y="197" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="normal" text-anchor="middle" fill="currentColor" opacity="0.8">15 s</text><line x1="396" y1="176" x2="396" y2="181" stroke="currentColor" stroke-width="1.2" opacity="0.35"/>
-<text x="396" y="197" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="normal" text-anchor="middle" fill="currentColor" opacity="0.8">30 s</text><line x1="546" y1="176" x2="546" y2="181" stroke="currentColor" stroke-width="1.2" opacity="0.35"/>
-<text x="546" y="197" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="normal" text-anchor="middle" fill="currentColor" opacity="0.8">45 s</text><line x1="696" y1="176" x2="696" y2="181" stroke="currentColor" stroke-width="1.2" opacity="0.35"/>
-<text x="696" y="197" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="normal" text-anchor="middle" fill="currentColor" opacity="0.8">60 s</text><line x1="546" y1="44" x2="546" y2="182" stroke="#dc2626" stroke-width="1.6" stroke-dasharray="5 4"/>
-<text x="552" y="56" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="13.5" font-weight="700" text-anchor="start" fill="#dc2626">B redémarre</text><polyline points="96,83 246,80 396,77 546,74 696,71" fill="none" stroke="#3b82f6" stroke-width="2.8"/>
-<polyline points="96,101 246,99 396,96 516,93" fill="none" stroke="#10b981" stroke-width="2.8"/>
-<polyline points="516,93 516,176" fill="none" stroke="#10b981" stroke-width="2.4" stroke-dasharray="4 3"/>
-<polyline points="546,176 696,173" fill="none" stroke="#10b981" stroke-width="2.8"/>
-<circle cx="96" cy="83" r="3.6" fill="#3b82f6"/>
-<circle cx="246" cy="80" r="3.6" fill="#3b82f6"/>
-<circle cx="396" cy="77" r="3.6" fill="#3b82f6"/>
-<circle cx="546" cy="74" r="3.6" fill="#3b82f6"/>
-<circle cx="696" cy="71" r="3.6" fill="#3b82f6"/>
-<circle cx="96" cy="101" r="3.6" fill="#10b981"/>
-<circle cx="246" cy="99" r="3.6" fill="#10b981"/>
-<circle cx="396" cy="96" r="3.6" fill="#10b981"/>
-<circle cx="546" cy="176" r="3.6" fill="#10b981"/>
-<circle cx="696" cy="173" r="3.6" fill="#10b981"/>
-<text x="712" y="76.46666666666667" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="13.5" font-weight="700" text-anchor="start" fill="#3b82f6">pod A</text><text x="712" y="178.2" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="13.5" font-weight="700" text-anchor="start" fill="#10b981">pod B</text><text x="538" y="64.26666666666667" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="700" text-anchor="end" fill="#3b82f6">1090</text><text x="538" y="170" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="700" text-anchor="end" fill="#10b981">0</text><text x="14" y="218" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="13" font-weight="normal" text-anchor="start" fill="currentColor" opacity="0.85">Les deux pods servent 2 req/s chacun : le trafic réel vaut 4 req/s, du début à la fin.</text><rect x="14" y="244" width="438" height="168" rx="6" fill="none" stroke="currentColor" stroke-opacity="0.28"/>
-<text x="30" y="272" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700" text-anchor="start" fill="#10b981">sum(rate(...))</text><text x="30" y="292" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="12.5" font-weight="normal" text-anchor="start" fill="currentColor" opacity="0.8">rate corrige chaque pod séparément</text><line x1="72" y1="388" x2="436" y2="388" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.3"/>
-<text x="64" y="392" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="normal" text-anchor="end" fill="currentColor" opacity="0.8">4/s</text><rect x="468" y="244" width="438" height="168" rx="6" fill="none" stroke="currentColor" stroke-opacity="0.28"/>
-<text x="484" y="272" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700" text-anchor="start" fill="#dc2626">rate(sum(...))</text><text x="484" y="292" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="12.5" font-weight="normal" text-anchor="start" fill="currentColor" opacity="0.8">la baisse du total est prise pour un reset</text><line x1="526" y1="388" x2="890" y2="388" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.3"/>
-<text x="518" y="392" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="normal" text-anchor="end" fill="currentColor" opacity="0.8">4/s</text><polyline points="72,388 200,388 250,388 268,400 310,400 328,388 436,388" fill="none" stroke="#10b981" stroke-width="3"/>
-<text x="289" y="418" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="700" text-anchor="middle" fill="#10b981">2/s</text><polyline points="526,388 660,388 700,388" fill="none" stroke="#dc2626" stroke-width="3"/>
-<polyline points="700,388 730,322" fill="none" stroke="#dc2626" stroke-width="3" marker-end="url(#ph)"/>
-<polyline points="734,322 764,388 890,388" fill="none" stroke="#dc2626" stroke-width="3"/>
-<text x="732" y="310" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14.5" font-weight="700" text-anchor="middle" fill="#dc2626">≈ 73/s</text><text x="14" y="442" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="13.5" font-weight="600" text-anchor="start" fill="currentColor">Le creux est la vérité : la moitié de la</text><text x="14" y="462" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="13.5" font-weight="600" text-anchor="start" fill="currentColor">capacité était absente pendant 15 s.</text><text x="468" y="442" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="13.5" font-weight="600" text-anchor="start" fill="currentColor">Un pic de trafic au moment précis où un</text><text x="468" y="462" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="13.5" font-weight="600" text-anchor="start" fill="currentColor">pod est mort — et il n’y a eu aucun trafic.</text></svg>
-
-| t | A | rate(A) | B | rate(B) | **sum(rate)** ✅ | A+B | **rate(sum)** ❌ |
-|---|---|---|---|---|---|---|---|
-| 0 s | 1000 | — | 800 | — | — | 1800 | — |
-| 15 s | 1030 | 2/s | 830 | 2/s | **4/s** | 1860 | **4/s** |
-| 30 s | 1060 | 2/s | 860 | 2/s | **4/s** | 1920 | **4/s** |
-| 45 s | 1090 | 2/s | **0** ⚡ | 0/s | **2/s** | **1090** | **≈ 73/s** 💥 |
-| 60 s | 1120 | 2/s | 30 | 2/s | **4/s** | 1150 | **4/s** |
-
-Les deux écritures donnent le même résultat partout, **sauf sur la ligne du redémarrage**.
-
-À gauche, `rate` compare 0 à 860 sur la seule série de `B` : reset reconnu, delta ramené à 0 — le pod n'a effectivement rien compté pendant qu'il redémarrait. La courbe creuse à 2/s, ce qui est la vérité : la moitié de la capacité était absente.
-
-À droite, la même comparaison se fait sur le total, 1090 contre 1920. Baisse, donc reset, donc delta = 1090 → `1090 / 15 ≈ 73/s`. Ce 1090, ce sont les **requêtes cumulées de `A` depuis son propre démarrage**, comptées d'un coup comme si elles venaient d'arriver en 15 secondes. Le pic n'est pas du trafic : c'est l'historique de `A` relâché sur un intervalle. Et plus `A` tourne depuis longtemps, pire c'est — à 50 000 au compteur, le faux pic monterait à 3 300/s.
-
-Deux détails que le tableau simplifie : un vrai `rate[2m]` étale ce pic sur la fenêtre au lieu de le concentrer sur un point (plus bas, plus large, même erreur totale) ; et PromQL rend d'ailleurs la mauvaise écriture malaisée — `rate(sum(...)[2m])` est invalide, il faut une *subquery* pour y arriver.
-
-Cette écriture-là, PromQL la rend d'ailleurs difficile à commettre. Ce qui se transpose, c'est le réflexe : **un pic sur un dashboard peut être un artefact du calcul et pas un événement**. Devant une valeur spectaculaire, la première question à se poser est de savoir si elle décrit le système ou la façon dont on l'interroge.
 
 ## Pour aller plus loin
 
