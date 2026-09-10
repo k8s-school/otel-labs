@@ -1,5 +1,5 @@
 ---
-title: 'Lab 4.1 — Lire un histogramme : de la heatmap au p95'
+title: 'Lab 4.1 — Lire un panel de latence : heatmap, p95 et faux pics'
 date: 2026-08-18T10:30:00+02:00
 draft: false
 weight: 41

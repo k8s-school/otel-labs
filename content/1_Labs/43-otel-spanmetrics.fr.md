@@ -1,12 +1,12 @@
 ---
-title: 'Lab 4 bonus — Le dashboard spanmetrics de la démo'
+title: "Lab 4 bonus — spanmetrics : une requête n'est pas un span"
 date: 2026-09-09T23:00:00+02:00
 draft: false
 weight: 43
 tags: ["spanmetrics", "Prometheus", "Grafana", "RED"]
 ---
 
-Page de lecture : rien à construire, rien à déployer. La démo livre un dashboard bâti sur les métriques `traces_span_metrics_*`, celles que le collecteur fabrique à partir des traces. Il donne le trio **RED** — *Rate, Errors, Duration* — pour tous les services d'un coup, et il éclaire au passage un piège que le dashboard du Lab 4 évite sans le dire.
+Page de lecture : rien à construire, rien à déployer. Une requête produit plusieurs spans, et `spanmetrics` les chronomètre un par un : additionner leurs seaux donne un chiffre qui ne décrit aucune requête réelle. Cette page mesure l'écart sur le cluster, puis ouvre le dashboard que la démo livre — le trio **RED** — *Rate, Errors, Duration* — pour tous les services à la fois.
 
 ## Prérequis
 

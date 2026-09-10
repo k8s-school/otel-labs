@@ -47,7 +47,7 @@ Celui de Prometheus s'appelle `default.yaml` — son nom ne le dit pas, c'est le
 kubectl get configmap grafana-datasources -n otel-demo -o jsonpath='{.data.default\.yaml}'
 ```
 
-Vous y retrouvez l'UID et l'URL du tableau ci-dessus, plus un champ `exemplarTraceIdDestinations` qui relie Prometheus à Jaeger. Il fait l'objet du **Lab 4.1**.
+Vous y retrouvez l'UID et l'URL du tableau ci-dessus, plus un champ `exemplarTraceIdDestinations` qui relie Prometheus à Jaeger. Il fait l'objet du **Lab 4.2**.
 
 Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par son nom d'affichage. Le dashboard de référence, celui du bloc « Solution » plus bas, contient `"datasource": { "type": "prometheus", "uid": "webstore-metrics" }` — c'est ce qui lui permet de s'importer sans re-câbler un seul panel. Un dashboard récupéré ailleurs (grafana.com, un autre cluster) porte d'autres UID : ses panels arrivent vides tant qu'on ne les a pas repointés.
 {{% /expand%}}
@@ -65,7 +65,7 @@ Retenez l'**UID** : c'est par lui qu'un panel désigne sa datasource, et non par
 > curl -s http://$PF_HOST:$UI_PORT/grafana/api/datasources | grep -o '"uid":"[^"]*"'
 > ```
 >
-> Ces UID servent aussi à relier les datasources **entre elles** — c'est ce qui permettra, au Lab 4.1, de passer d'un point de métrique à la trace correspondante.
+> Ces UID servent aussi à relier les datasources **entre elles** — c'est ce qui permettra, au Lab 4.2, de passer d'un point de métrique à la trace correspondante.
 
 2.  **Créer un dashboard vide** (*Dashboards → New → New dashboard*), puis **ajouter la variable `service_name`** :
 
@@ -161,9 +161,9 @@ Ce qu'on lui demande, ici, c'est de répondre d'un coup d'œil à « ça va, ou 
 
 ## Pour aller plus loin
 
-* [**Lab 4.1 — Lire un histogramme : de la heatmap au p95**]({{% relref "41-otel-histogramme" %}}) — le PromQL des seaux, comment une heatmap se construit, et pourquoi le p95 n'en est que le résumé. La théorie derrière le panel « Latence p95 ».
+* [**Lab 4.1 — Lire un panel de latence : heatmap, p95 et faux pics**]({{% relref "41-otel-histogramme" %}}) — le PromQL des seaux, comment une heatmap se construit, et pourquoi le p95 n'en est que le résumé. La théorie derrière le panel « Latence p95 ».
 * [**Lab 4.2 — Exemplars : du point de métrique à la trace**]({{% relref "42-otel-exemplars" %}}) — le chaînon qui manque entre le p95 et Jaeger, sur un dashboard livré par la démo. Rien à construire, tout à lire.
-* [**Lab 4 bonus — Le dashboard spanmetrics de la démo**]({{% relref "43-otel-spanmetrics" %}}) — le trio RED pour tous les services, et pourquoi un p95 calculé sur tous les spans d'un service ne mesure pas la latence de ses requêtes.
+* [**Lab 4 bonus — spanmetrics : une requête n'est pas un span**]({{% relref "43-otel-spanmetrics" %}}) — le trio RED pour tous les services, et pourquoi un p95 calculé sur tous les spans d'un service ne mesure pas la latence de ses requêtes.
 
 ## Livrable
 
