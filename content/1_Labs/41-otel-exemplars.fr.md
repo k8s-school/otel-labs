@@ -82,16 +82,6 @@ Une colonne de la heatmap, lue de bas en haut, c'est donc la **distribution des 
 
 Chacun est posé à **sa propre valeur** — le plus souvent *sous* la courbe du p95, parfois au-dessus. Ce n'est pas un tirage au hasard parmi toutes les requêtes, et le mécanisme réel explique mieux ce que vous voyez : le SDK garde **un échantillon par seau** de l'histogramme. Chaque seau qui a reçu du trafic conserve donc ses requêtes témoins, et Grafana les affiche toutes, seaux confondus.
 
-Relevé sur le cluster de la formation, sur un quart d'heure :
-
-```text
-seau le=0.005    14 exemplars    (0,6 à 3,6 ms)
-seau le=0.01      8 exemplars    (5,4 à 7,1 ms)   ← le p95 tombe ici (8,2 ms)
-seau le=0.025     4 exemplars    (11,6 à 18,7 ms)
-```
-
-Les seaux du bas sont les plus peuplés — la plupart des requêtes sont rapides — donc la plupart des marqueurs se posent **sous** une courbe qui, elle, suit le haut de la distribution. Un marqueur au-dessus du p95 est une requête d'un seau plus lent : exactement celle qu'on veut ouvrir.
-
 > 💡 **La heatmap et la courbe affichent les mêmes exemplars**, tous seaux confondus — et non, la courbe du p95 ne montre pas seulement les requêtes du seau où tombe le p95. Quand la case *Exemplars* est cochée, Grafana envoie l'expression du panel à l'API `query_exemplars`, qui n'en retient que le **sélecteur de série** (`app_cart_get_cart_latency_seconds_bucket`) et ignore tout le reste : `rate`, `sum by(le)` et `histogram_quantile` n'ont aucun effet sur les marqueurs renvoyés. Vérifié sur le cluster de la formation : les trois écritures rendent les mêmes 31 exemplars, sur les mêmes 4 seaux.
 
 **Survolez un marqueur** : une infobulle donne la valeur, le `trace_id` et un lien. **Cliquez** : Jaeger s'ouvre sur cette requête précise. Au lieu de chercher dans Jaeger une trace qui ressemblerait au symptôme, c'est le symptôme qui vous donne son identifiant.

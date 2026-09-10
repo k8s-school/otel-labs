@@ -234,13 +234,9 @@ histogram_quantile(0.95, sum by(le) (rate(app_cart_add_item_latency_seconds_buck
 
 *« Et pourquoi ne pas trier les requêtes dans Jaeger et lire celle qui tombe au 95ᵉ centile, tout simplement ? »* Parce qu'elle n'y est peut-être pas — au Lab 7, le tail sampling ne gardera qu'un quart des traces — et parce qu'un service réel produit des millions de requêtes par minute : les trier à chaque rafraîchissement du panel, sur six heures de fenêtre, n'est pas tenable. Les traces vivent d'ailleurs quelques jours, les métriques des mois. Chaque signal fait son métier : la métrique dit **qu'il y a** un problème et depuis quand, pour trois fois rien et sur la longue durée ; la trace dit **laquelle** des requêtes a souffert.
 
-## 4. Ce que ce p95 ne dit pas
+## 4. La limite du p95 : la largeur du seau
 
 **Sa précision est celle du seau.** Les 65 ms du schéma ne sont pas une mesure : les 0,5 req/s de ce seau pourraient aussi bien être toutes à 51 ms que toutes à 74 ms, la réponse serait la même. « 65 ms » signifie surtout « entre 50 et 75 ». Seuls des seaux plus serrés améliorent la précision, et cela se règle à la production de la métrique, pas à la lecture.
-
-**Il mélange toutes les opérations du service.** Un appel de santé à 2 ms et une commande à 800 ms tombent dans le même histogramme. C'est le bon choix pour une vue d'ensemble ; dès qu'on cherche *quoi* est lent, il faut un percentile par opération.
-
-**Ce n'est pas la latence vue par vos utilisateurs.** Elle porte sur ce qui est arrivé au collecteur. Au Lab 7, le tail sampling n'en laissera passer qu'un quart : le percentile sera alors calculé sur un échantillon — et un échantillon biaisé, puisque le sampling retient précisément les erreurs et les requêtes lentes.
 
 ## 5. Heatmap ou percentile ?
 
