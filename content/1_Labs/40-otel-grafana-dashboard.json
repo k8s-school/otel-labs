@@ -93,7 +93,7 @@
           "legendFormat": "{{span_name}}"
         }
       ],
-      "description": "Seuil à 20 ms, matérialisé en rouge : un repère de lecture, calibré sur le review-service, qui tourne à ~4 ms au repos. La requête ne compte que le travail entrant (span_kind) — voir le Lab 4.2.",
+      "description": "Seuil à 20 ms, matérialisé en rouge : un repère de lecture, calibré sur le review-service, qui tourne à ~4 ms au repos. La requête calcule un p95 par opération (by span_name) et affiche les cinq plus lentes.",
       "fieldConfig": {
         "defaults": {
           "unit": "ms",

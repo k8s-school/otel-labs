@@ -129,6 +129,8 @@ opentelemetry-collector:
               - status.code == STATUS_CODE_ERROR and kind == SPAN_KIND_SERVER
 ```
 
+`kind == SPAN_KIND_SERVER` ne retient que les spans de **requêtes reçues** : un service qui échoue en appelant un autre ne compte pas ici, seul l'échec qu'il renvoie à son propre appelant est compté.
+
 Il **s'empile** sur celui du Lab 6 : Helm fusionne les maps, donc `app.requests.errors` s'ajoute à `app.spans.errors` sans la remplacer. Rien d'autre à redéclarer — ni les pipelines, ni `deltatocumulative` :
 
 ```bash

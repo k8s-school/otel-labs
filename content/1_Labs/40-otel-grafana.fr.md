@@ -91,7 +91,7 @@ sum(rate(traces_span_metrics_calls_total{service_name=~"$service_name"}[2m]))
 >
 > * **`traces_span_metrics_calls_total{service_name=~"$service_name"}`** — *quoi ?* Un **compteur** produit par spanmetrics : le nombre de spans vus depuis le démarrage du collecteur. Le suffixe `_total` est la convention Prometheus pour un compteur, une valeur qui ne fait que monter. Entre accolades, le filtre : seulement le service choisi dans le menu.
 > * **`rate(...[2m])`** — *à quelle vitesse ?* Un compteur brut ne se lit pas : « 48 219 spans depuis le démarrage » n'apprend rien. `rate` en prend la pente sur les **2 dernières minutes** et rend des **spans par seconde**. C'est cela qu'on veut voir monter et descendre.
-> * **`sum(...)`** — *combien en tout ?* spanmetrics ne tient pas un compteur par service, mais un par **opération** (`span_name`), sens d'appel (`span_kind`) et statut. Sans `sum`, le panel afficherait des dizaines de courbes ; `sum` les écrase en une seule, le débit total du service.
+> * **`sum(...)`** — *combien en tout ?* spanmetrics ne tient pas un compteur par service, mais un par **opération** (`span_name`) et par statut. Sans `sum`, le panel afficherait des dizaines de courbes ; `sum` les écrase en une seule, le débit total du service.
 >
 > **L'ordre compte : toujours `rate` d'abord, `sum` ensuite.** `rate` sait reconnaître qu'un compteur est reparti de zéro — un pod du collecteur qui redémarre — et corriger ; mais il ne le peut que série par série. Additionnez avant, et la baisse se lit comme une remise à zéro du total : le panel affiche alors un **pic de trafic au moment précis où un pod est mort**. La démonstration chiffrée est dans le [Lab 4.1]({{% relref "41-otel-histogramme" %}}).
 
@@ -153,7 +153,7 @@ topk(5, histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseco
 
 **Et il ne coûte rien à produire.** La métrique interrogée, `traces_span_metrics_duration_milliseconds_bucket`, sort du même connector **spanmetrics** que le compteur du panel 1 : le collecteur chronomètre déjà chaque span qu'il voit passer. Personne n'a ajouté de timer dans le `review-service`, ni bibliothèque, ni ligne de code — tracer suffit. Et comme le nom et les labels sont les mêmes partout, ce panel unique donne la latence des quinze services de la boutique, quel que soit leur langage.
 
-Ce qu'on lui demande, ici, c'est de répondre d'un coup d'œil à « ça va, ou pas ? ». Le trait rouge à 20 ms est un repère de lecture calibré sur le `review-service`, qui tourne autour de 4 ms au repos : au-delà, quelque chose a changé. Il arrive aussi avec une **seconde variable**, `span_name` : chaque opération du service y est listée, et le `by (le, span_name)` de la requête calcule un p95 **par opération** plutôt qu'un chiffre unique pour tout le service. Le `topk(5)` garde les cinq plus lentes à l'écran — de quoi voir tout de suite *laquelle* traîne, là où un seul chiffre agrégé ne dirait rien. Ce que ce panel mesure exactement, et le piège qu'évite son filtre `span_kind`, sont le sujet du [Lab 4 bonus]({{% relref "43-otel-spanmetrics" %}}).
+Ce qu'on lui demande, ici, c'est de répondre d'un coup d'œil à « ça va, ou pas ? ». Le trait rouge à 20 ms est un repère de lecture calibré sur le `review-service`, qui tourne autour de 4 ms au repos : au-delà, quelque chose a changé. Il arrive aussi avec une **seconde variable**, `span_name` : chaque opération du service y est listée, et le `by (le, span_name)` de la requête calcule un p95 **par opération** plutôt qu'un chiffre unique pour tout le service. Le `topk(5)` garde les cinq plus lentes à l'écran — de quoi voir tout de suite *laquelle* traîne, là où un seul chiffre agrégé ne dirait rien. Ce que ces cinq ou six spans par requête deviennent une fois chronométrés par spanmetrics, et pourquoi un p95 calculé sur tous ne mesure pas la latence des requêtes, sont le sujet du [Lab 4 bonus]({{% relref "43-otel-spanmetrics" %}}).
 
 6.  **Exporter votre dashboard en JSON.** Ce n'est pas dans le menu *Share*, qui ne propose que *Share internally* / *Share externally*. L'export est l'**icône ⤓ de la barre verticale, à droite du dashboard** (infobulle *Export*) : cliquez-la, puis *Export as code*. Le panneau *Export dashboard* affiche le JSON ; le bouton **Download file** l'enregistre.
 
@@ -163,7 +163,7 @@ Ce qu'on lui demande, ici, c'est de répondre d'un coup d'œil à « ça va, ou 
 
 * [**Lab 4.1 — Lire un histogramme : de la heatmap au p95**]({{% relref "41-otel-histogramme" %}}) — le PromQL des seaux, comment une heatmap se construit, et pourquoi le p95 n'en est que le résumé. La théorie derrière le panel « Latence p95 ».
 * [**Lab 4.2 — Exemplars : du point de métrique à la trace**]({{% relref "42-otel-exemplars" %}}) — le chaînon qui manque entre le p95 et Jaeger, sur un dashboard livré par la démo. Rien à construire, tout à lire.
-* [**Lab 4 bonus — Le dashboard spanmetrics de la démo**]({{% relref "43-otel-spanmetrics" %}}) — le trio RED pour tous les services, et le piège que le filtre `span_kind` évite.
+* [**Lab 4 bonus — Le dashboard spanmetrics de la démo**]({{% relref "43-otel-spanmetrics" %}}) — le trio RED pour tous les services, et pourquoi un p95 calculé sur tous les spans d'un service ne mesure pas la latence de ses requêtes.
 
 ## Livrable
 
