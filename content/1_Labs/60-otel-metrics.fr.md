@@ -278,12 +278,22 @@ Alors, API OpenTelemetry ou Micrometer ?
 Les deux cohabitent sans problème dans une même JVM, comme ici : ce service exporte les deux.
 {{% /expand%}}
 
-{{%expand "Et si je n'avais pas d'agent ?" %}}
-**Avec le Spring Boot Starter du Lab 2**, ce lab ne marche pas. Son pont Micrometer existe pourtant, et s'ouvre avec la même variable — mais le starter ne remplit pas `GlobalOpenTelemetry`, celui que le code de la partie 1 interroge. Vérifié sur le cluster : avec le starter, le `Timer` Micrometer et les meters d'Actuator arrivent bien dans Prometheus, et **les deux instruments que vous avez lus à l'étape 1 n'arrivent jamais**. Ils restent no-op, faute de SDK derrière l'API.
+{{%expand "Faire sortir ses meters Micrometer : agent, starter, ou ni l'un ni l'autre ?" %}}
+**Spring Boot mesurait bien avant OpenTelemetry.** Micrometer et Actuator comptent déjà les requêtes HTTP, le GC, les threads, le pool de connexions — et l'instrumentation OpenTelemetry mesure exactement les mêmes grandeurs, sous d'autres noms. Cumuler les deux produit donc **mécaniquement des doublons**. C'est pour cette raison que le pont est fermé par défaut, et c'est vrai de l'agent comme du starter.
 
-**Sans OpenTelemetry du tout**, Micrometer sait exporter seul : `micrometer-registry-otlp` pousse vers le collecteur, `micrometer-registry-prometheus` expose `/actuator/prometheus` à scraper. Vous aurez les métriques — mais **ni traces, ni logs, ni corrélation**. Trois tuyaux séparés au lieu de la chaîne des Labs 4 et 5.
+| | vos instruments API OTel | vos meters Micrometer | doublons |
+|---|---|---|---|
+| **agent Java OpenTelemetry** | ✅ | ✅ avec le flag | oui |
+| **Spring Boot Starter** | ❌ | ✅ avec le flag | oui |
+| **ni l'un ni l'autre** — un registry Micrometer | ❌ | ✅ | non |
 
-**Avec l'agent**, tout arrive — y compris les doublons. Deux façons simples de les écarter :
+Le même flag ouvre le pont dans les deux cas : `OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true`.
+
+Le **starter** est hors jeu pour ce lab, et pour une seule raison : il ne remplit pas `GlobalOpenTelemetry`, celui que le code de la partie 1 interroge. Vérifié sur le cluster — les deux instruments de l'étape 1 n'arrivent jamais, ils restent no-op faute de SDK derrière l'API.
+
+**Ni l'un ni l'autre** reste possible : `micrometer-registry-otlp` pousse les meters au collecteur, `micrometer-registry-prometheus` expose `/actuator/prometheus` à scraper. Pas de doublons, puisqu'il n'y a qu'une instrumentation — mais **ni traces, ni logs, ni corrélation** : trois tuyaux séparés au lieu de la chaîne des Labs 4 et 5.
+
+Reste à écarter les doublons, et deux façons simples suffisent :
 
 * **couper la mesure côté agent** là où Micrometer fait déjà le travail. `-Dotel.instrumentation.runtime-telemetry.enabled=false` dans `JAVA_TOOL_OPTIONS` supprime les métriques JVM de l'agent et laisse celles d'Actuator (mesuré : `jvm_gc_duration_seconds` disparaît, `jvm_gc_pause_seconds` reste) ;
 * **les écarter au collecteur**, avec le processor `filter` du Lab 3. Plus lourd — la donnée a déjà traversé le réseau — mais la règle s'écrit une fois pour toute la flotte.
