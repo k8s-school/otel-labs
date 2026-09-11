@@ -114,7 +114,7 @@ kubectl set env -n otel-demo deployment/review-service \
 kubectl rollout status -n otel-demo deployment/review-service
 ```
 
-Le `deploy.sh` n'est pas superflu. Il **efface délibérément** les variables posées à la main lors des labs précédents (`JAVA_TOOL_OPTIONS`, `MASK_PII`, `OTEL_INSTRUMENTATION_MICROMETER_ENABLED`) avant d'appliquer les manifestes, pour que ceux-ci restent la seule source de vérité — et il redéploie l'image par défaut, celle qui ne contient pas le Spring Boot Starter du Lab 2. Sans ce nettoyage, un build `starter` se retrouverait avec l'agent par-dessus : **deux SDK dans la même JVM**.
+Le `deploy.sh` n'est pas superflu. Il **efface délibérément** les variables posées à la main lors des labs précédents (`JAVA_TOOL_OPTIONS`, `OTEL_INSTRUMENTATION_MICROMETER_ENABLED`) avant d'appliquer les manifestes, pour que ceux-ci restent la seule source de vérité — et il redéploie l'image par défaut, celle qui ne contient pas le Spring Boot Starter du Lab 2. Sans ce nettoyage, un build `starter` se retrouverait avec l'agent par-dessus : **deux SDK dans la même JVM**.
 
 Vérifiez ensuite l'environnement réel du conteneur qui tourne :
 

@@ -63,7 +63,7 @@ kind load docker-image "$IMAGE" --name "$CLUSTER_NAME"
 # which one produced what. Resetting BEFORE the apply keeps the manifest as
 # the single source of truth.
 kubectl set env -n "$NS" "deployment/$APP_NAME" \
-    JAVA_TOOL_OPTIONS- MASK_PII- OTEL_INSTRUMENTATION_MICROMETER_ENABLED- \
+    JAVA_TOOL_OPTIONS- OTEL_INSTRUMENTATION_MICROMETER_ENABLED- \
     2>/dev/null || true
 
 # 4. Apply the manifests with the new image tag substituted

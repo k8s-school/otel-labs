@@ -63,9 +63,12 @@
 https://opentelemetry.io/docs/collector/
 https://opentelemetry.io/docs/demo/collector-data-flow-dashboard/
 
-* LAB 8, masquage SDK (retire de la page, trop avance pour le public): le code
-  du depot (PiiMaskingConfiguration.java, PiiRedactingLogRecordExporter.java)
-  n'a d'effet qu'avec le profil Starter. Pourquoi, si la question vient:
+* LAB 8, masquage SDK: le code d'exemple (PiiMaskingConfiguration.java,
+  PiiRedactingLogRecordExporter.java) a ete SUPPRIME du depot, avec les
+  dependances opentelemetry-sdk et -sdk-extension-autoconfigure-spi du pom.xml
+  et la variable MASK_PII de deploy.sh. La page n'en garde qu'un expand qui dit
+  que la voie existe et qu'elle coute cher. Ce qu'il disait, si la question vient
+  a l'oral -- il n'avait d'effet qu'avec le profil Starter:
   - c'est un bean Spring exposant un AutoConfigurationCustomizerProvider; le
     Starter installe le SDK dans le contexte Spring, donc il le voit.
   - l'agent Java initialise SON SDK au demarrage de la JVM, avant Spring et

@@ -65,17 +65,6 @@
             <artifactId>opentelemetry-instrumentation-annotations</artifactId>
             <version>${opentelemetry-instrumentation.version}</version>
         </dependency>
-        <!-- SDK types used by the PII masking LogRecordProcessor (Lab 8).
-             Only effective with the 'starter' profile: the starter invokes
-             AutoConfigurationCustomizerProvider beans, the agent does not. -->
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
-        </dependency>
     </dependencies>
 
     <profiles>

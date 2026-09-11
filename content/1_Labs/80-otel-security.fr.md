@@ -129,7 +129,19 @@ L'identifiant produit reste : il est utile en cas d'incident et n'identifie pers
 >
 > Ce que l'agent y ajoute : il pose ces attributs **tout seul**. Le jour où un service enfreint l'une de ces règles — le vôtre, ou celui de l'équipe d'à côté —, la donnée part dans les traces sans qu'aucun `setAttribute` n'apparaisse nulle part pour vous mettre la puce à l'oreille.
 
-> 💡 **Il existe un troisième endroit : le SDK de l'application.** On filtre alors avant même que la donnée ne sorte du processus — ce qu'exigent certaines politiques internes. Le dépôt en garde un exemple à lire, `PiiMaskingConfiguration.java`, qui remplace les emails des logs par `***@***`. Il ne fonctionne qu'avec le **Starter** du Lab 2, pas avec l'agent : les deux ne se branchent pas au SDK par le même endroit.
+{{%expand "Et un troisième endroit : le SDK de l'application ?" %}}
+Il existe, et certaines politiques internes l'exigent : on filtre alors **avant même que la donnée ne sorte du processus**, sans faire confiance au réseau ni au collecteur.
+
+Mais c'est le chemin le plus coûteux, et de loin.
+
+* **Vous écrivez le filtre vous-même**, en Java : la reconnaissance des emails, des jetons, des numéros de carte — puis vous la maintenez et vous la testez.
+* **Il faut le brancher dans le SDK**, ce qui ne se fait pas au même endroit selon l'instrumentation. Avec l'agent, la classe ne peut même pas vivre dans votre application : il faut livrer une **extension**, un jar à part passé à l'agent au démarrage.
+* **Et tout est à refaire à chaque service**, dans chaque langage. Une règle OTTL au collecteur couvre la flotte entière ; un filtre SDK ne couvre que l'application qui l'embarque.
+
+D'où l'ordre de ce lab : on **corrige le code** qui écrit la donnée, et on met le **filet au collecteur**. Le filtre dans le SDK ne se justifie que si l'on doit prouver que la donnée n'a jamais quitté le processus.
+
+La documentation officielle sur les [extensions de l'agent Java](https://opentelemetry.io/docs/zero-code/java/agent/extensions/) décrit le mécanisme et ses points d'accroche.
+{{% /expand%}}
 
 ### Partie 3 — Le filet de sécurité : masquer au collecteur
 
