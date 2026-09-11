@@ -84,8 +84,6 @@ Parce que l'API seule **ne produit rien**. `GlobalOpenTelemetry.getMeter(...)` r
 
 Conséquence pratique : une bibliothèque partagée peut s'instrumenter avec l'API sans imposer quoi que ce soit à ses utilisateurs. Et si vous retirez le `-javaagent`, l'application tourne toujours — sans métriques.
 
-⚠️ Attention à une confusion facile : le `pom.xml` **contient** bien `opentelemetry-sdk`. Mais **l'avoir dans le classpath ne l'active pas** — un SDK ne produit rien tant que personne ne le construit et ne l'installe. Ici, aucune ligne de l'application ne le fait ; c'est l'agent qui s'en charge, de l'extérieur.
-
 La chaîne de types est la même dans tous les langages : **`MeterProvider` → `Meter` → instrument**. Les trois maillons n'ont ni le même rôle ni le même nombre d'exemplaires :
 
 | | Combien | Qui le crée | Ce qu'il porte |
