@@ -42,9 +42,7 @@ kubectl rollout status -n otel-demo deployment/review-service
 {{%expand "Comment l'agent capture-t-il les logs ?" %}}
 L'agent détecte Logback et y **injecte l'équivalent de l'appender OpenTelemetry** (`io.opentelemetry.instrumentation:opentelemetry-logback-appender`). Chaque événement Logback devient un **LogRecord** OTel : timestamp, sévérité, body, attributs... et surtout le **`trace_id`/`span_id` courant** si le log est émis pendant une requête tracée.
 
-Le **Spring Boot Starter** de la partie 2 du Lab 2 fait la même chose, autrement : l'appender est une dépendance compilée dans l'application, qu'il branche sur Logback au démarrage. D'où le constat de l'étape 2 — les deux approches produisent des logs corrélés, et le Lab 4 les affiche indifféremment.
-
-Et sans ni l'un ni l'autre ? On déclare l'appender à la main dans `logback.xml` et on construit le SDK (`LoggerProvider`) — c'est l'approche « SDK » vue en cours.
+Le **Spring Boot Starter** de la partie 2 du Lab 2 fait la même chose, autrement : l'appender est une dépendance compilée dans l'application, qu'il branche sur Logback au démarrage. D'où le constat du début de cette étape : les deux approches produisent des logs corrélés.
 {{% /expand%}}
 
 3.  **Générer des logs corrélés :**
