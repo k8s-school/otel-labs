@@ -127,13 +127,15 @@ Le bouton porte le nom de la datasource cible — d'où le sobre **Jaeger**. Pou
 
 > ⚠️ **Ce lien ne survivra pas à un redémarrage de Grafana.** La datasource OpenSearch est **provisionnée** par une ConfigMap (`grafana-datasources`, posée par Helm) : un sidecar la relit à chaque démarrage et **réécrit la datasource par-dessus**. Tout ce que vous avez ajouté à l'exécution — par l'interface comme par l'API — disparaît alors, sans le moindre message. Constaté en préparant ce lab : Grafana redémarre, et le bloc `dataLinks` n'est plus là.
 >
-> Le `editable: true` de la configuration **autorise** la modification ; il ne la rend pas **durable**. Deux notions distinctes, et une confusion fréquente.
+> Le `editable: true` dit seulement que Grafana **accepte** votre modification : sans lui, le formulaire serait grisé et l'API refuserait le PUT. Il ne dit rien de ce qui se passe au redémarrage, où le fichier de provisioning reprend la main et écrase tout.
 >
 > Si le cas se présente, refaites la manip — c'est l'affaire de dix secondes. Mais retenez la leçon : en production, ce lien ne se règle pas à la souris, il s'écrit dans le fichier de provisioning et se versionne dans Git. Exactement le même raisonnement que pour le dashboard du Lab 4, que vous avez exporté en JSON pour le committer plutôt que de le laisser vivre dans Grafana.
 
 6.  **Du log à la trace en un clic :**
 
-Toujours dans le log déplié, cliquez le bouton **Jaeger** de la section *Links*. Grafana **scinde l'écran** : vos logs restent à gauche, Jaeger s'ouvre à droite, garni de la trace que la requête `${__value.raw}` vient de réclamer. Vous avez sous les yeux la trace exacte qui a produit ce log — `POST /api/reviews` avec ses spans HTTP, catalogue et SQL — sans perdre le log de vue. C'est tout l'intérêt de la corrélation : les deux signaux côte à côte, et non l'un après l'autre.
+Toujours dans le log déplié, cliquez le bouton **Jaeger** de la section *Links*. Grafana **scinde l'écran** : vos logs restent à gauche, la trace s'affiche à droite — `POST /api/reviews` avec ses spans HTTP, catalogue et SQL. Vous avez sous les yeux la trace exacte qui a produit ce log, sans perdre le log de vue. C'est tout l'intérêt de la corrélation : les deux signaux côte à côte, et non l'un après l'autre.
+
+> 💡 **Vous n'avez pas quitté Grafana.** Le bouton s'appelle *Jaeger*, mais l'interface de Jaeger ne s'ouvre nulle part : c'est **Grafana qui dessine la trace**, avec les données qu'il vient de demander à Jaeger par la datasource `webstore-traces`. Jaeger n'est plus qu'un magasin de traces derrière Grafana — comme Prometheus pour les métriques et OpenSearch pour les logs. C'est la suite directe du Lab 4 : un seul outil devant les yeux, trois back-ends derrière.
 
 7.  **Comprendre le trajet côté collecteur :**
 
@@ -168,11 +170,14 @@ Le collecteur sait aussi **lire des fichiers**. C'est le receiver `filelog`, qui
 Il ne s'active pas comme les receivers du Lab 3. Lire `/var/log/pods` suppose de monter un répertoire du nœud dans le pod, ce qui ne se configure pas dans `config:` mais dans la forme même du DaemonSet. D'où un **preset**, qui pose le tout d'un bloc — receiver, branchement au pipeline `logs`, volumes, et l'opérateur qui décode le format du runtime :
 
 ```yaml
+# dans un fichier de values passé à `helm upgrade`, comme au Lab 3
 opentelemetry-collector:
   presets:
     logsCollection:
       enabled: true
 ```
+
+> 💡 **Ces blocs sont des *values* Helm, pas la configuration du collecteur.** Le collecteur est un **sous-chart** de `opentelemetry-demo` : tout ce qui le concerne se range sous la clé `opentelemetry-collector:`, comme depuis le Lab 3. Ce qui se trouve dessous en `config:` finit bien dans la configuration du collecteur, mais ce qui se trouve dessous en `presets:` non — c'est Helm qui le lit, pour fabriquer receiver, volumes et pipeline d'un seul geste.
 
 ### Le conflit avec ce que vous venez de faire
 
@@ -188,12 +193,17 @@ opentelemetry-collector:
     receivers:
       filelog:
         exclude:
+          # celle du preset, à ne pas perdre : les logs du collecteur lui-même
+          - /var/log/pods/otel-demo_otel-collector*_*/opentelemetry-collector/*.log
+          # la vôtre : le service qui pousse déjà ses logs en OTLP
           - /var/log/pods/otel-demo_review-service-*_*/review-service/*.log
 ```
 
-Votre `config:` étant fusionnée **par-dessus** celle du preset, ce bloc **remplace** la liste `exclude` qu'il avait posée pour ses propres logs.
+> ⚠️ **Pourquoi deux lignes, alors qu'on ne veut en écarter qu'une ?** Parce que Helm fusionne votre `config:` par-dessus celle du preset, et que pour une **liste** YAML, fusionner veut dire **remplacer** : votre `exclude` ne s'ajoute pas à celui du preset, il prend sa place. Or le preset en avait déjà posé un, celui qui écarte **les logs du collecteur lui-même**. Le réécrire sans le reprendre, c'est laisser le collecteur lire ses propres logs — qui lui font écrire d'autres logs, qu'il relit à leur tour.
 
 ### Alors, OTLP ou `filelog` ?
+
+> 💡 **Les deux chemins en une phrase.** Avec **OTLP**, c'est l'**application qui pousse** ses logs au collecteur, déjà structurés et porteurs de leur `traceId` — c'est ce que fait le `review-service` depuis le début de ce lab. Avec **`filelog`**, c'est le **collecteur qui va lire** les fichiers que Kubernetes écrit sous `/var/log/pods/`, c'est-à-dire la sortie standard des conteneurs : du texte, tel qu'il a été imprimé, sans rien demander à l'application.
 
 Aucun des deux n'est « le bon » dans l'absolu — c'est l'application qui tranche.
 
@@ -219,7 +229,9 @@ Il y est pourtant, ailleurs : dans le **MDC**. *Mapped Diagnostic Context*, une 
 logging.pattern.level=%5p [%X{trace_id:-},%X{span_id:-}]
 ```
 
-Et cela éclaire au passage pourquoi l'appender OTLP, lui, n'a rien à configurer : il ne lit pas le texte mis en forme, il interroge directement le contexte de trace au moment où le log est émis. Le transport change ce qu'il faut faire pour **conserver** la corrélation ; il ne la crée jamais.
+D'où la différence entre les deux transports. `filelog` ne voit **que la ligne imprimée dans le fichier** : si le `trace_id` n'y figure pas, il n'arrivera jamais dans OpenSearch — d'où la ligne de configuration ci-dessus. L'appender OTLP ne passe pas par le fichier du tout : il va chercher le `trace_id` dans le MDC au moment où la ligne est écrite, et l'attache au LogRecord. Rien à configurer.
+
+Dans les deux cas le `trace_id` **existe déjà** : c'est l'instrumentation qui l'a créé, jamais le transport. Le transport décide seulement du travail qu'il vous reste à faire pour qu'il arrive à bon port.
 
 ## Livrable
 
