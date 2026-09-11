@@ -63,11 +63,9 @@ curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
 resource.service.name:"review-service"
 ```
 
-Puis **cliquez sur l'onglet `Logs`**, juste sous le champ de requête, **avant** de lancer *Run query*.
+Puis **cliquez sur l'onglet `Logs`**, juste sous le champ de requête, **avant** de lancer la requête.
 
-> ⚠️ **Sans ce clic, vous n'obtiendrez aucun log — et aucun message d'erreur.** L'éditeur de la datasource OpenSearch ouvre sur l'onglet **Metric**, réglé sur `Count` + *Date Histogram* : Grafana se contente de **compter** les documents et d'en dessiner un graphe à barres. Pas une seule ligne de log n'est affichée, donc rien à déplier, et le message reste invisible — ce qui laisse croire que la requête est fausse. Elle ne l'est pas.
->
-> Les cinq onglets — *Metric*, **Logs**, *Raw Data*, *Raw Document*, *Traces* — sont alignés sous le champ *Lucene query*. Cliquez sur **Logs**, puis *Run query* : le panneau *Logs* apparaît, une ligne par message. C'est exactement ce que fait, en JSON, le panel « Logs » du dashboard de référence du Lab 4 : `"metrics": [{"type": "logs"}]`.
+> 💡 Les cinq onglets — *Metric*, **Logs**, *Raw Data*, *Raw Document*, *Traces* — sont alignés sous le champ *Lucene query*, et l'éditeur ouvre sur **Metric** : il compte les documents au lieu de les afficher. Cliquez sur **Logs**, puis lancez la requête avec le **bouton bleu en haut à droite** (icône ↻) : le panneau *Logs* apparaît, une ligne par message.
 
 Dépliez le log `Creating review for product...`. Quels champs OTel voyez-vous autour du message ?
 
