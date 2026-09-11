@@ -20,9 +20,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Redeploy the DEFAULT build then activate the Java agent (it also ships
-# the logs). Lab 2 left the starter build deployed: agent and starter must
-# never cohabit (both register the OpenTelemetry SDK).
+# The lab page no longer redeploys anything: whichever instrumentation lab 2
+# left in place (agent or Spring Boot Starter) produces correlated logs, and
+# lab 6 is the one that requires the agent. This script still pins the agent,
+# so that a standalone run has a deterministic starting point. Note that the
+# two must never cohabit -- both register the OpenTelemetry SDK.
 "$DIR/../../scripts/deploy.sh"
 kubectl set env -n "$NS" deployment/review-service \
     JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"

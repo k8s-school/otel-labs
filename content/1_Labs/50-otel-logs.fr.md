@@ -26,23 +26,14 @@ kubectl logs -n otel-demo deployment/review-service --tail=20
 
 > `kubectl logs` lit la sortie console du conteneur : du texte brut, sans contexte, service par service. Impossible de croiser avec une trace.
 
-2.  **Revenir à la version « agent Java » :**
+2.  **Qui transforme ces lignes en LogRecords ?** Personne à redéployer ici : l'instrumentation posée au Lab 2 tourne depuis, et c'est elle que le Lab 4 a lue dans son panel *Logs*.
 
-Le Lab 2 s'est terminé avec le build **starter** déployé. Notez-le : lui aussi capture les logs, vous en verriez donc dans Grafana sans rien changer. On revient à l'agent parce que c'est **l'approche que suivent les labs suivants** — le Lab 6 active son pont Micrometer (`OTEL_INSTRUMENTATION_MICROMETER_ENABLED`), une option qui n'existe que chez lui.
+{{%expand "Comment l'instrumentation capture-t-elle les logs ?" %}}
+L'**agent Java** détecte Logback et y **injecte l'équivalent de l'appender OpenTelemetry** (`io.opentelemetry.instrumentation:opentelemetry-logback-appender`). Chaque événement Logback devient un **LogRecord** OTel : timestamp, sévérité, body, attributs... et surtout le **`trace_id`/`span_id` courant** si le log est émis pendant une requête tracée.
 
-Agent et starter sont deux alternatives : les laisser ensemble installerait deux SDK dans la même JVM. On redéploie donc l'image par défaut — celle qui ne contient pas le starter — puis on active l'agent :
+Le **Spring Boot Starter** de la partie 2 du Lab 2 fait la même chose, autrement : l'appender est une dépendance compilée dans l'application, qu'il branche sur Logback au démarrage.
 
-```bash
-./scripts/deploy.sh
-kubectl set env -n otel-demo deployment/review-service \
-  JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
-kubectl rollout status -n otel-demo deployment/review-service
-```
-
-{{%expand "Comment l'agent capture-t-il les logs ?" %}}
-L'agent détecte Logback et y **injecte l'équivalent de l'appender OpenTelemetry** (`io.opentelemetry.instrumentation:opentelemetry-logback-appender`). Chaque événement Logback devient un **LogRecord** OTel : timestamp, sévérité, body, attributs... et surtout le **`trace_id`/`span_id` courant** si le log est émis pendant une requête tracée.
-
-Le **Spring Boot Starter** de la partie 2 du Lab 2 fait la même chose, autrement : l'appender est une dépendance compilée dans l'application, qu'il branche sur Logback au démarrage. D'où le constat du début de cette étape : les deux approches produisent des logs corrélés.
+Peu importe donc laquelle des deux est en place sur votre pod : ce lab fonctionne à l'identique dans les deux cas. Le Lab 6, lui, réclamera l'agent, et s'en chargera lui-même.
 {{% /expand%}}
 
 3.  **Générer des logs corrélés :**
@@ -123,7 +114,9 @@ Les trois clés correspondent aux trois réglages de l'interface : `field` le ch
 Le bouton porte le nom de la datasource cible — d'où le sobre **Jaeger**. Pour l'intituler autrement, remplissez le champ **Label** de l'interface, qui se sérialise en `"title"` : `"title": "Voir la trace"` et le bouton s'appelle ainsi. C'est purement cosmétique, et sans effet sur le fonctionnement du lien.
 {{% /expand%}}
 
-> 💡 **Pourquoi ce lien n'existait-il pas déjà ?** Parce que la démo configure la corrélation **dans l'autre sens** : la datasource Jaeger contient un bloc `tracesToLogsV2` qui, depuis une trace, va chercher les logs correspondants (`traceId:"…" AND spanId:"…"`). Le chemin retour — du log vers la trace — est un réglage **distinct**, porté par le `dataLinks` de la datasource de logs. Les deux sens sont indépendants : en configurer un ne donne pas l'autre.
+{{%expand "Pourquoi ce lien n'existait-il pas déjà ?" %}}
+Parce que la démo configure la corrélation **dans l'autre sens** : la datasource Jaeger contient un bloc `tracesToLogsV2` qui, depuis une trace, va chercher les logs correspondants (`traceId:"…" AND spanId:"…"`). Le chemin retour — du log vers la trace — est un réglage **distinct**, porté par le `dataLinks` de la datasource de logs. Les deux sens sont indépendants : en configurer un ne donne pas l'autre.
+{{% /expand%}}
 
 > ⚠️ **Ce lien ne survivra pas à un redémarrage de Grafana.** La datasource OpenSearch est **provisionnée** par une ConfigMap (`grafana-datasources`, posée par Helm) : un sidecar la relit à chaque démarrage et **réécrit la datasource par-dessus**. Tout ce que vous avez ajouté à l'exécution — par l'interface comme par l'API — disparaît alors, sans le moindre message. Constaté en préparant ce lab : Grafana redémarre, et le bloc `dataLinks` n'est plus là.
 >
@@ -144,7 +137,7 @@ kubectl get configmap otel-collector-agent -n otel-demo -o yaml | grep -A12 "log
 ```
 
 {{%expand "Réponse" %}}
-Le pipeline `logs` de la démo :
+Le pipeline `logs` de la démo. La commande les affiche dans l'ordre alphabétique — `exporters`, `processors`, `receivers` ; les voici remis dans l'ordre du trajet :
 
 ```yaml
 logs:
@@ -160,6 +153,10 @@ Les LogRecords arrivent en **OTLP** (poussés par l'agent), sont enrichis, puis 
 > `k8s.pod.name`, `k8s.namespace.name`… avant que quoi que ce soit d'autre ne s'exécute,
 > puisqu'il a besoin du contexte de connexion.
 {{% /expand%}}
+
+## Livrable
+
+Une capture « log → trace » : le log `Creating review...` déplié dans Grafana avec son `traceId`, et la trace correspondante ouverte dans le volet de droite.
 
 ## Pour aller plus loin — l'autre chemin, lire les fichiers
 
@@ -232,7 +229,3 @@ logging.pattern.level=%5p [%X{trace_id:-},%X{span_id:-}]
 D'où la différence entre les deux transports. `filelog` ne voit **que la ligne imprimée dans le fichier** : si le `trace_id` n'y figure pas, il n'arrivera jamais dans OpenSearch — d'où la ligne de configuration ci-dessus. L'appender OTLP ne passe pas par le fichier du tout : il va chercher le `trace_id` dans le MDC au moment où la ligne est écrite, et l'attache au LogRecord. Rien à configurer.
 
 Dans les deux cas le `trace_id` **existe déjà** : c'est l'instrumentation qui l'a créé, jamais le transport. Le transport décide seulement du travail qu'il vous reste à faire pour qu'il arrive à bon port.
-
-## Livrable
-
-Une capture « log → trace » : le log `Creating review...` déplié dans Grafana avec son `traceId`, et la trace Jaeger correspondante ouverte.

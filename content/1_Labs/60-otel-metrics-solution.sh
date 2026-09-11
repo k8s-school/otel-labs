@@ -64,9 +64,8 @@ check_metric_prefix() {
 }
 
 # Part 1: the OpenTelemetry API instruments need nothing but the agent, which
-# installs the SDK the API delegates to. The lab page only CHECKS the agent at
-# this point (lab 5 already enabled it); this script deploys because it must
-# run standalone, on a cluster where lab 5 was never played.
+# installs the SDK the API delegates to. Same three commands as step 2 of the
+# lab page, which is where the agent is now activated.
 "$DIR/../../scripts/deploy.sh"
 kubectl set env -n "$NS" deployment/review-service \
     JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
@@ -91,7 +90,10 @@ start_app_port_forward
 generate_traffic
 check_metric_prefix "reviews_creation_time"     # Micrometer timer histogram
 
-# Part 3: add the count connector to the collector
+# The count connector. It moved to the BONUS page (61-otel-metrics-bonus),
+# which is where participants now add it; this script keeps it so that the
+# check below still runs in lab order, and because 61's own script stacks
+# 60-otel-metrics-values.yaml anyway.
 helm upgrade "$RELEASE" "$CHART" \
     --version "$CHART_VERSION" \
     --namespace "$NS" \

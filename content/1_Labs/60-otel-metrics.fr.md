@@ -10,17 +10,15 @@ Le Lab 3 collectait des métriques d'**infrastructure** (système, PostgreSQL) ;
 
 ## Prérequis
 
-* Labs 1 à 3 terminés, agent Java actif sur `review-service` (cf. [Lab 5, étape 2]({{% relref "50-otel-logs.fr.md" %}}) — l'étape 2 ci-dessous le vérifie).
+* Labs 1 à 3 terminés. L'agent Java n'a pas à être en place : l'étape 2 ci-dessous l'active.
 * **D'abord** les variables de la formation chargées dans votre shell : `. ./scripts/env.sh`. Elles donnent le port du review-service (`$APP_PORT`, accès **direct** au service, pas via le frontend-proxy) et `$PF_HOST`, le nom par lequel vous le joignez.
 * Les accès ouverts (`./scripts/open-ui.sh`) : Prometheus est sur `http://$PF_HOST:$PROM_PORT/`.
 
 ## Étapes
 
-> ⏱️ **Trois parties, dont deux courtes.**
+> ⏱️ **Deux parties, dont une courte.** La **partie 1** — le compteur et l'histogramme — est l'essentiel du lab. La **partie 2** tient en un flag à poser, dix minutes.
 >
-> **En séance** : la **partie 1** (le compteur et l'histogramme, l'essentiel du lab), puis la **partie 2** — un seul flag à poser, dix minutes.
->
-> **À lire ensuite** : la **partie 3**, le connector `count`. Elle se lit et s'applique en autonomie, sur le modèle du fichier de values du Lab 3. C'est pourtant la démonstration la plus frappante du chapitre — une métrique qui naît **sans une ligne de code** — alors ne la sautez pas définitivement.
+> La suite, dériver une métrique **depuis les spans** sans écrire une ligne de code, est passée dans le [Lab 6 bonus]({{% relref "61-otel-metrics-bonus.fr.md" %}}) : c'est la démonstration la plus frappante du chapitre, ne la sautez pas définitivement.
 
 ### Partie 1 — Un compteur et un histogramme avec l'API OpenTelemetry
 
@@ -86,7 +84,7 @@ Parce que l'API seule **ne produit rien**. `GlobalOpenTelemetry.getMeter(...)` r
 
 Conséquence pratique : une bibliothèque partagée peut s'instrumenter avec l'API sans imposer quoi que ce soit à ses utilisateurs. Et si vous retirez le `-javaagent`, l'application tourne toujours — sans métriques.
 
-⚠️ Attention à une confusion facile : le `pom.xml` **contient** bien `opentelemetry-sdk`, mais pour une tout autre raison — les classes de masquage PII du Lab 8 en ont besoin pour compiler, et elles ne servent qu'avec le profil `starter`. Or **avoir le SDK dans le classpath ne l'active pas** : un SDK ne produit rien tant que personne ne le construit et ne l'installe. Ici, aucune ligne de l'application ne le fait ; c'est l'agent qui s'en charge, de l'extérieur.
+⚠️ Attention à une confusion facile : le `pom.xml` **contient** bien `opentelemetry-sdk`. Mais **l'avoir dans le classpath ne l'active pas** — un SDK ne produit rien tant que personne ne le construit et ne l'installe. Ici, aucune ligne de l'application ne le fait ; c'est l'agent qui s'en charge, de l'extérieur.
 
 La chaîne de types est la même dans tous les langages : **`MeterProvider` → `Meter` → instrument**. Les trois maillons n'ont ni le même rôle ni le même nombre d'exemplaires :
 
@@ -101,94 +99,43 @@ Vous n'écrivez jamais le premier — `GlobalOpenTelemetry.getMeter(...)` est un
 Le nom passé à `getMeter()` (`fr.k8sschool.reviews`) est le **scope d'instrumentation** : il identifie *qui* a produit la métrique, exactement comme l'`otel.scope.name` que vous verrez sur les spans au Lab 7.
 {{% /expand%}}
 
-> 💡 **Et une annotation, comme `@WithSpan` ?** Il n'y en a pas pour les métriques. Le module d'annotations d'OpenTelemetry n'en contient que trois — `@WithSpan`, `@SpanAttribute`, `@AddingSpanAttributes` (Lab 7) — et toutes produisent des **spans**. Ce n'est pas un oubli : un span commence et finit avec la méthode, une annotation suffit donc à le décrire. Un compteur métier, lui, s'incrémente à un endroit choisi du corps de la méthode, souvent sous condition — ici uniquement quand l'insertion a réussi — et avec une valeur d'attribut calculée (la note de l'avis). C'est pourquoi l'API métriques est impérative dans tous les langages. La seule voie déclarative existante est celle de Micrometer (`@Timed`, `@Counted`), qui n'accepte que des tags **statiques**.
+{{%expand "Et une annotation, comme `@WithSpan` ?" %}}
+Il n'y en a pas pour les métriques. Le module d'annotations d'OpenTelemetry n'en contient que trois — `@WithSpan`, `@SpanAttribute`, `@AddingSpanAttributes` (Lab 7) — et toutes produisent des **spans**. Ce n'est pas un oubli : un span commence et finit avec la méthode, une annotation suffit donc à le décrire. Un compteur métier, lui, s'incrémente à un endroit choisi du corps de la méthode, souvent sous condition — ici uniquement quand l'insertion a réussi — et avec une valeur d'attribut calculée (la note de l'avis). C'est pourquoi l'API métriques est impérative dans tous les langages. La seule voie déclarative existante est celle de Micrometer (`@Timed`, `@Counted`), qui n'accepte que des tags **statiques**.
+{{% /expand%}}
 
-2.  **Vérifier que l'agent est actif, puis générer du trafic.** Rien à redéployer ici : ce code est déjà dans l'image, et le Lab 5 a activé l'agent. Une commande le confirme — elle lit l'environnement réel du conteneur qui tourne :
+2.  **Activer l'agent Java, puis générer du trafic.** Le code des deux instruments est déjà dans l'image — rien à recompiler. Mais il ne produira rien sans l'agent : c'est lui qui installe le SDK dans `GlobalOpenTelemetry`, celui auquel l'API délègue. Le Spring Boot Starter du Lab 2 ne le fait pas, d'où le redéploiement.
 
 ```bash
 . ./scripts/env.sh   # si ce n'est pas déjà fait dans ce terminal
-kubectl exec -n otel-demo deployment/review-service -- printenv JAVA_TOOL_OPTIONS
-```
 
-Attendu : `-javaagent:/otel/opentelemetry-javaagent.jar`.
-
-{{%expand "Rien ne s'affiche ?" %}}
-L'agent n'est pas actif sur le pod en cours, et sans lui vos instruments restent no-op : aucune métrique n'arrivera, quoi que vous fassiez ensuite.
-
-La cause la plus fréquente est d'avoir relancé `deploy.sh` depuis le Lab 5. Le script **efface délibérément** les variables posées à la main (`JAVA_TOOL_OPTIONS`, `MASK_PII`, `OTEL_INSTRUMENTATION_MICROMETER_ENABLED`) avant d'appliquer les manifestes, pour que ceux-ci restent la seule source de vérité — sans quoi un build `starter` se retrouverait avec l'agent par-dessus, soit deux SDK dans la même JVM.
-
-Reprenez donc le [Lab 5, étape 2]({{% relref "50-otel-logs.fr.md" %}}), ou en trois commandes :
-
-```bash
 ./scripts/deploy.sh
 kubectl set env -n otel-demo deployment/review-service \
   JAVA_TOOL_OPTIONS="-javaagent:/otel/opentelemetry-javaagent.jar"
 kubectl rollout status -n otel-demo deployment/review-service
 ```
-{{% /expand%}}
 
-> 💡 Pour voir l'agent se charger lui-même, et sa version :
-> `kubectl logs -n otel-demo deployment/review-service | grep VersionLogger`
+Le `deploy.sh` n'est pas superflu. Il **efface délibérément** les variables posées à la main lors des labs précédents (`JAVA_TOOL_OPTIONS`, `MASK_PII`, `OTEL_INSTRUMENTATION_MICROMETER_ENABLED`) avant d'appliquer les manifestes, pour que ceux-ci restent la seule source de vérité — et il redéploie l'image par défaut, celle qui ne contient pas le Spring Boot Starter du Lab 2. Sans ce nettoyage, un build `starter` se retrouverait avec l'agent par-dessus : **deux SDK dans la même JVM**.
 
-Une poignée de requêtes ne suffira pas : les métriques s'observent dans la **durée**. `rate(...[5m])` compare la valeur du compteur d'il y a cinq minutes à sa valeur actuelle : si vous n'avez rien envoyé pendant ces cinq minutes, les deux chiffres sont identiques, le taux vaut zéro — et le p95 calculé à partir de là affiche `NaN`. Écrivez donc un générateur, qui commence par une rafale puis ralentit progressivement pendant dix minutes — de quoi dessiner une courbe, et pas un plateau :
+Vérifiez ensuite l'environnement réel du conteneur qui tourne :
 
 ```bash
-cat > generate-reviews.sh <<'EOF'
-#!/bin/bash
-# Pose des avis pendant DURATION secondes : une rafale au démarrage, puis un
-# rythme qui se relâche peu à peu. Donne aux métriques de ce lab une courbe
-# à observer plutôt qu'un débit constant.
-. ./scripts/env.sh
-
-DURATION=${1:-600}
-MAX=${2:-400}          # plafond : ces avis restent en base
-PRODUCTS=(OLJCESPC7Z 0PUK6V6EV0 1YMWWN1N4O 2ZYFJ3GM2N 66VCHSJNUP)
-START=$SECONDS
-END=$((START + DURATION))
-NEXT_REPORT=$((START + 60))
-created=0
-failed=0
-
-while [ "$SECONDS" -lt "$END" ] && [ "$((created + failed))" -lt "$MAX" ]; do
-    rating=$((RANDOM % 5 + 1))
-    product=${PRODUCTS[$((RANDOM % ${#PRODUCTS[@]}))]}
-    n=$((created + failed + 1))
-    code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
-        "http://$PF_HOST:$APP_PORT/api/reviews" \
-        -H "Content-Type: application/json" \
-        -d "{\"productId\": \"$product\", \"rating\": $rating, \"comment\": \"lab6\",
-             \"userEmail\": \"user$n@example.com\", \"userName\": \"User $n\"}")
-    if [ "$code" = "201" ]; then created=$((created + 1)); else failed=$((failed + 1)); fi
-
-    if [ "$SECONDS" -ge "$NEXT_REPORT" ]; then
-        printf '%s  %d avis créés, %d échecs, %d s restantes\n' \
-            "$(date +%H:%M:%S)" "$created" "$failed" "$((END - SECONDS))"
-        NEXT_REPORT=$((SECONDS + 60))
-    fi
-
-    # Cadence : ~7 avis/s pendant les 15 premières secondes, puis un intervalle
-    # qui s'allonge avec le temps écoulé, jusqu'à un avis toutes les 8 s.
-    elapsed=$((SECONDS - START))
-    if [ "$elapsed" -lt 15 ]; then
-        sleep 0.15
-    else
-        delay=$((elapsed / 40))
-        [ "$delay" -lt 1 ] && delay=1
-        [ "$delay" -gt 8 ] && delay=8
-        sleep "$delay"
-    fi
-done
-
-printf 'Terminé : %d avis créés, %d échecs.\n' "$created" "$failed"
-EOF
-chmod +x generate-reviews.sh
+kubectl exec -n otel-demo deployment/review-service -- printenv JAVA_TOOL_OPTIONS
 ```
 
-Lancez-le **dans un second terminal**, et laissez-le tourner pendant tout le lab :
+Attendu : `-javaagent:/otel/opentelemetry-javaagent.jar`. Si rien ne s'affiche, le `kubectl set env` n'a pas pris — sans agent, vos instruments restent no-op et aucune métrique n'arrivera, quoi que vous fassiez ensuite.
+
+Pour voir l'agent se charger lui-même, et relever sa version :
 
 ```bash
-. ./scripts/env.sh   # ce terminal-là aussi a besoin des variables
-./generate-reviews.sh
+kubectl logs -n otel-demo deployment/review-service | grep VersionLogger
+```
+
+Une poignée de requêtes ne suffira pas : les métriques s'observent dans la **durée**. `rate(...[5m])` compare la valeur du compteur d'il y a cinq minutes à sa valeur actuelle : si vous n'avez rien envoyé pendant ces cinq minutes, les deux chiffres sont identiques, le taux vaut zéro — et le p95 calculé à partir de là affiche `NaN`. Le dépôt fournit donc un générateur, **`scripts/generate-reviews.sh`**. Il commence par une rafale — environ 7 avis par seconde pendant quinze secondes — puis relâche progressivement la cadence, jusqu'à un avis toutes les huit secondes, pendant dix minutes. De quoi dessiner une courbe, et pas un plateau.
+
+Lancez-le **dans un second terminal**, et laissez-le tourner pendant tout le lab. Il charge les variables de la formation lui-même, ce terminal n'a donc rien à préparer :
+
+```bash
+./scripts/generate-reviews.sh
 ```
 
 Il affiche son compteur chaque minute :
@@ -299,7 +246,7 @@ kubectl rollout status -n otel-demo deployment/review-service
 Un meter qui reste invisible faute d'avoir activé son bridge est un **classique du debug OTel** : le code est juste, la configuration ne l'est pas.
 {{% /expand%}}
 
-6.  **Vérifier que le générateur tourne toujours** dans son terminal — le rollout de l'étape précédente a coupé ses requêtes le temps du redémarrage, et ses dix minutes ont pu s'écouler (`./generate-reviews.sh` le relance). Puis observer, après un cycle d'export, ce qui est apparu dans Prometheus :
+6.  **Vérifier que le générateur tourne toujours** dans son terminal — le rollout de l'étape précédente a coupé ses requêtes le temps du redémarrage, et ses dix minutes ont pu s'écouler (`./scripts/generate-reviews.sh` le relance). Puis observer, après un cycle d'export, ce qui est apparu dans Prometheus :
 
 {{%expand "Réponse" %}}
 `reviews_creation_time_seconds_bucket`, `_sum`, `_count` — le pendant Micrometer de votre histogramme. Notez l'unité : **secondes**, là où votre instrument OTel produisait des `_milliseconds`. Le même bloc de code, chronométré deux fois, à deux échelles : un `Timer` Micrometer publie toujours en secondes.
@@ -333,134 +280,19 @@ Alors, API OpenTelemetry ou Micrometer ?
 Les deux cohabitent sans problème dans une même JVM, comme ici : ce service exporte les deux.
 {{% /expand%}}
 
-> 💡 **Et si je n'avais pas d'agent ?** Micrometer sait exporter tout seul, sans une ligne d'OpenTelemetry dans la JVM : la dépendance `micrometer-registry-otlp` et une propriété Spring (`management.otlp.metrics.export.url`) envoient les meters au collecteur en OTLP, **sans rien exposer**. `micrometer-registry-prometheus` fait l'équivalent en mode **pull**, en exposant `/actuator/prometheus` à scraper.
->
-> Deux réserves avant de choisir cette voie. Le **Spring Boot Starter** du Lab 2 n'a, lui, aucun pont Micrometer — son jar ne contient pas une seule classe Micrometer : il trace et journalise, mais laisse vos meters sur place. Et un registry n'exporte que des **métriques** : ni traces, ni logs, ni contexte partagé. Vous obtenez trois tuyaux séparés au lieu de la chaîne unique que ces labs construisent, et vous perdez la corrélation des Labs 4 et 5.
->
-> Quant à `review-service`, il n'embarque **aucun** registry d'export et n'expose qu'`/actuator/health` : sans le pont de l'agent, ses meters Micrometer existent bel et bien en mémoire — et ne sont visibles nulle part.
+{{%expand "Et si je n'avais pas d'agent ?" %}}
+**Avec le Spring Boot Starter du Lab 2**, ce lab ne marche pas. Son pont Micrometer existe pourtant, et s'ouvre avec la même variable — mais le starter ne remplit pas `GlobalOpenTelemetry`, celui que le code de la partie 1 interroge. Vérifié sur le cluster : avec le starter, le `Timer` Micrometer et les meters d'Actuator arrivent bien dans Prometheus, et **les deux instruments que vous avez lus à l'étape 1 n'arrivent jamais**. Ils restent no-op, faute de SDK derrière l'API.
 
-### Partie 3 — Dériver une métrique depuis les spans (connector `count`)
+**Sans OpenTelemetry du tout**, Micrometer sait exporter seul : `micrometer-registry-otlp` pousse vers le collecteur, `micrometer-registry-prometheus` expose `/actuator/prometheus` à scraper. Vous aurez les métriques — mais **ni traces, ni logs, ni corrélation**. Trois tuyaux séparés au lieu de la chaîne des Labs 4 et 5.
 
-> 📖 **Se fait très bien à froid.** Aucune des parties précédentes n'en dépend, et le fichier de values suit exactement le modèle du Lab 3.
+**Avec l'agent**, tout arrive — y compris les doublons. Deux façons simples de les écarter :
 
+* **couper la mesure côté agent** là où Micrometer fait déjà le travail. `-Dotel.instrumentation.runtime-telemetry.enabled=false` dans `JAVA_TOOL_OPTIONS` supprime les métriques JVM de l'agent et laisse celles d'Actuator (mesuré : `jvm_gc_duration_seconds` disparaît, `jvm_gc_pause_seconds` reste) ;
+* **les écarter au collecteur**, avec le processor `filter` du Lab 3. Plus lourd — la donnée a déjà traversé le réseau — mais la règle s'écrit une fois pour toute la flotte.
 
-7.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values, `manifests/60-otel-metrics-values.yaml`. Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
-
-    La [documentation du connector `count`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/connector/countconnector/README.md) donne la structure attendue (`spans:`, puis une entrée par métrique avec ses `conditions:`) ; la condition elle-même s'écrit en **OTTL**, dont les fonctions sont [répertoriées ici](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md).
-
-{{%expand "Réponse" %}}
-Le fichier de référence est [`60-otel-metrics-values.yaml`](../60-otel-metrics-values.yaml). Pour l'utiliser tel quel :
-
-```bash
-cp content/1_Labs/60-otel-metrics-values.yaml manifests/
-```
-
-Son contenu :
-
-```yaml
-opentelemetry-collector:
-  config:
-    connectors:
-      count:
-        spans:
-          app.spans.errors:
-            description: "Number of spans with ERROR status"
-            conditions:
-              - status.code == STATUS_CODE_ERROR
-    processors:
-      deltatocumulative: {}
-    service:
-      pipelines:
-        traces:
-          exporters: [otlp/jaeger, debug, spanmetrics, count]
-        metrics:
-          receivers: [otlp, kafkametrics, spanmetrics, hostmetrics, postgresql, count]
-          processors: [memory_limiter, resourcedetection, resource, deltatocumulative, batch]
-```
-
-Un **connector** est à la fois *exporter* d'un pipeline (traces) et *receiver* d'un autre (metrics) — les deux listes doivent le référencer.
-
-Et pourquoi `deltatocumulative` ? Le connector `count` émet ses métriques en temporalité **delta** (chaque export = l'incrément depuis le précédent), or l'endpoint OTLP de Prometheus n'accepte que du **cumulatif** — sans ce processor, il répond HTTP 500 et le collecteur jette les points (`Exporting failed. Dropping data.` dans ses logs, exercice de debug classique).
+⚠️ Ne coupez pas un module au hasard : il produit souvent des spans en plus des métriques. `-Dotel.instrumentation.spring-webmvc.enabled=false` ne supprime pas la métrique HTTP en double — il fait perdre la route, et `POST /api/reviews` devient `POST /*` dans les traces comme dans le label `http_route`.
 {{% /expand%}}
-
-```bash
-helm upgrade otel-demo open-telemetry/opentelemetry-demo \
-  --version 0.40.9 -n otel-demo \
-  -f manifests/values-training.yaml \
-  -f manifests/30-otel-collector-values.yaml \
-  -f manifests/60-otel-metrics-values.yaml
-kubectl rollout status daemonset/otel-collector-agent -n otel-demo
-```
-
-Comme au Lab 3, relisez la ConfigMap pour voir ce que Helm a réellement produit de vos values :
-
-```bash
-kubectl get configmap otel-collector-agent -n otel-demo -o jsonpath='{.data.relay}' | less
-```
-
-Ou, pour aller droit au connector que vous venez d'ajouter :
-
-```bash
-kubectl get configmap otel-collector-agent -n otel-demo -o jsonpath='{.data.relay}' \
-  | grep -B1 -A6 -E '^\s+count:'
-```
-
-```yaml
-connectors:
-  count:
-    spans:
-      app.spans.errors:
-        conditions:
-        - status.code == STATUS_CODE_ERROR
-        description: Number of spans with ERROR status
-```
-
-C'est le seul endroit qui dit la vérité sur la configuration en vigueur : vos values sont un *calque*, la ConfigMap est ce que le collecteur lit au démarrage.
-
-8.  **Provoquer des erreurs et vérifier :** créez un avis pour un produit inexistant (le service échoue en 500) :
-
-```bash
-curl -s -X POST http://$PF_HOST:$APP_PORT/api/reviews \
-  -H "Content-Type: application/json" \
-  -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "?", "userEmail": "x@example.com", "userName": "X"}'
-```
-
-Dans Prometheus, cherchez `app_spans_errors_total` : votre première métrique **dérivée des traces**, sans une ligne de code. Ventilez-la par service :
-
-```promql
-sum by (service_name) (app_spans_errors_total)
-```
-
-Votre unique requête a fait monter la série de `review-service` de **3**. Pourquoi pas de 1 ?
-
-{{%expand "Réponse" %}}
-Parce que le connector compte des **spans**, pas des requêtes. L'exception remonte toute la pile d'appels, et chaque span qu'elle traverse se termine en erreur :
-
-```text
-POST /api/reviews          🔴 500   le span serveur
-└── product-catalog.lookup 🔴       le span manuel du code (Lab 7)
-    └── GET                🔴 500   l'appel HTTP vers le frontend
-```
-
-**Allez voir la trace dans Jaeger** (`http://$PF_HOST:$UI_PORT/jaeger/ui/`). Dans le panneau de recherche :
-
-* *Service* : `review-service`
-* *Operation* : `POST /api/reviews`
-* *Tags* : `error=true` — c'est ce filtre qui compte, sans lui votre trace se noie parmi les requêtes réussies du générateur.
-
-Cliquez sur **Find Traces** : la vôtre est en tête, marquée d'une pastille rouge. Dépliez-la, et vous constaterez que l'erreur n'est pas restée chez vous. Le `frontend` a été appelé, puis `product-catalog` : eux aussi ont leurs spans en erreur, et le total dépasse largement 3.
-
-Relevé sur une de ces traces : **9 spans, dont 8 en erreur** — 3 dans `review-service`, 4 dans le `frontend`, 1 dans `product-catalog`. `sum(app_spans_errors_total)` monte donc de 8 pour une seule requête, quand la série de votre service ne monte que de 3.
-
-Le neuvième span, celui de la base de `product-catalog`, n'est **pas** en erreur : la requête SQL s'est exécutée normalement, elle n'a simplement rien trouvé. Un échec **métier** ne devient une erreur **technique** qu'à l'endroit où du code décide de lever une exception — ici, dans `review-service`.
-
-C'est le point à retenir sur cette métrique : elle mesure la **propagation** d'une panne à travers le système, pas le nombre de requêtes ratées. Pour compter des requêtes, il faudrait ne retenir que les spans **serveur** — un seul par service et par requête. C'est l'objet de la [dernière section du Lab 6 bonus]({{% relref "61-otel-metrics-bonus.fr.md" %}}#6-compter-des-requêtes-plutôt-que-des-spans), qui l'ajoute en quatre lignes de YAML.
-{{% /expand%}}
-
-> 💡 **Si vous revenez sur cette métrique plus tard, elle aura disparu.** Elle n'est alimentée que lorsqu'une erreur survient, et une requête instantanée ne regarde que les cinq dernières minutes. Vos données sont pourtant bien là : ouvrez l'onglet **Graph** sur la dernière heure, ou demandez la dernière valeur connue avec `last_over_time(app_spans_errors_total[1h])`.
->
-> Le pourquoi — delta, cumulative, et ce que le collecteur garde en mémoire — ouvre le [Lab 6 bonus]({{% relref "61-otel-metrics-bonus.fr.md" %}}).
 
 ## Livrable
 
-Dans Grafana ou Prometheus : le graphe de latence p95 de création d'un avis + le compteur métier des avis créés, ventilé par note + la métrique dérivée `app_spans_errors_total`.
+Dans Grafana ou Prometheus : le graphe de **latence p95** de création d'un avis, et le **compteur métier** des avis créés, ventilé par note.
