@@ -90,21 +90,7 @@ start_app_port_forward
 generate_traffic
 check_metric_prefix "reviews_creation_time"     # Micrometer timer histogram
 
-# The count connector. It moved to the BONUS page (61-otel-metrics-bonus),
-# which is where participants now add it; this script keeps it so that the
-# check below still runs in lab order, and because 61's own script stacks
-# 61-otel-metrics-spans-values.yaml anyway.
-helm upgrade "$RELEASE" "$CHART" \
-    --version "$CHART_VERSION" \
-    --namespace "$NS" \
-    -f "$DIR/../../manifests/values-training.yaml" \
-    ${EXTRA_VALUES:-} \
-    -f "$DIR/30-otel-collector-values.yaml" \
-    -f "$DIR/61-otel-metrics-spans-values.yaml" \
-    --timeout 10m
-kubectl rollout status daemonset/otel-collector-agent -n "$NS" --timeout=300s
+# The count connector moved to the BONUS page: 61-otel-metrics-bonus-solution.sh
+# installs it and checks app_spans_errors there. Nothing to do here.
 
-generate_traffic
-check_metric_prefix "app_spans_errors"          # count connector
-
-echo "Lab 6 OK: business metrics (OTel API + Micrometer) and span-derived metric are in Prometheus"
+echo "Lab 6 OK: business metrics (OTel API + Micrometer) are in Prometheus"

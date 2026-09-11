@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Lab 6 bonus solution: count failed requests rather than spans in error.
-# Assumes labs 1-6 are done (instrumented review-service, count connector on).
+# Assumes labs 1-6 are done (instrumented review-service). The count connector
+# belongs to this page now, so this script installs it before extending it.
 #
 # The bonus page adds a second metric to the same connector, restricted to
 # server spans: one point per failed request, where app.spans.errors counts

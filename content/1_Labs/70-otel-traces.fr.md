@@ -225,7 +225,6 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   --version 0.40.9 -n otel-demo \
   -f manifests/values-training.yaml \
   -f manifests/30-otel-collector-values.yaml \
-  -f manifests/61-otel-metrics-spans-values.yaml \
   -f manifests/70-otel-traces-values.yaml
 kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
@@ -252,6 +251,8 @@ C'est le contraste entre ces deux comptes qui prouve que la politique fonctionne
 
 **Et si compter à la main vous laisse dubitatif**, le processor tient ses propres comptes, que le collecteur exporte comme n'importe quelle métrique. Commencez par la **décision finale** :
 
+> 📊 **Tous les chiffres qui suivent sont un relevé d'exemple**, pris sur le cluster de la formation. **Les vôtres seront différents** : ils dépendent du trafic que le load generator a produit depuis votre `helm upgrade`. Ce sont les **rapports entre eux** qui comptent, pas les valeurs.
+
 ```promql
 sum by (sampled) (otelcol_processor_tail_sampling_global_count_traces_sampled_total)
 ```
@@ -277,12 +278,35 @@ policy="sample-the-rest"   sampled="true"    468    sampled="false"  1462
 
 La preuve tient dans les totaux : `8 + 1922`, `153 + 1777`, `468 + 1462` donnent tous **1930**, le nombre de traces évaluées. Chaque politique voit chaque trace, et se prononce.
 
-Deux lectures valent le détour :
+Deux lectures valent le détour, et la première n'exige aucun calcul à la main : la division se fait en PromQL.
 
-* `468 / (468 + 1462) = 24,2 %` — la politique probabiliste tient sa promesse, chiffre à l'appui, sans que vous ayez à compter des lignes à l'écran ;
-* `8 + 153 + 468 = 629`, alors que la décision finale n'en retient que **581**. L'écart, ce sont les traces retenues par **plusieurs** politiques à la fois — une trace lente que le tirage aurait de toute façon gardée. Le **OU** ne les compte qu'une fois.
+```promql
+sum by (policy) (otelcol_processor_tail_sampling_count_traces_sampled_total{sampled="true"})
+/
+sum by (policy) (otelcol_processor_tail_sampling_count_traces_sampled_total)
+```
 
-{{%expand "Pourquoi le load generator semble-t-il moins bavard ?" %}}
+```text
+sample-the-rest    0.242
+keep-slow          0.079
+keep-errors        0.004
+```
+
+`sample-the-rest` tient sa promesse : **24,2 %** pour 25 % demandés. C'est un tirage aléatoire, pas un quota — l'écart se resserre à mesure que les traces s'accumulent. Les deux autres lignes ne sont pas des taux d'échantillonnage, mais la **part du trafic qui déclenche la politique** : 0,4 % de traces en erreur, 7,9 % de lentes.
+
+La même division sur le compteur global donne le taux de conservation réel, toutes politiques confondues :
+
+```promql
+sum(otelcol_processor_tail_sampling_global_count_traces_sampled_total{sampled="true"})
+/
+sum(otelcol_processor_tail_sampling_global_count_traces_sampled_total)
+```
+
+**30,1 %**, et non 25 % : les erreurs et les lentes s'ajoutent au tirage. Retenez ce chiffre, l'encadré ci-dessous s'en sert.
+
+Seconde lecture, **le OU ne double pas les comptes** : `8 + 153 + 468 = 629`, alors que la décision finale n'en retient que **581**. L'écart, ce sont les traces retenues par **plusieurs** politiques à la fois — une trace lente que le tirage aurait de toute façon gardée. Elles ne sont comptées qu'une fois.
+
+{{%expand "Attention : le tail sampling fausse aussi vos métriques" %}}
 Le tail sampling s'applique à **tout** le pipeline traces : la démo entière est maintenant échantillonnée à 25 % (hors erreurs/lenteurs).
 
 Effet de bord assumé, et mesurable : les métriques **spanmetrics** (Lab 4) sont calculées *après* le sampling dans notre pipeline, donc elles ne comptent plus que les spans survivants. Vérifiez-le sur le débit global :
@@ -303,7 +327,33 @@ Ouvrez-la dans l'onglet **Graph** de Prometheus, sur la dernière heure : vous n
 
 Relevé sur le cluster de la formation : **~17 spans/s → ~6 spans/s**, soit l'ordre de grandeur des 25 % conservés. Les panels de latence et de débit du Lab 4 sont donc alimentés par un quart du trafic — ils restent lisibles, mais ne comptent plus tout.
 
-En production, on placerait donc le connector `spanmetrics` **avant** le tail sampling (deux pipelines chaînés) : les métriques restent exactes, seul le stockage des traces est réduit.
+⚠️ **Et ce qu'ils comptent est biaisé.** Le pipeline conserve **100 %** des traces en erreur et **100 %** des lentes, mais seulement **25 %** des autres. Les erreurs et les lenteurs pèsent donc, **en proportion**, bien plus lourd dans l'échantillon que dans le trafic réel : taux d'erreur gonflé, p95 tiré vers le haut. Et augmenter le volume n'y change rien — le volume réduit le bruit, pas le biais.
+
+La seule réponse est un **second pipeline, non échantillonné**, qui alimente `spanmetrics`.
+
+**« Et deux pipelines, ce n'est pas coûteux ? »** Moins qu'il n'y paraît. Le tail sampling n'a jamais fait économiser du collecteur : pour décider, il doit de toute façon **recevoir et garder en mémoire toutes les traces**. Ce qu'il économise est en aval, dans le stockage et les requêtes du backend de traces — là où est la facture.
+
+Reste qu'il ne faut pas dupliquer le pipeline entier, sinon l'enrichissement (`k8sattributes`, `resourcedetection`, `transform`) tournerait deux fois sur 100 % du trafic. D'où la forme réelle : le travail commun se fait **une fois**, puis le connector `forward` sépare.
+
+```yaml
+connectors:
+  forward: {}
+service:
+  pipelines:
+    traces:              # enrichissement commun, une seule fois
+      receivers: [otlp, jaeger, zipkin]
+      processors: [k8sattributes, memory_limiter, resourcedetection, resource, transform]
+      exporters: [forward]
+    traces/metrics:      # 100 % du trafic : les métriques restent exactes
+      receivers: [forward]
+      processors: [batch]
+      exporters: [spanmetrics]
+    traces/sampled:      # échantillonné : seul le stockage des traces est réduit
+      receivers: [forward]
+      processors: [tail_sampling, batch]
+      exporters: [otlp/jaeger, debug]
+```
+
 {{% /expand%}}
 
 ## Pour aller plus loin

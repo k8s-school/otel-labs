@@ -108,7 +108,6 @@ helm upgrade "$RELEASE" "$CHART" \
     -f "$DIR/../../manifests/values-training.yaml" \
     ${EXTRA_VALUES:-} \
     -f "$DIR/30-otel-collector-values.yaml" \
-    -f "$DIR/61-otel-metrics-spans-values.yaml" \
     -f "$DIR/71-otel-traces-values.yaml" \
     --timeout 10m
 kubectl rollout status daemonset/otel-collector-agent -n "$NS" --timeout=300s
@@ -208,7 +207,6 @@ helm upgrade "$RELEASE" "$CHART" \
     -f "$DIR/../../manifests/values-training.yaml" \
     ${EXTRA_VALUES:-} \
     -f "$DIR/30-otel-collector-values.yaml" \
-    -f "$DIR/61-otel-metrics-spans-values.yaml" \
     -f "$DIR/70-otel-traces-values.yaml" \
     --timeout 10m
 kubectl rollout status daemonset/otel-collector-agent -n "$NS" --timeout=300s

@@ -149,7 +149,6 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   --version 0.40.9 -n otel-demo \
   -f manifests/values-training.yaml \
   -f manifests/30-otel-collector-values.yaml \
-  -f manifests/61-otel-metrics-spans-values.yaml \
   -f manifests/71-otel-traces-values.yaml
 kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
@@ -236,7 +235,6 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   --version 0.40.9 -n otel-demo \
   -f manifests/values-training.yaml \
   -f manifests/30-otel-collector-values.yaml \
-  -f manifests/61-otel-metrics-spans-values.yaml \
   -f manifests/70-otel-traces-values.yaml
 ```
 
