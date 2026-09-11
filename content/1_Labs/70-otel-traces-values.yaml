@@ -3,7 +3,7 @@
 #   helm upgrade otel-demo open-telemetry/opentelemetry-demo --version 0.40.9 -n otel-demo \
 #     -f manifests/values-training.yaml \
 #     -f content/1_Labs/30-otel-collector-values.yaml \
-#     -f content/1_Labs/60-otel-metrics-values.yaml \
+#     -f content/1_Labs/61-otel-metrics-spans-values.yaml \
 #     -f content/1_Labs/70-otel-traces-values.yaml
 opentelemetry-collector:
   config:

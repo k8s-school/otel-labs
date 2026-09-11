@@ -13,15 +13,15 @@ Cette page fait naître une métrique **sans écrire une ligne de code** — le 
 Aucun des labs précédents n'en dépend, et le fichier de values suit exactement le modèle du Lab 3.
 
 
-1.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values, `manifests/60-otel-metrics-values.yaml`. Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
+1.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values, `manifests/61-otel-metrics-spans-values.yaml`. Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
 
     La [documentation du connector `count`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/connector/countconnector/README.md) donne la structure attendue (`spans:`, puis une entrée par métrique avec ses `conditions:`) ; la condition elle-même s'écrit en **OTTL**, dont les fonctions sont [répertoriées ici](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md).
 
 {{%expand "Réponse" %}}
-Le fichier de référence est [`60-otel-metrics-values.yaml`](../60-otel-metrics-values.yaml). Pour l'utiliser tel quel :
+Le fichier de référence est [`61-otel-metrics-spans-values.yaml`](../61-otel-metrics-spans-values.yaml). Pour l'utiliser tel quel :
 
 ```bash
-cp content/1_Labs/60-otel-metrics-values.yaml manifests/
+cp content/1_Labs/61-otel-metrics-spans-values.yaml manifests/
 ```
 
 Son contenu :
@@ -57,7 +57,7 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   --version 0.40.9 -n otel-demo \
   -f manifests/values-training.yaml \
   -f manifests/30-otel-collector-values.yaml \
-  -f manifests/60-otel-metrics-values.yaml
+  -f manifests/61-otel-metrics-spans-values.yaml
 kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
 
@@ -237,7 +237,7 @@ C'est une différence de fond avec un compteur applicatif, dont le total est ten
 
 Le Lab 6 le montre : une seule requête en échec fait monter `app_spans_errors_total` de **3** pour `review-service`, parce que l'exception traverse trois spans. Pour compter des **requêtes**, il faut ne retenir que les spans **serveur** — il n'y en a qu'un par service et par requête.
 
-C'est la seule section de cette page où il y a quelque chose à faire, et c'est court. Un même connector peut produire **plusieurs métriques** : il suffit d'une seconde entrée sous `spans:`. Le fichier de référence est [`61-otel-metrics-values.yaml`](../61-otel-metrics-values.yaml) :
+Retour aux mains dans le cambouis, et c'est court. Un même connector peut produire **plusieurs métriques** : il suffit d'une seconde entrée sous `spans:`. Le fichier de référence est [`61-otel-metrics-values.yaml`](../61-otel-metrics-values.yaml) :
 
 ```yaml
 opentelemetry-collector:
@@ -262,7 +262,7 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
   --version 0.40.9 -n otel-demo \
   -f manifests/values-training.yaml \
   -f manifests/30-otel-collector-values.yaml \
-  -f manifests/60-otel-metrics-values.yaml \
+  -f manifests/61-otel-metrics-spans-values.yaml \
   -f manifests/61-otel-metrics-values.yaml
 kubectl rollout status daemonset/otel-collector-agent -n otel-demo
 ```
