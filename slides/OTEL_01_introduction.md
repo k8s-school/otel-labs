@@ -16,7 +16,7 @@ backgroundColor: #ffffff
 ## Objectifs de la formation
 
 - Améliorer l'**observabilité** de vos applications avec OpenTelemetry
-- Couvrir **l'intégration, la configuration et l'utilisation** des composantes de la plateforme
+- Couvrir **l'intégration, la configuration et l'utilisation** des composants de la plateforme
 - **~65 % de pratique** : une stack complète tourne sur votre machine dès ce matin
 
 **Fil rouge** 🔭 : vous rejoignez l'équipe SRE de l'**Astronomy Shop** (démo officielle OpenTelemetry). Un nouveau micro-service Java, `review-service`, vient d'être livré : **il est invisible**. En 2 jours, vous le rendez observable de bout en bout.
@@ -31,7 +31,7 @@ backgroundColor: #ffffff
 
 - Le monitoring classique ne suffit plus :
   - micro-services : une requête traverse **10+ services**
-  - défaillances **émergentes**, pas de « root cause » unique
+  - défaillances **émergentes** : chaque service est « vert », le système est en panne
   - environnements éphémères (conteneurs, autoscaling)
 
 ---
