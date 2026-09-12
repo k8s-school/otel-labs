@@ -86,3 +86,33 @@ grafana:
       memory: 300Mi
     limits:
       memory: 1Gi
+
+# accounting (.NET) is capped at 120Mi by the chart and sits exactly at that
+# ceiling: the cgroup then evicts the mapped assemblies over and over, and the
+# process re-reads them from disk at 200-375 MB/s — measured on the GP1-L with
+# nine stacks (2026-09-12), enough to peg a 5k IOPS volume and take every API
+# server down. Invisible on a laptop NVMe. 300Mi keeps the working set in RAM.
+components:
+  accounting:
+    resources:
+      requests:
+        memory: 120Mi
+      limits:
+        memory: 300Mi
+  # Same mechanism, same server. The chart caps its small Go services at 20Mi;
+  # under the load generator they sit at the ceiling and re-read their own
+  # binary from disk (80-135 MB/s each), and on nine stacks that alone saturates
+  # a 5k IOPS volume. Raising the ceiling keeps the mapped binary resident.
+  # Measured 2026-09-12: checkout, product-catalog and shipping each did it.
+  checkout:
+    resources: { requests: { memory: 20Mi }, limits: { memory: 100Mi } }
+  product-catalog:
+    resources: { requests: { memory: 20Mi }, limits: { memory: 96Mi } }
+  shipping:
+    resources: { requests: { memory: 20Mi }, limits: { memory: 96Mi } }
+  currency:
+    resources: { requests: { memory: 20Mi }, limits: { memory: 96Mi } }
+  # frontend-proxy (envoy) is capped at 65Mi at the POD level, so a container-only
+  # bump is ignored — it thrashed the same way once traffic ramped.
+  frontend-proxy:
+    resources: { requests: { memory: 65Mi }, limits: { memory: 200Mi } }
