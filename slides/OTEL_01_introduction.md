@@ -120,7 +120,7 @@ POST /api/reviews         ██████████████████
 - Horodatage, **sévérité**, message : le log que vous écrivez déjà aujourd'hui
 - Il peut être **structuré** — champs, et non plus une ligne à découper à la regex
   - en échange, il est plus volumineux et illisible sans outil : le pour/contre au chapitre 5
-- Et il porte le **`trace_id` de la trace précédente** : un clic suffit pour passer du log à la requête qui l'a produit
+- Et il porte le **`trace_id` de la requête en cours** quand le code l'a écrit — ici la trace du slide précédent : un clic suffit pour passer du log à la requête qui l'a produit
 - Détaillé au chapitre/lab 5
 
 ---
@@ -155,10 +155,11 @@ POST /api/reviews         ██████████████████
 
 ## Écosystème et architecture
 
-![w:960](images/architecture.svg)
+![w:760](images/architecture.svg)
 
-- L'application émet via le **SDK** (ou un agent zero-code)
-- Le **collecteur** centralise, transforme, route
+- **OpenTelemetry, c'est** : le **SDK** dans l'application, le **collecteur**, et **OTLP** entre les deux
+- L'application émet via le SDK (ou un agent zero-code)
+- Le collecteur centralise, transforme, route — en **OTLP** vers les backends qui l'acceptent (Jaeger, Prometheus), sinon en protocole natif (OpenSearch)
 - Les **backends** stockent ; Grafana fédère la visualisation
 
 ---
