@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Lab 1 solution: start the observability stack and check it end to end.
-# Assumes a kind cluster is reachable (create one with scripts/up.sh -c).
+# Assumes a kind cluster is reachable (create one with scripts/up.sh).
 
 set -euxo pipefail
 

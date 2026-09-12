@@ -78,7 +78,7 @@ fi
 
 command -v kind > /dev/null || { echo "ERROR: 'kind' is required"; exit 1; }
 kind get clusters 2>/dev/null | grep -qx "$CLUSTER" || {
-    echo "ERROR: no kind cluster named '$CLUSTER' (create it with scripts/up.sh -c)"
+    echo "ERROR: no kind cluster named '$CLUSTER' (create it with scripts/up.sh)"
     exit 1
 }
 

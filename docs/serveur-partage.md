@@ -30,7 +30,7 @@ Ansible (`ansible/site.yml`, `group_vars/otel.yml`) prépare pour chaque
 Côté cluster, Ansible ne fait qu'installer Helm (`training_action: helm_only`).
 
 ⚠️ **Ni le cluster Kind ni la stack OpenTelemetry ne sont créés à l'avance** :
-c'est l'objet du lab 1, où chaque participant lance `./scripts/up.sh -c` sur
+c'est l'objet du lab 1, où chaque participant lance `./scripts/up.sh` sur
 son compte — exactement la même commande que sur un poste individuel. Le
 premier démarrage télécharge les images (~5 Go) ; les suivants réutilisent le
 cache Docker de la machine.
@@ -101,7 +101,7 @@ kubectl, git, go — tous cuits dans l'image dorée par Packer
 - **Docker partagé** : un participant peut voir/supprimer les conteneurs des
   autres (`docker rm` malheureux = cluster voisin détruit). Acceptable en
   formation encadrée ; sinon prévoir Docker rootless par compte.
-- **Démarrages simultanés** : 8 `up.sh -c` en même temps saturent le CPU et le
+- **Démarrages simultanés** : 8 `up.sh` en même temps saturent le CPU et le
   réseau. Faire démarrer le lab 1 par vagues, ou lancer un `up.sh` la veille
   sur un compte pour amorcer le cache Docker.
 - **Vérifier le préchargement d'un cluster** :

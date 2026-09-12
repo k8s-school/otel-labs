@@ -26,7 +26,7 @@ en variable d'environnement change la liste des comptes simulés (par défaut
 
 | Commande | Ce qu'elle rejoue | Ce qu'on y mesure |
 |---|---|---|
-| `phase.sh up` | lab 1 : `up.sh -c` puis `open-ui.sh`, tous en parallèle | le pic d'I/O du `kind load`, la durée jusqu'aux pods prêts |
+| `phase.sh up` | lab 1 : `up.sh` puis `open-ui.sh`, tous en parallèle | le pic d'I/O du `kind load`, la durée jusqu'aux pods prêts |
 | `phase.sh deploy` | lab 2 : `deploy.sh` ×N | le pic CPU/RAM des builds Maven |
 | `phase.sh reviews` | lab 6 : `generate-reviews.sh 600` ×N | le régime établi sous trafic |
 | `phase.sh lab8` | lab 8 : POST fautif, 30 GET, attente Jaeger, requête OpenSearch | la latence de bout en bout (agent inactif après `deploy.sh` : les timeouts Jaeger sont attendus) |

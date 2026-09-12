@@ -10,50 +10,56 @@ DIR=$(cd "$(dirname "$0")"; pwd -P)
 
 usage() {
     cat << EOF
-Usage: $(basename "$0") [-c] [-p] [-P] [-h]
-Create a kind cluster and install the OpenTelemetry demo.
+Usage: $(basename "$0") [-P] [-h]
+Make sure the kind cluster '$CLUSTER_NAME' exists, then install the OpenTelemetry demo.
 
-  -c    also (re)create the kind cluster (default: reuse current kubectl context)
-        and preload the demo images into it
-  -p    preload the demo images into the current cluster (see preload-images.sh)
-  -P    prepare only: create/preload as asked, then STOP before the helm install.
-        Use it to pre-create clusters ahead of a session ('make precreate'); the
-        participant then runs '$(basename "$0")' with no flag for a fast helm
-        install on the ready cluster, its images already loaded.
+The cluster is reused when it is already there, and created when it is not, so
+this script is always safe to re-run: it never destroys the cluster you are
+working in. Deleting it is a separate, explicit step (scripts/down.sh).
+
+  -P    prepare only: make sure the cluster exists and preload its images, then
+        STOP before the helm install. Used by 'make precreate' to get a room
+        ready ahead of a session; the participant then runs '$(basename "$0")'
+        with no flag for a fast install on the ready cluster.
   -h    this message
 
-Set SKIP_PRELOAD=true to install straight from the internet with -c.
+The demo images are preloaded on every run, and those the node already has are
+skipped - so it costs nothing once done. Set SKIP_PRELOAD=true to install
+straight from the internet instead.
 Additional values files can be passed through EXTRA_VALUES, e.g.:
   EXTRA_VALUES="-f manifests/values-ci.yaml" $(basename "$0")
 EOF
 }
 
-CREATE_CLUSTER=false
-PRELOAD=false
 PREPARE_ONLY=false
-while getopts "cpPh" opt; do
+while getopts "Ph" opt; do
     case $opt in
-        c) CREATE_CLUSTER=true; PRELOAD=true ;;
-        p) PRELOAD=true ;;
         P) PREPARE_ONLY=true ;;
         h) usage; exit 0 ;;
         *) usage; exit 1 ;;
     esac
 done
+PRELOAD=true
 if [ "${SKIP_PRELOAD:-false}" = true ]; then
     PRELOAD=false
 fi
 
 # Check prerequisites
-for cmd in docker kubectl helm; do
+for cmd in docker kind kubectl helm; do
     command -v "$cmd" > /dev/null || { echo "ERROR: '$cmd' is required"; exit 1; }
 done
 
-if [ "$CREATE_CLUSTER" = true ]; then
+# Reuse the cluster when it exists, create it when it does not - and never
+# recreate it: re-running this script must not cost a participant the cluster
+# they have been working in for two days. down.sh is how you delete one.
+if kind get clusters 2> /dev/null | grep -qx "$CLUSTER_NAME"; then
+    echo "Cluster '$CLUSTER_NAME' is already there, reusing it."
+else
     command -v ktbx > /dev/null || { echo "ERROR: 'ktbx' is required (go install github.com/k8s-school/ktbx@latest)"; exit 1; }
+    echo "No cluster '$CLUSTER_NAME' yet, creating it."
     ktbx create -s -n "$CLUSTER_NAME"
-    kubectl config use-context "kind-$CLUSTER_NAME"
 fi
+kubectl config use-context "kind-$CLUSTER_NAME"
 
 kubectl cluster-info > /dev/null || { echo "ERROR: no reachable Kubernetes cluster"; exit 1; }
 

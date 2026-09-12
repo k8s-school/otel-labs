@@ -29,14 +29,18 @@ cd otel-labs
 1.  **Créer le cluster et installer la démo OpenTelemetry :**
 
 ```bash
-./scripts/up.sh -c
+./scripts/up.sh
 ```
 
-> 🏫 **Serveur partagé** : si le formateur vous a fourni un compte `student<N>` sur un serveur commun, la commande est **la même** — le cluster et la stack, c'est vous qui les créez, sur votre compte. Ce qui a été préparé pour vous, c'est le compte, le dépôt déjà cloné et votre environnement de travail.
+> 🏫 **Serveur partagé** : si le formateur vous a fourni un compte `student<N>` sur un serveur commun, la commande est **la même**, mais elle va beaucoup plus vite : votre cluster a généralement été créé la veille, avec les images déjà chargées. Le script le réutilise et n'a plus que la démo à installer — une minute environ.
 >
 > Vous partagez la machine avec les autres participants : pour que vos accès n'entrent pas en conflit avec les leurs, chacun écoute sur **sa propre adresse de boucle locale** au lieu de `localhost` — `student3` sur `127.0.0.3`, alias `localhost3`. Les ports, eux, sont les mêmes pour tout le monde (8080 pour les UIs). Une variable déjà présente dans votre shell porte ce nom : `$PF_HOST`, celui de vos URLs. `open-ui.sh` les affiche — ouvrez-les depuis le navigateur du serveur (Guacamole).
 
-L'installation prend quelques minutes (téléchargement des images). Pendant ce temps, regardez ce que fait le script : il crée un cluster Kind (`ktbx create -s`), pré-télécharge les images de la démo sur la machine et les injecte dans le cluster (`scripts/preload-images.sh`), puis installe le chart Helm `open-telemetry/opentelemetry-demo` dans le namespace `otel-demo` — c'est la [démo officielle OpenTelemetry](https://opentelemetry.io/ecosystem/demo/), l'« Astronomy Shop ».
+Sur un poste neuf, comptez quelques minutes : c'est le téléchargement des images. Pendant ce temps, regardez ce que fait le script, dans l'ordre :
+
+1.  il **vérifie si le cluster Kind à votre nom existe**. S'il est là, il le réutilise ; sinon il le crée (`ktbx create -s`). Il ne le détruit jamais — vous pouvez donc relancer `up.sh` autant de fois que vous voulez sans perdre votre travail. Pour supprimer le cluster, il faut le demander explicitement, avec `./scripts/down.sh` ;
+2.  il pré-télécharge les images de la démo sur la machine et les injecte dans le cluster (`scripts/preload-images.sh`) — celles que le cluster possède déjà sont sautées ;
+3.  il installe le chart Helm `open-telemetry/opentelemetry-demo` dans le namespace `otel-demo` — c'est la [démo officielle OpenTelemetry](https://opentelemetry.io/ecosystem/demo/), l'« Astronomy Shop ».
 
 {{%expand "Que contient le namespace otel-demo ?" %}}
 Le chart Helm déploie :

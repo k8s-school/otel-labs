@@ -1,6 +1,6 @@
 #!/bin/bash
 # Simule 9 participants qui déroulent les labs en même temps. En root sur le serveur.
-#   ./phase.sh up        # lab 1 : 9 × up.sh -c en parallèle (pic d'I/O), puis open-ui.sh
+#   ./phase.sh up        # lab 1 : 9 × up.sh en parallèle (pic d'I/O), puis open-ui.sh
 #   ./phase.sh deploy    # lab 2 : 9 × deploy.sh en parallèle (pic RAM/CPU : 9 JVM Maven)
 #   ./phase.sh reviews   # lab 6 : 9 × generate-reviews.sh 600 (régime établi)
 #   ./phase.sh lab8      # lab 8 : POST fautif + 30 GET/produit + requêtes Jaeger/OpenSearch, ×9
@@ -30,7 +30,7 @@ run_all() {   # run_all <phase> <commandes> — les commandes passent par un fic
 }
 
 case "$PHASE" in
-    up)      run_all up "./scripts/up.sh -c && ./scripts/open-ui.sh" ;;
+    up)      run_all up "./scripts/up.sh && ./scripts/open-ui.sh" ;;
     deploy)  run_all deploy "./scripts/deploy.sh" ;;
     reviews) run_all reviews "./scripts/generate-reviews.sh 600 400" ;;
     lab8)    run_all lab8 '. ./scripts/env.sh

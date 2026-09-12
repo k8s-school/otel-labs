@@ -30,7 +30,7 @@ replays the same sequence on a fresh kind cluster.
 
 ```bash
 ./scripts/down.sh     # delete the kind cluster
-./scripts/up.sh -c    # recreate it + install the demo (pinned chart 0.40.9)
+./scripts/up.sh       # cluster (created or reused) + install the demo (pinned chart 0.40.9)
 ```
 
 Starting fresh also validates the exact "day 1 morning" path participants
@@ -102,7 +102,7 @@ helm upgrade otel-demo open-telemetry/opentelemetry-demo \
 # Redeploy review-service from scratch:
 ./scripts/deploy.sh
 
-# Nuclear option: ./scripts/down.sh && ./scripts/up.sh -c  (~10 min)
+# Nuclear option: ./scripts/down.sh && ./scripts/up.sh  (~10 min)
 ```
 
 ## Known pitfalls (already hit during validation)
