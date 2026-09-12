@@ -44,7 +44,7 @@ curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
 
 > 💡 **Pourquoi un produit qui n'existe pas ?** Pour que votre trace survive au **tail sampling du Lab 7**, qui ne garde qu'une requête ordinaire sur quatre. Celle-ci échoue, `keep-errors` conserve donc **100 %** des traces comme la vôtre — et la fuite est exactement la même : le code pose l'email et le token *avant* d'aller chercher le produit.
 
-3.  **Chercher la fuite.** Dans Jaeger, ouvrez la trace `POST /api/reviews` : que voyez-vous dans les attributs ? Puis cherchez l'email dans les logs — depuis Grafana (*Explore*, datasource `webstore-logs`), ou directement sur l'API d'OpenSearch :
+3.  **Chercher la fuite.** Dans Jaeger, ouvrez le span `POST /api/reviews` et dépliez ses *Tags* — le nom que Jaeger donne aux attributs : que voyez-vous ? Puis cherchez l'email dans les logs — depuis Grafana (*Explore*, datasource `webstore-logs`), ou directement sur l'API d'OpenSearch :
 
 ```bash
 curl -s "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22leak@example.com%22&_source=body&pretty"
@@ -101,33 +101,41 @@ L'identifiant produit reste : il est utile en cas d'incident et n'identifie pers
 >
 > D'où le second étage. Notez l'ordre : on **corrige**, *puis* on met un filet. L'inverse — masquer en aval et laisser la faute dans le code — revient à faire circuler la PII dans tout le réseau en espérant que le filtre ne tombe jamais.
 
-> 💡 **Où voir `url.full` et `db.statement` dans vos traces ?** Pas sur le span serveur `POST /api/reviews`, mais sur ses enfants. `url.full` est sur le span **client** nommé `GET` — l'appel sortant de `review-service` vers le `frontend` ; `db.statement` est sur les spans JDBC, nommés `SELECT otel` ou `INSERT otel`. Dépliez-les dans Jaeger, ou demandez-les à son API.
->
-> L'appel sortant, d'abord — la trace du `curl` de l'étape 2 le contient déjà :
->
-> ```bash
-> . ./scripts/env.sh
-> curl -s "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=GET&limit=1&lookback=1h" \
->   | grep -o '"key":"url.full[^}]*'
-> # "key":"url.full","type":"string","value":"http://frontend:8080/api/products/DOESNOTEXIST"
-> ```
->
-> Le SQL, ensuite. Ce `POST` échoue avant d'écrire en base : il n'a aucun span JDBC. Il faut donc une **lecture** des avis — et en lancer plusieurs, parce que le tail sampling du Lab 7 ne garde qu'une requête ordinaire sur quatre :
->
-> ```bash
-> for i in $(seq 10); do curl -s -o /dev/null http://$PF_HOST:$APP_PORT/api/reviews; done
-> sleep 20   # le temps que le collecteur décide et exporte
-> curl -s "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=SELECT%20otel&limit=20&lookback=1h" \
->   | grep -o '"key":"db.statement","type":"string","value":"[^"]*reviews[^"]*"' | sort -u
-> # "key":"db.statement",...,"value":"select count(*) from reviews r1_0"
-> # "key":"db.statement",...,"value":"select r1_0.id,r1_0.comment,...,r1_0.user_email,r1_0.user_name from reviews r1_0"
-> ```
->
-> Le filtre sur `reviews` écarte les requêtes de métadonnées que le driver JDBC pose au démarrage, illisibles et sans intérêt ici.
->
-> Ici l'URL n'a pas de `?token=…`, et le SQL ne montre que des noms de colonnes : Hibernate envoie les valeurs à part, en paramètres liés. Rien ne fuit — et ce n'est pas un hasard : un secret n'a pas sa place dans une query string (il finit aussi dans les logs d'accès des proxies), et un SQL ne se construit pas par concaténation (c'est la porte ouverte à l'injection SQL). Ces deux règles sont antérieures à l'observabilité.
->
-> Ce que l'agent y ajoute : il pose ces attributs **tout seul**. Le jour où un service enfreint l'une de ces règles — le vôtre, ou celui de l'équipe d'à côté —, la donnée part dans les traces sans qu'aucun `setAttribute` n'apparaisse nulle part pour vous mettre la puce à l'oreille.
+{{%expand "Où sont `url.full` et `db.statement` ? Les lire par l'API Jaeger — et pourquoi une URL GET et une query SQL bien construites ne fuient pas" %}}
+Pas sur le span serveur `POST /api/reviews`, mais sur ses enfants. `url.full` est sur le span **client** nommé `GET` — l'appel sortant de `review-service` vers le `frontend` ; `db.statement` est sur les spans JDBC, nommés `SELECT otel` ou `INSERT otel`. Dépliez-les dans Jaeger, ou demandez-les à son API.
+
+L'appel sortant, d'abord — la trace du `curl` de l'étape 2 le contient déjà :
+
+```bash
+. ./scripts/env.sh
+curl -s "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=GET&limit=1&lookback=1h" \
+  | grep -o '"key":"url.full[^}]*'
+# "key":"url.full","type":"string","value":"http://frontend:8080/api/products/DOESNOTEXIST"
+```
+
+Le SQL, ensuite. Ce `POST` échoue avant d'écrire en base : il n'a aucun span JDBC. Il faut donc une **lecture** des avis, et une qui porte une valeur : `GET /api/reviews/product/{productId}` filtre par produit, ce qui fait un `WHERE`. Donnez-lui une valeur reconnaissable, et lancez-en plusieurs, parce que le tail sampling du Lab 7 ne garde qu'une requête ordinaire sur quatre :
+
+```bash
+for i in $(seq 30); do curl -s -o /dev/null http://$PF_HOST:$APP_PORT/api/reviews/product/SECRET-PRODUCT-42; done
+# l'agent exporte, le collecteur décide, Jaeger indexe : on interroge jusqu'à voir la valeur
+until curl -s "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=SELECT%20otel&limit=20&lookback=1h" | grep -q SECRET-PRODUCT-42; do
+  echo "pas encore dans Jaeger, on réessaie dans 5 s..."; sleep 5
+done
+curl -s "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=SELECT%20otel&limit=20&lookback=1h" \
+  | grep -o '"key":"db.statement","type":"string","value":"[^"]*reviews[^"]*where[^"]*"'
+# "key":"db.statement",...,"value":"select r1_0.id,r1_0.comment,...,r1_0.user_email,r1_0.user_name from reviews r1_0 where r1_0.product_id=?"
+# "key":"db.statement",...,"value":"select r1_0.id,r1_0.comment,...,r1_0.user_email,r1_0.user_name from reviews r1_0 where r1_0.product_id=?"
+# ...
+```
+
+Une ligne par trace conservée — comptez-les : sur 30 requêtes, il en reste environ une sur quatre, c'est le tail sampling du Lab 7 à l'œuvre. Si vous relancez la boucle, les traces de l'essai précédent s'ajoutent, jusqu'aux 20 que `limit=20` autorise. Le filtre sur `reviews` puis `where` ne garde que cette requête-là : les autres `SELECT` sur la table n'ont pas de clause, et le driver JDBC pose au démarrage des requêtes de métadonnées illisibles et sans intérêt ici.
+
+Ici l'URL n'a pas de `?token=…`, et le SQL s'arrête sur `product_id=?` : `SECRET-PRODUCT-42` n'y est pas, Hibernate envoie les valeurs à part, en paramètres liés. Rien ne fuit par ces deux attributs — et ce n'est pas un hasard : un secret n'a pas sa place dans une query string (il finit aussi dans les logs d'accès des proxies), et un SQL ne se construit pas par concaténation (c'est la porte ouverte à l'injection SQL). Ces deux règles sont antérieures à l'observabilité.
+
+Cherchez maintenant `SECRET-PRODUCT-42` dans la même réponse : il y est, dans `url.path` du span serveur. Un segment de chemin est un attribut comme un autre — la règle vaut pour lui aussi.
+
+Ce que l'agent y ajoute : il pose ces attributs **tout seul**. Le jour où un service enfreint l'une de ces règles — le vôtre, ou celui de l'équipe d'à côté —, la donnée part dans les traces sans qu'aucun `setAttribute` n'apparaisse nulle part pour vous mettre la puce à l'oreille.
+{{% /expand%}}
 
 {{%expand "Et un troisième endroit : le SDK de l'application ?" %}}
 Il existe, et certaines politiques internes l'exigent : on filtre alors **avant même que la donnée ne sorte du processus**, sans faire confiance au réseau ni au collecteur.
@@ -183,7 +191,7 @@ opentelemetry-collector:
           processors: [memory_limiter, resourcedetection, resource, transform/pii-logs, batch]
 ```
 
-Alternatives : le processor **`redaction`** (approche *allowlist* : seuls les attributs autorisés passent — plus sûr qu'une denylist) et `replace_pattern(..., hash=...)` pour **pseudonymiser** (hachage) au lieu de supprimer, quand on veut garder la capacité de corréler.
+Alternatives : le [processor **`redaction`**](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/redactionprocessor/README.md) (approche *allowlist* : seuls les attributs listés dans `allowed_keys` passent — plus sûr qu'une denylist) et [`replace_pattern(..., SHA256)`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md#replace_pattern) pour **pseudonymiser** (hachage) au lieu de supprimer, quand on veut garder la capacité de corréler.
 {{% /expand%}}
 
 6.  **Appliquer, et rejouer la requête fautive.** Le code de `review-service` écrit toujours l'email et le token : c'est justement ce qu'on veut vérifier — que le collecteur les arrête quand même.
@@ -204,7 +212,41 @@ curl -X POST http://$PF_HOST:$APP_PORT/api/reviews \
   -d '{"productId": "DOESNOTEXIST", "rating": 5, "comment": "collector-mask", "userEmail": "collector-mask@example.com", "userName": "Safe User"}'
 ```
 
-Dans Jaeger : la nouvelle trace `POST /api/reviews` n'a **plus** ni `user.email` ni le header `Authorization`. Dans OpenSearch : `collector-mask@example.com` est introuvable, le log montre `***@***`.
+Dans Jaeger, la nouvelle trace `POST /api/reviews` n'a **plus** ni `user.email` ni le header `Authorization` : ouvrez-la et dépliez ses *Tags*, ou demandez à l'API si l'une de ces deux clés s'y trouve encore :
+
+```bash
+curl -s "http://$PF_HOST:$UI_PORT/jaeger/ui/api/traces?service=review-service&operation=POST%20/api/reviews&limit=1&lookback=1h" \
+  | grep -c 'user.email\|http.request.header.authorization'   # -c : compte les lignes qui contiennent l'une des deux clés
+# 0
+```
+
+Dans OpenSearch, `collector-mask@example.com` est introuvable :
+
+```bash
+curl -s "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22collector-mask@example.com%22&size=0&pretty"
+#   "hits" : {
+#     "total" : {
+#       "value" : 0,
+#       "relation" : "eq"
+#     },
+#     "max_score" : null,
+#     "hits" : [ ]
+#   }
+```
+
+Et le log est pourtant bien là, avec `***@***` à la place :
+
+```bash
+curl -s "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22Safe%20User%22&sort=@timestamp:desc&size=10&_source=@timestamp,body,severity.text,traceId&pretty"
+#         "_source" : {
+#           "severity" : { "text" : "INFO" },
+#           "traceId" : "0c021c34d57d6c3df0c66f718e3edc35",
+#           "@timestamp" : "2026-09-12T12:51:46.423089979Z",
+#           "body" : "Creating review for product DOESNOTEXIST by Safe User <***@***>"
+#         },
+```
+
+Le `traceId` est celui de votre `POST` : collez-le dans le champ *Trace ID* de Jaeger pour passer du log à la trace.
 
 La trace est propre alors que le code est fautif : le filet a retenu. C'est ce que vous voulez le jour où la faute vient d'un service que vous ne pouvez pas corriger.
 
