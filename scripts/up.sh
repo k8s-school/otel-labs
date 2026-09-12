@@ -10,12 +10,16 @@ DIR=$(cd "$(dirname "$0")"; pwd -P)
 
 usage() {
     cat << EOF
-Usage: $(basename "$0") [-c] [-p] [-h]
+Usage: $(basename "$0") [-c] [-p] [-P] [-h]
 Create a kind cluster and install the OpenTelemetry demo.
 
   -c    also (re)create the kind cluster (default: reuse current kubectl context)
         and preload the demo images into it
   -p    preload the demo images into the current cluster (see preload-images.sh)
+  -P    prepare only: create/preload as asked, then STOP before the helm install.
+        Use it to pre-create clusters ahead of a session ('make precreate'); the
+        participant then runs '$(basename "$0")' with no flag for a fast helm
+        install on the ready cluster, its images already loaded.
   -h    this message
 
 Set SKIP_PRELOAD=true to install straight from the internet with -c.
@@ -26,10 +30,12 @@ EOF
 
 CREATE_CLUSTER=false
 PRELOAD=false
-while getopts "cph" opt; do
+PREPARE_ONLY=false
+while getopts "cpPh" opt; do
     case $opt in
         c) CREATE_CLUSTER=true; PRELOAD=true ;;
         p) PRELOAD=true ;;
+        P) PREPARE_ONLY=true ;;
         h) usage; exit 0 ;;
         *) usage; exit 1 ;;
     esac
@@ -55,6 +61,14 @@ kubectl cluster-info > /dev/null || { echo "ERROR: no reachable Kubernetes clust
 # much faster than letting each cluster download ~5 GB from the internet.
 if [ "$PRELOAD" = true ]; then
     "$DIR/preload-images.sh" -n "$CLUSTER_NAME"
+fi
+
+# Prepare-only: the cluster exists and its images are loaded, but the demo is
+# not installed yet. That last helm install is left to the participant, in
+# session, on this ready cluster (a couple of minutes, no image pull).
+if [ "$PREPARE_ONLY" = true ]; then
+    echo "Cluster '$CLUSTER_NAME' ready, images preloaded. Run '$(basename "$0")' (no flag) to install the demo."
+    exit 0
 fi
 
 # Install the OpenTelemetry demo (version pinned for reproducibility)
