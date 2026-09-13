@@ -83,6 +83,19 @@ histogram_quantile(0.95, sum(rate(
 
 ---
 
+## Datasources
+
+- Une datasource = un backend + sa configuration de requête
+- Provisionnables **par fichier YAML** (infra-as-code, comme dans la démo)
+- Le vrai pouvoir : les **liens entre datasources**
+  - **exemplars** : d'un point de métrique → la trace qui l'a produit —
+    `exemplarTraceIdDestinations` y nomme l'UID de la datasource Jaeger (**Lab 4.2**)
+  - **tracesToLogsV2** : d'une trace → les logs corrélés
+  - champ `traceId` d'un log → *View in Jaeger*
+- C'est la **corrélation** du chapitre 1, rendue cliquable
+
+---
+
 ## Visualisations
 
 - **Time series** : l'essentiel des métriques (débit, latence, saturation)
@@ -91,6 +104,24 @@ histogram_quantile(0.95, sum(rate(
 - **Logs panel** : flux de logs avec niveau et détail dépliable
 - **Traces panel** : waterfall de spans dans Grafana
 - Bonnes pratiques : peu de panels, des unités correctes, le service en variable
+
+![h:135](images/grafana-panel-timeseries.png) ![h:135](images/grafana-panel-stat.png) ![h:135](images/grafana-panel-logs.png) ![h:135](images/grafana-panel-traces.png)
+
+<!-- _footer: "Captures : grafana.com/docs" -->
+
+---
+
+## Dashboards
+
+- Organisation : dossiers, tags, permissions
+- **Variables** (`$service_name`...) : un dashboard générique pour N services
+
+```promql
+label_values(traces_span_metrics_calls_total, service_name)
+```
+
+- Export/import **JSON** : versionnable dans Git — c'est le livrable du lab
+- Provisionnement par ConfigMap (sidecar Grafana) : les dashboards de la démo arrivent comme ça
 
 ---
 
@@ -105,30 +136,3 @@ histogram_quantile(0.95, sum(rate(
 - Lab 4.2 : les exemplars, du point de métrique à la trace
 
 ➡ [Lab 4 — Dashboard unifié](https://k8s-school.fr/labs/otel/fr/1_labs/40-otel-grafana/index.html)
-
----
-
-## Annexe — Datasources
-
-- Une datasource = un backend + sa configuration de requête
-- Provisionnables **par fichier YAML** (infra-as-code, comme dans la démo)
-- Le vrai pouvoir : les **liens entre datasources**
-  - **exemplars** : d'un point de métrique → la trace qui l'a produit —
-    `exemplarTraceIdDestinations` y nomme l'UID de la datasource Jaeger (**Lab 4.2**)
-  - **tracesToLogsV2** : d'une trace → les logs corrélés
-  - champ `traceId` d'un log → *View in Jaeger*
-- C'est la **corrélation** du chapitre 1, rendue cliquable
-
----
-
-## Annexe — Dashboards
-
-- Organisation : dossiers, tags, permissions
-- **Variables** (`$service_name`...) : un dashboard générique pour N services
-
-```promql
-label_values(traces_span_metrics_calls_total, service_name)
-```
-
-- Export/import **JSON** : versionnable dans Git — c'est le livrable du lab
-- Provisionnement par ConfigMap (sidecar Grafana) : les dashboards de la démo arrivent comme ça
