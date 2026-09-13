@@ -15,6 +15,22 @@ backgroundColor: #ffffff
 
 ---
 
+## Quoi mesurer ? RED pour les services, USE pour les ressources
+
+| | Pour quoi | Les trois questions | Dans la démo |
+|---|---|---|---|
+| **RED** | un service qui répond à des requêtes | **R**ate : combien de req/s · **E**rrors : combien échouent · **D**uration : en combien de temps | `spanmetrics` (chapitre 3), le dashboard *Spanmetrics* |
+| **USE** | une ressource : CPU, disque, mémoire, pool | **U**tilization : à quel point elle est occupée · **S**aturation : ce qui **attend** parce qu'elle est pleine · **E**rrors | `hostmetrics` (Lab 3), `kubeletstats` |
+
+- Utilisation ≠ saturation : un CPU à 100 % sans file d'attente sert tout le monde ;
+  il sature quand le *load* dépasse le nombre de cœurs, quand les I/O font la queue,
+  quand la mémoire swappe. La saturation monte **avant** la latence
+- RED dit *ce que le client subit*, USE dit *combien de marge il reste* —
+  d'où la règle du chapitre 4 : **alerter sur RED, expliquer avec USE**
+- Google SRE dit « *golden signals* » : latence, trafic, erreurs, saturation — RED + S
+
+---
+
 ## Prometheus, le standard de fait
 
 - Né chez SoundCloud en 2012, inspiré de **Borgmon** (Google), open source en 2015 —
