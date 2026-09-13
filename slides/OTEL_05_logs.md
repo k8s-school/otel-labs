@@ -49,6 +49,7 @@ backgroundColor: #ffffff
 
 - Règle d'or : des **paires clé/valeur**, pas des phrases à parser
 - Enrichissement contextuel : **MDC** Logback → attributs OTel
+- Exemple côté Java : le [`JsonEncoder` de Logback](https://logback.qos.ch/manual/encoders.html#JsonEncoder) — une ligne JSON par événement, MDC inclus
 - En pratique on garde les deux : la sortie console du conteneur reste lisible, le structuré part en OTLP
 
 ---
