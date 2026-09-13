@@ -4,7 +4,8 @@ weight: 1
 chapter: true
 ---
 
-Avant de démarrer les labs, vous trouverez ici les **supports de cours** (slides)
+Avant de démarrer les labs, vous trouverez ici l'**accès à la plate-forme**
+(le serveur de formation et le pad d'échange), les **supports de cours** (slides)
 et un **pense-bête `kubectl`** avec les quelques commandes Kubernetes utilisées
 pendant la formation.
 
