@@ -58,16 +58,13 @@ backgroundColor: #ffffff
 
 ## L'appender Logback OpenTelemetry
 
-- `opentelemetry-logback-appender` : chaque événement Logback → LogRecord OTLP
-
-```xml
-<appender name="OTel"
-  class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
-</appender>
-```
-
-- **Avec l'agent Java : rien à faire** — il injecte l'équivalent automatiquement
+- OpenTelemetry fournit une bibliothèque, `opentelemetry-logback-appender` :
+  un appender Logback qui transforme chaque événement en **LogRecord OTLP**
+- **Rien à configurer**, ni avec l'agent ni avec le starter : chacun branche
+  cet appender automatiquement au démarrage — `review-service` n'a pas de `logback.xml`
 - Le `trace_id` courant est attaché **automatiquement** : la corrélation est gratuite
+- Le déclarer soi-même dans `logback.xml` ne sert qu'à régler ce qu'il capture
+  (MDC, marqueurs…) ou quand on instrumente à la main, sans agent ni starter
 
 ---
 
@@ -86,6 +83,8 @@ filelog:
 - Receiver **`syslog`** : équipements, systèmes
 - Processor **transform (OTTL)** : parser, normaliser la sévérité, **masquer** (Lab 8)
 - Pipeline de la démo : `otlp → [processors] → opensearch`
+  - OpenSearch **ne parle pas OTLP** : l'exporter traduit chaque LogRecord en JSON
+    et le pousse par l'API `_bulk` d'OpenSearch (HTTP, port 9200)
 
 ---
 
