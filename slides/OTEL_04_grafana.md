@@ -66,6 +66,8 @@ histogram_quantile(0.95, sum(rate(
   ce sont elles qui expliquent
 - La règle du lab suit ce principe : elle surveille le **p95** du `review-service`,
   pas la charge de son pod
+- Grafana n'a pas le monopole : la même règle peut vivre **dans Prometheus**, en YAML
+  versionné avec le code, évaluée même si Grafana est éteint (chapitre 6)
 
 ---
 
