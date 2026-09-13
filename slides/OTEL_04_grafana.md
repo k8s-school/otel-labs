@@ -64,8 +64,8 @@ histogram_quantile(0.95, sum(rate(
   - une alerte qui ne correspond à aucune dégradation vécue finit par être ignorée
 - Les causes gardent toute leur valeur **en dashboard** : une fois l'alerte partie,
   ce sont elles qui expliquent
-- La règle du lab suit ce principe : elle surveille le **p95** du `review-service`,
-  pas la charge de son pod
+- La règle du slide précédent suit ce principe : elle surveille le **p95** du
+  `review-service`, pas la charge de son pod
 - Grafana n'a pas le monopole : la même règle peut vivre **dans Prometheus**, en YAML
   versionné avec le code, évaluée même si Grafana est éteint (chapitre 6)
 
@@ -132,7 +132,6 @@ label_values(traces_span_metrics_calls_total, service_name)
 - Explorer les 3 datasources provisionnées
 - Construire deux panels (métriques, traces), importer le reste
 - Variable `service_name` pour basculer entre les services
-- Une règle d'alerte sur la latence p95
 - Exporter le dashboard en JSON (livrable à committer)
 - Lab 4.1 : lire un panel de latence — heatmap, p95 et faux pics
 - Lab 4.2 : les exemplars, du point de métrique à la trace
