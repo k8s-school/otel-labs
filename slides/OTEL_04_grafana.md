@@ -116,14 +116,11 @@ histogram_quantile(0.95, sum(rate(
 ## Dashboards
 
 - Organisation : dossiers, tags, permissions
-- **Variables** (`$service_name`...) : un dashboard générique pour N services
-
-```promql
-label_values(traces_span_metrics_calls_total, service_name)
-```
-
+- **Variables** (`$service_name`) : un dashboard générique pour N services
 - Export/import **JSON** : versionnable dans Git — c'est le livrable du lab
-- Provisionnement par ConfigMap (sidecar Grafana) : les dashboards de la démo arrivent comme ça
+- Provisionnement par ConfigMap (sidecar Grafana) : ceux de la démo arrivent comme ça
+
+![w:720](images/grafana-vue-service.png)
 
 ---
 
