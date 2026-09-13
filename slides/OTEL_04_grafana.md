@@ -79,7 +79,7 @@ histogram_quantile(0.95, sum(rate(
 
 ![w:1180](images/exemplars.svg)
 
-- Dans la démo, seules les métriques des **SDK** en portent : `spanmetrics` est déclaré avec `{}`, qui n'en produit aucun — le **Lab 4.1** le démontre et donne la ligne qui manque
+- Dans la démo, seules les métriques des **SDK** en portent : `spanmetrics` est déclaré avec `{}`, qui n'en produit aucun — le **Lab 4.2** le démontre et donne la ligne qui manque
 
 ---
 
@@ -101,7 +101,8 @@ histogram_quantile(0.95, sum(rate(
 - Variable `service_name` pour basculer entre les services
 - Une règle d'alerte sur la latence p95
 - Exporter le dashboard en JSON (livrable à committer)
-- Lab 4.1 : les exemplars, du point de métrique à la trace
+- Lab 4.1 : lire un panel de latence — heatmap, p95 et faux pics
+- Lab 4.2 : les exemplars, du point de métrique à la trace
 
 ➡ [Lab 4 — Dashboard unifié](https://k8s-school.fr/labs/otel/fr/1_labs/40-otel-grafana/index.html)
 
@@ -113,7 +114,7 @@ histogram_quantile(0.95, sum(rate(
 - Provisionnables **par fichier YAML** (infra-as-code, comme dans la démo)
 - Le vrai pouvoir : les **liens entre datasources**
   - **exemplars** : d'un point de métrique → la trace qui l'a produit —
-    `exemplarTraceIdDestinations` y nomme l'UID de la datasource Jaeger (**Lab 4.1**)
+    `exemplarTraceIdDestinations` y nomme l'UID de la datasource Jaeger (**Lab 4.2**)
   - **tracesToLogsV2** : d'une trace → les logs corrélés
   - champ `traceId` d'un log → *View in Jaeger*
 - C'est la **corrélation** du chapitre 1, rendue cliquable
