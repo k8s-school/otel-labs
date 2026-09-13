@@ -115,6 +115,22 @@ Ce qui ne survit pas : les **port-forwards** (chaque stagiaire relance
 ouvertes (Guacamole en rouvre une). Le volume racine est en block storage,
 seul le compute cesse d'être facturé pendant l'arrêt.
 
+### Validation finale sur le compte k8s-school (image rebâtie, volume 400 Go)
+
+`make provision FLAVOR=otel NB_USERS=8` avec les `OVH_*` chargés : tout
+s'enchaîne sans intervention (VM, IP `51.15.248.85`, DNS repointé, Ansible
+`ok=75 failed=0`, 9 clusters pré-créés), ~35 min. Puis lab 1 et lab 2 ×9 avec
+les 9 bureaux Guacamole ouverts : 0 échec, 28/28 pods partout, certificat
+Let's Encrypt neuf, `flagd` à 200 Mi et `kindnet` à 100 Mi posés par `up.sh`.
+
+**Mais cette VM était 1,6 à 2,4 fois plus lente** que celle du matin, même
+type GP1-L : lab 1 en 478–570 s (300–320 le matin), lab 2 en 250 s (105),
+latences ×4, load 150–190 au repos. Cause : **steal CPU de 4–5 % en continu**
+(`st` dans `top`), un voisin occupe le même hôte EPYC. Rien à corriger dans la
+config ; c'est le placement. Réflexe après `make up` : regarder `st` dans `top`
+sous charge, et si c'est plusieurs %, `make down && make up` pour changer
+d'hôte (~5 min, l'IP et l'image restent).
+
 ## À retenir pour la séance
 
 - **Pré-créer les clusters** (`make provision` le fait) : le lab 1 passe de
