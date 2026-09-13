@@ -82,19 +82,22 @@ backgroundColor: #ffffff
 ## Configuration : les 4 sections
 
 ```yaml
-receivers:                 # 1. ce qui fait ENTRER la donnée
+# 1. ce qui fait ENTRER la donnée : où le collecteur ÉCOUTE
+receivers:
   otlp:
-    protocols: { grpc: { endpoint: 0.0.0.0:4317 } }
-processors:                # 2. ce qu'on lui fait au passage
+    protocols: { grpc: { endpoint: ${env:MY_POD_IP}:4317 } }
+# 2. ce qu'on lui fait au passage
+processors:
   batch: {}
-exporters:                 # 3. ce qui la fait SORTIR
-  debug: { verbosity: detailed }
-service:                   # 4. ce qui est réellement ACTIF
+# 3. ce qui la fait SORTIR : vers quel backend
+exporters:
+  otlp/jaeger: { endpoint: jaeger:4317, tls: { insecure: true } }
+  otlphttp/prometheus: { endpoint: http://prometheus:9090/api/v1/otlp }
+# 4. ce qui est réellement ACTIF
+service:
   pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
+    traces:  { receivers: [otlp], processors: [batch], exporters: [otlp/jaeger] }
+    metrics: { receivers: [otlp], processors: [batch], exporters: [otlphttp/prometheus] }
 ```
 
 - Les trois premières sections **déclarent** des composants, `service` les **branche**
@@ -180,6 +183,20 @@ transform:
 - **`count`** / **`spanmetrics`** : dériver des **métriques** depuis des spans
   - la démo utilise `spanmetrics` : latences/débits par opération calculés
     depuis le pipeline traces, sans instrumenter les applis
+
+```yaml
+connectors:
+  routing:
+    default_pipelines: [traces/autres]
+    table:
+      - condition: resource.attributes["deployment.environment.name"] == "prod"
+        pipelines: [traces/prod]
+service:
+  pipelines:
+    traces:        { receivers: [otlp],    exporters: [routing] }      # sortie → le connector
+    traces/prod:   { receivers: [routing], exporters: [otlp/jaeger] }  # entrée ← le connector
+    traces/autres: { receivers: [routing], exporters: [debug] }
+```
 
 ---
 

@@ -127,3 +127,30 @@ thead th {
 tbody tr:nth-child(even) {
     background: var(--code-bg);
 }
+
+/* Coloration syntaxique (classes highlight.js émises par Marp) : les
+   commentaires doivent ressortir, ils portent souvent l'explication du slide */
+pre .hljs-comment {
+    color: #e67e22;
+    font-weight: 600;
+    font-style: italic;
+}
+
+pre .hljs-attr,
+pre .hljs-keyword,
+pre .hljs-built_in {
+    color: var(--accent-color);
+}
+
+pre .hljs-string {
+    color: #2e7d32;
+}
+
+pre .hljs-number,
+pre .hljs-literal {
+    color: #8e44ad;
+}
+
+pre .hljs-bullet {
+    color: var(--text-color);
+}

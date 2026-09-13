@@ -6,25 +6,25 @@ flowchart LR
   end
   subgraph COL["Collecteur"]
     direction TB
+    L["pipeline <b>logs</b>"]
     T["pipeline <b>traces</b>"]
     SM["connector<br/><i>spanmetrics</i>"]
     M["pipeline <b>metrics</b>"]
-    L["pipeline <b>logs</b>"]
   end
   subgraph BE["Backends"]
     direction TB
+    OS["OpenSearch"]
     J["Jaeger"]
     P["Prometheus"]
-    OS["OpenSearch"]
   end
+  APPS --> L
   APPS --> T
   APPS --> M
-  APPS --> L
   INFRA --> M
   T --> SM --> M
+  L --> OS
   T --> J
   M --> P
-  L --> OS
   style SM fill:#f8f9fa,stroke:#4285f4
   style J fill:#4285f4,stroke:#1a73e8,color:#ffffff
   style P fill:#4285f4,stroke:#1a73e8,color:#ffffff

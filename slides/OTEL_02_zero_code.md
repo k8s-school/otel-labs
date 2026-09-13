@@ -56,6 +56,9 @@ java -javaagent:/otel/opentelemetry-javaagent.jar -jar app.jar
   - images **natives GraalVM** (pas de manipulation de bytecode possible)
   - maîtrise des dépendances par l'équipe de dev
   - politiques interdisant les agents JVM
+- ⚠️ Depuis **Spring Boot 4** (nov. 2025), Spring livre aussi son propre
+  `spring-boot-starter-opentelemetry` : même nom inversé, mais bâti sur **Micrometer**,
+  pas sur le SDK OpenTelemetry — le lab utilise celui du projet OpenTelemetry
 
 ---
 
@@ -72,6 +75,49 @@ java -javaagent:/otel/opentelemetry-javaagent.jar -jar app.jar
 
 - Même **chaîne** côté plateforme: OTLP → collecteur → backend
 - **Contenu** diffèrent : l'agent réécrit le bytecode de ~toutes les libs Java (traces **plus détaillées**), le starter s'arrête à Spring et aux principales
+
+---
+
+## Agent Java — installation
+
+- Télécharger le JAR (releases GitHub `opentelemetry-java-instrumentation`)
+- L'attacher à la JVM, au choix :
+  - flag explicite : `java -javaagent:...`
+  - variable d'environnement : `JAVA_TOOL_OPTIONS="-javaagent:..."`
+    - lue par **toutes** les JVM au démarrage
+    - idéal en conteneur : une simple variable d'env dans le manifest K8s
+- Dans la formation : l'agent est **déjà dans l'image** (`/otel/opentelemetry-javaagent.jar`),
+  seul `JAVA_TOOL_OPTIONS` l'active
+
+---
+
+## Agent Java — configuration
+
+- Tout se pilote par variables d'environnement `OTEL_*` :
+
+```bash
+OTEL_SERVICE_NAME=review-service
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_RESOURCE_ATTRIBUTES=service.namespace=otel-demo
+```
+
+- Équivalents en propriétés système (`-Dotel.service.name=...`)
+- Réglages fins : activer/désactiver une instrumentation, échantillonnage,
+  `OTEL_INSTRUMENTATION_<NAME>_ENABLED=false`...
+
+---
+
+## Agent Java — fonctionnement
+
+- Au démarrage : l'agent s'enregistre comme `ClassFileTransformer`
+- À chaque classe chargée : si une instrumentation la connaît,
+  le bytecode est **réécrit à la volée** (ByteBuddy)
+- Exemple sur `review-service` :
+  - requête HTTP entrante → span **serveur** `GET /api/reviews`
+  - appel JDBC → span **client** `SELECT reviews` (`db.system=postgresql`)
+  - le **contexte de trace** est propagé automatiquement (headers W3C `traceparent`)
+- Coût : démarrage plus lent, léger overhead CPU/mémoire
 
 ---
 
@@ -105,46 +151,3 @@ java -javaagent:/otel/opentelemetry-javaagent.jar -jar app.jar
 ➡ [Lab 2 — Instrumentation zero-code](https://k8s-school.fr/labs/otel/fr/1_labs/20-otel-zero-code/index.html)
 
 *Livrable : deux traces du même endpoint, une par agent, une par starter.*
-
----
-
-## Annexe — Agent Java — installation
-
-- Télécharger le JAR (releases GitHub `opentelemetry-java-instrumentation`)
-- L'attacher à la JVM, au choix :
-  - flag explicite : `java -javaagent:...`
-  - variable d'environnement : `JAVA_TOOL_OPTIONS="-javaagent:..."`
-    - lue par **toutes** les JVM au démarrage
-    - idéal en conteneur : une simple variable d'env dans le manifest K8s
-- Dans la formation : l'agent est **déjà dans l'image** (`/otel/opentelemetry-javaagent.jar`),
-  seul `JAVA_TOOL_OPTIONS` l'active
-
----
-
-## Annexe — Agent Java — configuration
-
-- Tout se pilote par variables d'environnement `OTEL_*` :
-
-```bash
-OTEL_SERVICE_NAME=review-service
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-OTEL_EXPORTER_OTLP_PROTOCOL=grpc
-OTEL_RESOURCE_ATTRIBUTES=service.namespace=otel-demo
-```
-
-- Équivalents en propriétés système (`-Dotel.service.name=...`)
-- Réglages fins : activer/désactiver une instrumentation, échantillonnage,
-  `OTEL_INSTRUMENTATION_<NAME>_ENABLED=false`...
-
----
-
-## Annexe — Agent Java — fonctionnement
-
-- Au démarrage : l'agent s'enregistre comme `ClassFileTransformer`
-- À chaque classe chargée : si une instrumentation la connaît,
-  le bytecode est **réécrit à la volée** (ByteBuddy)
-- Exemple sur `review-service` :
-  - requête HTTP entrante → span **serveur** `GET /api/reviews`
-  - appel JDBC → span **client** `SELECT reviews` (`db.system=postgresql`)
-  - le **contexte de trace** est propagé automatiquement (headers W3C `traceparent`)
-- Coût : démarrage plus lent, léger overhead CPU/mémoire
