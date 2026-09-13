@@ -97,10 +97,31 @@ résorbait pas seul ; `fix-thrash.sh "^/bin/kindnetd" 100M` l'a éteint sur le
 champ. Correctif durable : `up.sh` relève la limite du DaemonSet à 100 Mi
 après la création du cluster (idempotent), appliqué aux 9 clusters.
 
+### Arrêt / redémarrage de la VM entre deux jours (testé sur une VM neuve, volume 400 Go)
+
+Question : peut-on éteindre le serveur le soir (`scw instance server stop`)
+plutôt que le payer la nuit, sans perdre l'état des participants ? **Oui.**
+
+| Étape | Mesure |
+|---|---|
+| `scw instance server stop --wait` | 47 s |
+| `start --wait` puis ssh | 35 s après le start |
+| Docker relance seul les 9 nœuds kind + Guacamole (restart policy) | à +1 s |
+| 9 × 28 pods de nouveau Running | **~6 min** après le boot, sans intervention (load 300 au pic) |
+| `open-ui.sh` ×9, Grafana, Jaeger, review-service (avec ses avis), Guacamole HTTPS | tout répond ; latences 8 / 10 / 44–150 ms |
+
+Ce qui ne survit pas : les **port-forwards** (chaque stagiaire relance
+`./scripts/open-ui.sh`, c'est prévu dans les labs) et les sessions XFCE
+ouvertes (Guacamole en rouvre une). Le volume racine est en block storage,
+seul le compute cesse d'être facturé pendant l'arrêt.
+
 ## À retenir pour la séance
 
 - **Pré-créer les clusters** (`make provision` le fait) : le lab 1 passe de
   25 min à 5 min à 9 en parallèle.
+- **Le soir : `scw instance server stop <id> zone=fr-par-1 --wait`**, le matin
+  `start`, puis compter 6 min et demander à chacun un `open-ui.sh`. Jamais
+  `make down` entre deux jours : il détruit le volume, donc tout le travail.
 - **Modale « Welcome to Firefox »** (conditions d'utilisation) au premier
   lancement sur chaque bureau : les stagiaires la verront. Une politique
   Firefox (`policies.json` : `SkipTermsOfUse`, `OverrideFirstRunPage`) dans
