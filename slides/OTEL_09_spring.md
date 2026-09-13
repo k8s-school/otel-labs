@@ -5,11 +5,13 @@ paginate: true
 backgroundColor: #ffffff
 ---
 
+<!-- _class: title -->
+
 # Formation OpenTelemetry
 
 ## Chapitre 9 — Framework Spring *(facultatif)*
 
-<img src="images/logo.svg" alt="K8s School Logo" width="50%">
+![K8s School w:400](images/logo.svg)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![Sparks w:300](images/sparks-logo.png)
 
 ---
 

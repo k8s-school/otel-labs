@@ -5,11 +5,13 @@ paginate: true
 backgroundColor: #ffffff
 ---
 
+<!-- _class: title -->
+
 # Formation OpenTelemetry
 
 ## Chapitre 1 — Introduction
 
-![K8s School w:520](images/logo.svg)
+![K8s School w:400](images/logo.svg)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![Sparks w:300](images/sparks-logo.png)
 
 ---
 

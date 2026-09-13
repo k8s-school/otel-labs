@@ -5,12 +5,13 @@ paginate: true
 backgroundColor: #ffffff
 ---
 
+<!-- _class: title -->
+
 # Formation OpenTelemetry
 
 ## Chapitre 6 — Métriques
 
-<img src="images/logo.svg" alt="K8s School Logo" width="42%">
-<img src="images/prometheus-logo.svg" alt="Prometheus" width="10%">
+![K8s School w:400](images/logo.svg)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![Sparks w:300](images/sparks-logo.png)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![Prometheus w:110](images/prometheus-logo.svg)
 
 ---
 

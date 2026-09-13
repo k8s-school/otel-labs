@@ -5,12 +5,13 @@ paginate: true
 backgroundColor: #ffffff
 ---
 
+<!-- _class: title -->
+
 # Formation OpenTelemetry
 
 ## Chapitre 4 — Grafana
 
-<img src="images/logo.svg" alt="K8s School Logo" width="42%">
-<img src="images/grafana-logo.svg" alt="Grafana" width="11%">
+![K8s School w:400](images/logo.svg)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![Sparks w:300](images/sparks-logo.png)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![Grafana w:120](images/grafana-logo.svg)
 
 ---
 

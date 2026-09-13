@@ -154,3 +154,10 @@ pre .hljs-literal {
 pre .hljs-bullet {
     color: var(--text-color);
 }
+
+/* Page de titre : les logos (K8s School, Sparks, éventuellement celui du
+   sujet) sur une ligne centrée, séparés par des espaces insécables */
+section.title p {
+    text-align: center;
+    margin-top: 1.2em;
+}
