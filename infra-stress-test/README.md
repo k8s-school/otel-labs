@@ -2,15 +2,15 @@
 
 Scripts pour rejouer la simulation d'une session — N stagiaires qui déroulent
 les labs en même temps sur le serveur Guacamole — et les stress tests qui
-cherchent les limites de la machine. Le compte rendu de la campagne du
-2026-09-12 (GP1-L, 9 stacks) est dans [RAPPORT.md](RAPPORT.md).
+cherchent les limites de la machine. Les comptes rendus (2026-09-12 : 9 stacks ; 2026-09-13 : 8 + bureaux
+Guacamole) sont dans [RAPPORT.md](RAPPORT.md).
 
 ## Mise en place
 
 ```bash
 cd ../k8s-server/provisioning
 make create-image FLAVOR=otel                # une fois, ~7 min
-make provision FLAVOR=otel NB_USERS=9        # GP1-L, student1-9 + trainer
+make provision FLAVOR=otel NB_USERS=8        # GP1-L, student1-8 + trainer, clusters pré-créés (OVH_* requis pour dns)
 IP=$(make ip FLAVOR=otel | tail -1)
 ssh root@$IP mkdir -p /root/sim/log
 scp infra-stress-test/*.sh ../k8s-server/util/sizing-report.sh root@$IP:/root/sim/
@@ -26,7 +26,7 @@ en variable d'environnement change la liste des comptes simulés (par défaut
 
 | Commande | Ce qu'elle rejoue | Ce qu'on y mesure |
 |---|---|---|
-| `phase.sh up` | lab 1 : `up.sh` puis `open-ui.sh`, tous en parallèle | le pic d'I/O du `kind load`, la durée jusqu'aux pods prêts |
+| `phase.sh up` | lab 1 : `up.sh` puis `open-ui.sh`, tous en parallèle | la durée jusqu'aux pods prêts (le `kind load` est déjà fait par `precreate`) |
 | `phase.sh deploy` | lab 2 : `deploy.sh` ×N | le pic CPU/RAM des builds Maven |
 | `phase.sh reviews` | lab 6 : `generate-reviews.sh 600` ×N | le régime établi sous trafic |
 | `phase.sh lab8` | lab 8 : POST fautif, 30 GET, attente Jaeger, requête OpenSearch | la latence de bout en bout (agent inactif après `deploy.sh` : les timeouts Jaeger sont attendus) |

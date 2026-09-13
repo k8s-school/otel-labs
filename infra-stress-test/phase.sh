@@ -12,10 +12,10 @@ USERS=${USERS:-"trainer student1 student2 student3 student4 student5 student6 st
 LOG=/root/sim/log; mkdir -p "$LOG"
 PHASE=${1:?phase}
 
-as_user() {   # as_user <user> <phase> : exécute /tmp/sim-<phase>.sh depuis ~/otel, en login shell
+as_user() {   # as_user <user> <phase> : exécute /tmp/sim-<phase>.sh depuis ~/otel-labs, en login shell
     local u=$1 p=$2 t0
     t0=$(date +%s)
-    sudo -u "$u" -i bash -l -c "cd ~/otel && . /tmp/sim-$p.sh" > "$LOG/$p-$u.log" 2>&1
+    sudo -u "$u" -i bash -l -c "cd ~/otel-labs && . /tmp/sim-$p.sh" > "$LOG/$p-$u.log" 2>&1
     echo "=== exit=$? duration=$(( $(date +%s) - t0 ))s" >> "$LOG/$p-$u.log"
 }
 
@@ -40,7 +40,7 @@ case "$PHASE" in
         curl -s "http://$PF_HOST:$OS_PORT/otel-logs-*/_search?q=body:%22leak@example.com%22&size=0" | grep -o "\"total\":{[^}]*}"' ;;
     check)
         cat > /tmp/sim-check-user.sh <<'CHK'
-. ~/otel/scripts/env.sh 2>/dev/null
+. ~/otel-labs/scripts/env.sh 2>/dev/null
 ctx=$(kubectl config current-context 2>/dev/null)
 all=$(kubectl get pods -n otel-demo --no-headers 2>/dev/null | wc -l)
 ready=$(kubectl get pods -n otel-demo --no-headers 2>/dev/null | grep -c "Running\|Completed")

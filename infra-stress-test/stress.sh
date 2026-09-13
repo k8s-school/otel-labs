@@ -39,13 +39,13 @@ case "${1:?test}" in
         before=$(du -sm /var/lib/docker/volumes 2>/dev/null | cut -f1)
         for round in 1 2; do
             echo "[$(date +%T)] rebuild $round/2 : 9 × deploy.sh"
-            for u in $USERS; do sudo -u "$u" -i bash -lc 'cd ~/otel && ./scripts/deploy.sh' > "$LOG/rebuild$round-$u.log" 2>&1 & done; wait
+            for u in $USERS; do sudo -u "$u" -i bash -lc 'cd ~/otel-labs && ./scripts/deploy.sh' > "$LOG/rebuild$round-$u.log" 2>&1 & done; wait
             after=$(du -sm /var/lib/docker/volumes 2>/dev/null | cut -f1)
             echo "  volumes : $before Mio -> $after Mio (+$(( (after - before) / 9 )) Mio par participant)"
         done ;;
     probe)
         cat > /tmp/sim-probe-user.sh <<'PRB'
-. ~/otel/scripts/env.sh 2>/dev/null
+. ~/otel-labs/scripts/env.sh 2>/dev/null
 t() { curl -s -o /dev/null -w "%{time_total}" --max-time 20 "$1" 2>/dev/null || echo "-"; }
 printf '  %-10s %8s %8s %8s\n' "$USER" "$(t http://$PF_HOST:8080/grafana/api/health)" "$(t http://$PF_HOST:8080/jaeger/ui/api/services)" "$(t http://$PF_HOST:$APP_PORT/api/reviews)"
 PRB

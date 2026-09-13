@@ -116,3 +116,8 @@ components:
   # bump is ignored — it thrashed the same way once traffic ramped.
   frontend-proxy:
     resources: { requests: { memory: 65Mi }, limits: { memory: 200Mi } }
+  # flagd (Go, 75Mi, GOMEMLIMIT pinned at 60MiB by the chart) does it too: at
+  # 74/75Mi it re-read its binary at 360 MB/s with 57k refaults/s, and nine of
+  # them pegged the volume right after Lab 1. Measured 2026-09-13 on the GP1-L.
+  flagd:
+    resources: { requests: { memory: 75Mi }, limits: { memory: 200Mi } }

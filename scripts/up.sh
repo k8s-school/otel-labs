@@ -63,6 +63,14 @@ kubectl config use-context "kind-$CLUSTER_NAME"
 
 kubectl cluster-info > /dev/null || { echo "ERROR: no reachable Kubernetes cluster"; exit 1; }
 
+# kind caps its CNI (kindnet) at 50Mi, which is exactly its working set: after
+# any memory pressure on the host it re-reads its binary from disk in a loop
+# (2,000+ refaults/s per node, measured on the training server 2026-09-13, nine
+# clusters on one 5k IOPS volume). Same mechanism as the demo limits raised in
+# values-training.yaml. Idempotent: a no-op when the limit is already there.
+kubectl -n kube-system set resources daemonset kindnet -c kindnet-cni \
+    --requests=memory=50Mi --limits=memory=100Mi > /dev/null
+
 # Pull the demo images once on the host and inject them into the kind node:
 # much faster than letting each cluster download ~5 GB from the internet.
 if [ "$PRELOAD" = true ]; then

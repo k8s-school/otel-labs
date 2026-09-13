@@ -16,7 +16,7 @@ for pid in $(pgrep -x xfce4-session); do
             ff=$(pgrep -u "$u" -c -f firefox)
             printf '%-10s DISPLAY=%-5s firefox=%-3s PSS=%s\n' "$u" "$d" "$ff" "$pss" ;;
         start)
-            pf=$(sudo -u "$u" -i bash -lc '. ~/otel/scripts/env.sh; echo $PF_HOST')
+            pf=$(sudo -u "$u" bash -lc '. ~/otel-labs/scripts/env.sh; echo $PF_HOST')   # pas -i : le shell de login expanserait $PF_HOST à vide
             url="http://$pf:8080/grafana/d/W2gX2zHVk48?refresh=5s&kiosk"
             sudo -u "$u" -i env DISPLAY="$d" nohup firefox --new-window "$url" > /dev/null 2>&1 &
             echo "$u : firefox sur $url (DISPLAY $d)" ;;

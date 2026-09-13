@@ -28,7 +28,8 @@ def parse(buf):
                 n = int(buf[i:dot]); s = dot + 1
                 args.append(buf[s:s + n]); i = s + n
                 if buf[i] == ';': out.append(args); buf = buf[i + 1:]; break
-                if buf[i] != ',': raise ValueError(buf[:40]); i += 1
+                if buf[i] != ',': raise ValueError(buf[:40])
+                i += 1
         except (ValueError, IndexError):
             return out, buf
 

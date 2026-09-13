@@ -1,3 +1,128 @@
+# Session à 8 + bureaux Guacamole — 2026-09-13
+
+Serveur **GP1-L** (32 vCPU, 128 Gio, volume racine 300 Go), image `flavor=otel`
+du 2026-09-12, `make provision FLAVOR=otel NB_USERS=8` : 9 comptes
+(`student1`–`student8` + `trainer`), clusters **pré-créés** par `precreate`
+(vagues de 4), puis les labs rejoués sur les 9 comptes en parallèle **avec les
+9 bureaux Guacamole ouverts** (client WebSocket + un Firefox/Grafana par
+bureau) — ce qui manquait à la campagne du 12/09, ci-dessous.
+
+## Verdict
+
+**La salle à 8 tient, bureaux compris, avec de la marge** : 65 Gio sur 128 en
+fin de parcours, 0 IOPS de lecture en régime établi, UIs à moins de 15 ms.
+**Deux nouveaux thrashers**, absents de la liste du 12/09 : `flagd` (a saturé
+le disque juste après le lab 1 ; limite relevée dans
+`manifests/values-training.yaml`) et `kindnetd`, le CNI de kind (après le
+stress mémoire ; limite relevée par `up.sh`). Le stress mémoire, qui avait
+coûté 40 min de récupération et 14 OOM kills le 12/09, passe désormais en 4 min
+sans aucun OOM kill.
+
+## Chronologie
+
+| Étape | Durée | Pic | Résultat |
+|---|---|---|---|
+| `make up` + `configure` | 3 min + 3 min | — | `ok=75 changed=42 failed=0`. L'étape `dns` échoue sans `OVH_*` dans l'environnement : sans conséquence, l'enregistrement existait déjà. |
+| `precreate` (3 vagues de 4) | **20 min** | 1 400 IOPS, disque 43 % | 9/9 OK, 185 Go de disque (≈ 20 Go par cluster avec ses images) |
+| Lab 1 `up.sh` + `open-ui.sh` ×9 | **300–320 s** | load 321, CPU idle 2 % | 9/9 exit=0, 27/27 pods partout. Contre 925–1643 s le 12/09 sans pré-création. |
+| Lab 2 `deploy.sh` ×9 | **102–109 s** | load 103, RAM 58 Gio | 9/9 exit=0, 28/28 pods, +7 Go de disque |
+| Lab 6 `generate-reviews.sh 600` ×9 | 604 s | — | 9/9 exit=0, 221 avis, 0 échec par compte |
+| Lab 8 ×9 | 125 s | — | 9/9 exit=0 ; timeouts Jaeger attendus (agent inactif après `deploy.sh`) |
+
+## Le défaut : `flagd` thrashe aussi
+
+Trois minutes après la fin du lab 1, disque à **5 000 IOPS** (sa limite),
+io_wait 47 %, PSI IO `some` 95 %, load 306. `thrash-scan.sh` : un `flagd` à
+74/75 Mi avec **57 000 refaults/s**, `topio.sh` : 362 Mo/s lus par ce seul
+processus. Le chart le plafonne à 75 Mi avec `GOMEMLIMIT=60MiB` : le tas Go
+tient, mais pas les pages du binaire mappé.
+
+`fix-thrash.sh "^/flagd-build" 200M` : PSI IO de 95 % à 4,6 % en vingt secondes,
+lecture de 175 Mo/s à 1 Mo/s. Correctif durable : `flagd: 75Mi → 200Mi` dans le
+values (conteneur `flagd` seul, pas le sidecar `flagd-ui`), poussé sur les 9
+clusters par `apply-limits.sh flagd 75Mi 200Mi flagd`. Plus aucun refault
+ensuite, y compris sous les labs 2, 6 et 8.
+
+## Chiffres
+
+### Lab 6 en régime établi (10 min, 9 stacks + load generators + 9 bureaux)
+
+| Mesure | Valeur |
+|---|---|
+| RAM utilisée | 63 Gio moyenne, 65 max (sur 125) |
+| CPU | 55 % occupé en moyenne (idle 44,7 %), load moyen 43, max 80 |
+| Disque | 0 r/s, ~760 w/s (37 Mo/s, l'écriture continue des stacks) ; io_wait 6,6 % moy, 16 max |
+| Latence Grafana / Jaeger / review-service | 6–13 ms / 6–10 ms / 80–195 ms |
+
+Le load est plus haut que le ~6 noté le 12/09 : cette fois les 9 Firefox et le
+client Guacamole tournaient, et la mesure a été prise pendant la rafale de
+`generate-reviews.sh`. La contrainte reste le disque, jamais le CPU.
+
+### Les bureaux Guacamole, mesurés cette fois
+
+| Mesure | Valeur |
+|---|---|
+| RAM par bureau (PSS, XFCE + Firefox sur Grafana) | **0,81 Gio** (trainer : 2,9, il porte aussi le reste) |
+| CPU guacd, 9 sessions | 6–17 % d'un vCPU au total, soit < 2 % par bureau |
+| CPU Xorg ×9 / Firefox ×9 | 4 % / 12 % |
+| Flux encodé | ~0,7 Mo/min par bureau (Guacamole n'envoie que les zones qui changent) |
+| Tomcat Guacamole | 1,25 Gio, une seule fois |
+
+Le coût d'un bureau, c'est le Firefox ; guacd est négligeable. L'estimation de
+1,5 Gio par participant de la note était prudente.
+
+### Par participant (`sizing-report.sh`, fin de parcours)
+
+**8,45 Gio de stack + 1,10 Gio de bureau = 9,55 Gio**, soit ~84 Gio pour 11.
+Disque : 196 Go utilisés sur 270 après tous les labs, ≈ 21 Go par participant ;
+à 11 il resterait ~30 Go, et chaque `deploy.sh` en ajoute ~0,8.
+
+### Stress tests (9 stacks + 9 bureaux en place)
+
+| Test | Résultat | Lecture |
+|---|---|---|
+| **fio 4k aléatoire 70/30** | 2951 lecture + 1266 écriture IOPS, p99 0,1 ms | ~4 200 IOPS mixtes disponibles à côté des stacks, comme le 12/09 |
+| **fio 1M séquentiel** | 1011 Mo/s | le débit brut n'est pas le sujet |
+| **CPU, 32 workers, 3 min** | load 111, idle 0,9 %, PSI CPU 63 % ; Grafana 14–38 ms, Jaeger 14–35 ms, review-service 80–220 ms | le service reste rendu |
+| **rebuild, 2 × 9 `deploy.sh`** | ~40 s par tour (cache Maven chaud), +2 Mio par participant | sans changement de code, le jar produit la même couche ; une vraie modification ajoute la sienne (quelques dizaines de Mo) |
+| **RAM, 80 % du disponible (~44 Gio), 3 min** | load **1334** au pic, **0 OOM kill** (14 le 12/09), **retour au calme en 4 min** (40 le 12/09) | voir ci-dessous |
+| **Dérive, 95 min sans rien faire** | RAM 65 → 69 Gio, disque +1 Go, CPU ~50 % (load generators + Grafana des bureaux) | pas de fuite visible sur cette durée |
+
+**Le stress mémoire, cette fois.** Aucun OOM kill : les limites relevées donnent
+aux services de quoi encaisser l'éviction de leur page cache. Un seul thrasher
+est apparu après coup, **`kindnetd`** — le CNI de kind, plafonné à 50 Mi par
+kind lui-même (DaemonSet `kube-system/kindnet`), exactement son working set :
+~2 000 refaults/s par nœud, 4 nœuds sur 9, disque à 30 % seulement. Il ne se
+résorbait pas seul ; `fix-thrash.sh "^/bin/kindnetd" 100M` l'a éteint sur le
+champ. Correctif durable : `up.sh` relève la limite du DaemonSet à 100 Mi
+après la création du cluster (idempotent), appliqué aux 9 clusters.
+
+## À retenir pour la séance
+
+- **Pré-créer les clusters** (`make provision` le fait) : le lab 1 passe de
+  25 min à 5 min à 9 en parallèle.
+- **Modale « Welcome to Firefox »** (conditions d'utilisation) au premier
+  lancement sur chaque bureau : les stagiaires la verront. Une politique
+  Firefox (`policies.json` : `SkipTermsOfUse`, `OverrideFirstRunPage`) dans
+  l'image k8s-server l'éviterait.
+- `make provision` a besoin des trois `OVH_*` dans l'environnement pour l'étape
+  `dns`, sinon elle échoue et `configure`/`precreate` ne sont pas lancés.
+
+## Ce qui a été corrigé dans les scripts
+
+- `guac-load.py` : le parseur ne décodait aucune instruction (`i += 1` sur la
+  ligne du `if … raise`), donc aucun `sync` renvoyé et guacd cessait d'envoyer
+  des frames — la charge Guacamole du 12/09 n'aurait pas pu marcher non plus.
+- `desktops.sh` : `sudo -i bash -lc '… $PF_HOST'` expansait `PF_HOST` à vide (le
+  shell de login ré-interprète la commande), les Firefox partaient sur
+  `http://:8080`. Sans `-i`.
+- `phase.sh`, `stress.sh`, `desktops.sh` : le clone est `~/otel-labs`, plus
+  `~/otel`.
+- `apply-limits.sh` : 4e argument optionnel = conteneur (`flagd` a un sidecar).
+- `scripts/up.sh` : limite mémoire du DaemonSet `kindnet` relevée à 100 Mi.
+
+---
+
 # Simulation d'une session à 9 + stress tests — 2026-09-12
 
 Serveur **GP1-L** (32 vCPU, 128 Gio, volume racine `sbs_5k` 300 Go), image
