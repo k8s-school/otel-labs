@@ -131,7 +131,8 @@ Baggage.current().toBuilder().put("app.review.channel", "web").build().makeCurre
   - garder 100 % des erreurs et des requêtes lentes, échantillonner le reste
   - coût : mémoire (retenir les spans) + tous les spans d'une trace
     doivent atteindre **la même instance** de collecteur
-- **Rate limiting** : borne dure en volume (policy `rate_limiting`)
+- **Rate limiting** : plafond en spans/s (policy `rate_limiting`), à combiner en `and`
+  avec les autres — les politiques sont en OU, seule elle ne borne rien
 
 ---
 
