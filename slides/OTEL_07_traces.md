@@ -178,6 +178,15 @@ tail_sampling:
 public void checkProductExists(@SpanAttribute("app.product.id") String productId)
 ```
 
-- `io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations`
-- Interprétées par l'agent **et** par le starter
+- L'agent ne fournit pas les annotations à votre code : pour **compiler**, il faut
+  ajouter ce JAR au `pom.xml` (l'agent, lui, ne s'y déclare jamais)
+
+```xml
+<dependency>
+  <groupId>io.opentelemetry.instrumentation</groupId>
+  <artifactId>opentelemetry-instrumentation-annotations</artifactId>
+</dependency>
+```
+
+- À l'exécution, interprétées par l'agent **et** par le starter
 - Sans SDK actif : no-op — zéro risque à instrumenter
