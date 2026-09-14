@@ -121,3 +121,22 @@ components:
   # them pegged the volume right after Lab 1. Measured 2026-09-13 on the GP1-L.
   flagd:
     resources: { requests: { memory: 75Mi }, limits: { memory: 200Mi } }
+  # The chart ships the load generator with LOCUST_BROWSER_TRAFFIC_ENABLED=true:
+  # on top of its HTTP users, Locust drives real Chromium browsers (Playwright,
+  # ~1 CPU and heavy disk reads each). The autostart (10 users, spawn rate 1) is
+  # bearable, but Lab 1 has participants stop the generator and start it again
+  # from the Locust UI (New > Start), and that restart spawns browsers by the
+  # dozen: measured 2026-09-14 on the GP1-L with nine stacks, 350 Chromium
+  # processes, load average 490 on 32 vCPU, the volume pegged at 500 MB/s of
+  # reads and every API server unreachable. The browser traffic brings nothing
+  # to the labs (its traces are even a nuisance in Lab 1, they look like the
+  # participant's own), so it is off. The CPU limit is the safety net: whatever
+  # user count someone types in the UI, a load generator costs one core at most.
+  load-generator:
+    envOverrides:
+      - name: LOCUST_BROWSER_TRAFFIC_ENABLED
+        value: "false"
+    resources:
+      limits:
+        cpu: "1"
+        memory: 1500Mi

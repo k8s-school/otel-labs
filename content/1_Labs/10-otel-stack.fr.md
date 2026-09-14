@@ -105,7 +105,7 @@ Une vingtaine de pods applicatifs. Deux tournent sur la JVM :
 
 Ouvrez la boutique, choisissez un télescope et passez une commande complète (panier → checkout).
 
-⚠️ Vous n'êtes pas seul à commander : la démo embarque un **load generator** ([Locust](https://locust.io/), 10 utilisateurs virtuels démarrés automatiquement) qui navigue et passe des commandes **en continu**, pour que la plateforme ait toujours des données à observer. Il génère à la fois des requêtes HTTP et du trafic navigateur réel (Playwright). Résultat : Jaeger contient en permanence des dizaines de traces de checkout qui ne sont pas les vôtres — et elles ressemblent beaucoup aux vôtres.
+⚠️ Vous n'êtes pas seul à commander : la démo embarque un **load generator** ([Locust](https://locust.io/), 10 utilisateurs virtuels démarrés automatiquement) qui navigue et passe des commandes **en continu**, pour que la plateforme ait toujours des données à observer. Résultat : Jaeger contient en permanence des dizaines de traces de checkout qui ne sont pas les vôtres — et elles ressemblent beaucoup aux vôtres.
 
 Pour isoler votre commande, mettez le générateur en pause avant de commander :
 
@@ -119,7 +119,7 @@ Dans Jaeger, cherchez les traces du service `checkout` (opération `oteldemo.Che
 
 > ⏱️ Une trace met **quelques secondes** à devenir visible (le SDK et le collecteur envoient par paquets, pas span par span). Si vous ne la voyez pas tout de suite, relancez la recherche (**Find Traces**) au bout de 5 à 10 secondes.
 
-> 💡 Si vous n'avez pas arrêté le load generator, triez par *Most Recent* et repérez la trace à l'heure de votre commande — c'est le critère le plus fiable. Indice complémentaire : les traces issues des requêtes HTTP du générateur contiennent un span du service **`load-generator`** (visible dans les badges de services de la liste de résultats), que les vôtres n'ont pas. Attention, ce n'est pas infaillible : le générateur pilote aussi un vrai navigateur, dont les traces partent comme les vôtres du `frontend`. D'où l'intérêt de l'arrêter.
+> 💡 Si vous n'avez pas arrêté le load generator, triez par *Most Recent* et repérez la trace à l'heure de votre commande — c'est le critère le plus fiable. Indice complémentaire : les traces issues des requêtes HTTP du générateur contiennent un span du service **`load-generator`** (visible dans les badges de services de la liste de résultats), que les vôtres n'ont pas.
 
 Combien de services différents cette trace traverse-t-elle ? Que représente chaque barre horizontale ?
 
