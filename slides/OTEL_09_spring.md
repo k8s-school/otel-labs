@@ -24,11 +24,11 @@ backgroundColor: #ffffff
 - Le **registry** décide où partent les mesures. On en change par une ligne de
   **dépendance**, jamais en touchant au code :
 
-| Dépendance ajoutée | Destination |
+| Dépendance ajoutée (dans l'appli) | Où partent les mesures |
 |---|---|
-| *aucune* (le défaut, cas de `review-service`) | la mémoire — rien n'est exporté |
-| `micrometer-registry-prometheus` | un `/actuator/prometheus` à scraper |
-| `micrometer-registry-otlp` | un collecteur, en OTLP |
+| *aucune* (le défaut, cas de `review-service`) | nulle part : elles restent en mémoire |
+| `micrometer-registry-prometheus` | exposées sur `/actuator/prometheus`, à scraper |
+| `micrometer-registry-otlp` | poussées en OTLP vers un collecteur |
 - Comme OpenTelemetry, il fournit **l'API et les exporters**, et ne **stocke rien** —
   d'où la question de ce chapitre : sur les métriques, les deux font le même travail
 
