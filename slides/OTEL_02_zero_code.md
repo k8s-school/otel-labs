@@ -58,9 +58,8 @@ java -javaagent:/otel/opentelemetry-javaagent.jar -jar app.jar
   - images **natives GraalVM** (pas de manipulation de bytecode possible)
   - maîtrise des dépendances par l'équipe de dev
   - politiques interdisant les agents JVM
-- ⚠️ Depuis **Spring Boot 4** (nov. 2025), Spring livre aussi son propre
-  `spring-boot-starter-opentelemetry` : même nom inversé, mais bâti sur **Micrometer**,
-  pas sur le SDK OpenTelemetry — le lab utilise celui du projet OpenTelemetry
+- ⚠️ **Spring Boot 4** (nov. 2025) livre aussi un `spring-boot-starter-opentelemetry` :
+  même nom inversé, mais bâti sur **Micrometer** — le lab utilise celui du projet OpenTelemetry
 
 ---
 

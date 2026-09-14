@@ -118,7 +118,7 @@ sum by(path) (rate(http_requests_total{status="500"}[5m]))
 
 - La règle vit **dans Prometheus** : du YAML versionné, évalué toutes les minutes environ
 - Prometheus ne notifie personne : il **pousse ses alertes vers Alertmanager**, qui
-  - **déduplique** — dix instances qui crient la même chose font une alerte
+  - **déduplique** — dix instances qui crient la même chose font une seule alerte
   - **groupe** — une notification pour tout un service, pas trente
   - **route** vers la bonne équipe, gère les **silences** de maintenance
 - Grafana embarque son propre Alertmanager et fait la même chose (chapitre 4) ;
@@ -235,6 +235,8 @@ Timer.builder("reviews.creation.time")
   cardinal, **changer l'agrégation** (les seuils d'un histogramme)
 
 ```java
+// Sur le compteur reviews.created, ne garder que l'attribut app.review.rating :
+// tout autre attribut posé par le code (un user.id, par exemple) est jeté avant l'export
 SdkMeterProvider.builder().registerView(
     InstrumentSelector.builder().setName("reviews.created").build(),
     View.builder().setAttributeFilter(Set.of("app.review.rating")).build());

@@ -72,6 +72,9 @@ code {
     color: #5dade2;
     border-radius: 6px;
     padding: 2px 8px;
+    /* inline-block : padding et bordure comptent dans la hauteur de ligne, sinon la
+       boîte de la ligne suivante recouvre le _ (très bas dans DejaVu Sans Mono) */
+    display: inline-block;
     border: 1px solid #e8eaed;
 }
 
