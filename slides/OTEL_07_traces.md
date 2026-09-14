@@ -22,7 +22,7 @@ backgroundColor: #ffffff
 - Un enfant **tient dans les bornes de son parent** : il commence après lui et finit avant —
   le parent, c'est l'appel qui attend (pointillés : qui a déclenché qui)
 - Deux frères ne se recouvrent **que** s'ils sont exécutés en parallèle ;
-  ici les trois appels de `checkout` sont séquentiels
+  ici les trois appels depuis `checkout` sont séquentiels
 
 ---
 
@@ -51,17 +51,18 @@ backgroundColor: #ffffff
 ## Un span
 
 ```text
-trace_id  = a91c…          span_id = 7d24…       parent_span_id = 3f01…
-name      = "GET /api/reviews"                   kind  = SERVER
-début     = 12:04:07.412   durée = 38 ms         statut = OK
-attributs = { http.route: "/api/reviews", db.system: "postgresql" }
-events    = [ 12:04:07.430 : "exception", … ]
+trace_id   = a91c…          span_id  = 7d24…          parent_span_id = 3f01…
+name       = "GET /api/reviews"                       kind           = SERVER
+start_time = 12:04:07.412   end_time = 12:04:07.450   status         = OK
+attributes = { http.route: "/api/reviews", db.system: "postgresql" }
+events     = [ 12:04:07.430 : "exception", … ]
 ```
 
 - Les **attributs** décrivent l'opération : des clés/valeurs, normalisées par les
   conventions sémantiques (`http.*`, `db.*`) ou à vous (`app.review.rating`)
 - Les **events** sont des instants datés **à l'intérieur** du span : une exception, un retry
-- Les **links** pointent vers une **autre** trace : le message publié ici, consommé ailleurs
+- Les **links** relient deux traces **différentes** : un message publié dans Kafka
+  termine une trace, sa consommation en démarre une autre — le link garde le fil
 
 ---
 

@@ -64,3 +64,23 @@ sur cluster local, chart 0.40.9, collector 0.151.0) :
 - Volontairement laissé hors du lab : le lab 4.1 traite déjà les exemplars
   (sur spanmetrics, qui les gère), et ouvrir la question ici sans la refermer
   juste avant le livrable ne sert personne.
+
+LAB7 — LINKS, À MONTRER À L'ORAL (vérifié dans Jaeger sur cluster local le
+2026-09-14) :
+- La démo a un vrai cas de link Kafka, sans rien configurer : `checkout` (Go)
+  publie la commande (span `publish orders`, kind producer) dans sa trace, qui
+  se termine ; `fraud-detection` (Kotlin, agent Java) la consomme dans une
+  NOUVELLE trace de 2 spans : `receive orders` (racine) → `process orders`,
+  et ce dernier porte un link vers le `publish orders` de l'autre trace.
+  `accounting` (.NET) fait pareil.
+- Jaeger affiche un link OTel sous le nom FOLLOWS_FROM (vocabulaire
+  OpenTracing) : dans l'UI, chercher service `fraud-detection`, opération
+  `process orders`, puis ouvrir les références du span — le lien vers l'autre
+  trace est cliquable.
+- Côté config, fraud-detection n'a que
+  OTEL_INSTRUMENTATION_MESSAGING_EXPERIMENTAL_RECEIVE_TELEMETRY_ENABLED=true :
+  c'est elle qui crée le span `receive` ; sans elle, l'agent mettrait
+  directement le producteur en parent (même trace, avec un trou de plusieurs
+  secondes) au lieu d'un link.
+- Volontairement hors slide et hors lab : la puce « les links relient deux
+  traces différentes » suffit, ceci est l'exemple à donner si la question vient.

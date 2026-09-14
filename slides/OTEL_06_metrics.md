@@ -218,10 +218,11 @@ sum by(path) (rate(http_requests_total{status="500"}[5m]))
 | **Cumulative** | le total depuis le démarrage (le compteur monte) |
 | **Delta** | l'incrément depuis l'export précédent |
 
+- Ne concerne que les **compteurs** et les **histogrammes** : une gauge est une
+  valeur instantanée (la température, la taille d'une file), elle n'a pas de temporalité
 - Prometheus ne connaît que le **cumulatif** : `rate()` calcule la pente
-- Le SDK OpenTelemetry exporte en **cumulative** par défaut ;
-  certains composants (le connector `count`, les backends type
-  Datadog/StatsD) parlent **delta**
+- Le SDK OpenTelemetry exporte en **cumulative** par défaut ; le connector `count`
+  et les backends type Datadog/StatsD parlent **delta**
 - D'où le processor **`deltatocumulative`** du Lab 6 bonus : sans lui, l'endpoint
   OTLP de Prometheus répond **HTTP 500** et le collecteur jette les points
 - ⚠️ Le symptôme est muet : `Exporting failed. Dropping data.` dans les
@@ -229,7 +230,7 @@ sum by(path) (rate(http_requests_total{status="500"}[5m]))
 
 ---
 
-## Les deux ensemble, dans la démo
+## Prometheus et OTLP ensemble, dans la démo
 
 - Prometheus accepte l'OTLP **nativement** : la démo démarre son serveur avec
   `--web.enable-otlp-receiver`, et le collecteur y pousse
