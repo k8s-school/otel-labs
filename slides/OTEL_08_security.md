@@ -92,8 +92,9 @@ service:
 
 ## Masquage au collecteur : Variantes
 
-- [`replace_pattern(..., hash)`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md#replace_pattern) pour pseudonymiser, ou le processor
-- [**`redaction`**](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/redactionprocessor) — **allowlist** : seuls les attributs autorisés passent, plus sûr
+- **OTTL**, même processor `transform` : [`replace_pattern(..., hash)`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md#replace_pattern)
+  pseudonymise au lieu d'effacer — deux e-mails identiques donnent le même hash
+- Ou le processor [**`redaction`**](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/redactionprocessor) — **allowlist** : seuls les attributs autorisés passent, plus sûr
 
 ---
 
