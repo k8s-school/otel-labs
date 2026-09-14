@@ -82,6 +82,8 @@ Parce que l'API seule **ne produit rien**. `GlobalOpenTelemetry.getMeter(...)` r
 * l'**API** (`opentelemetry-api`) est ce que vous appelez dans votre code métier — légère, stable, sans dépendance ;
 * le **SDK** est l'implémentation qui agrège, met en forme et exporte. Il est fourni ici par l'**agent Java** du Lab 2 : au démarrage de la JVM, l'agent installe son SDK dans `GlobalOpenTelemetry`, et vos appels deviennent d'un coup réels.
 
+Concrètement, `opentelemetry-api` est la seule dépendance OpenTelemetry du `pom.xml` de `review-service` : l'agent seul suffit tant que le code n'importe rien de `io.opentelemetry`, et dès qu'il le fait, il faut ce JAR pour compiler. L'agent, lui, ne se déclare nulle part dans le `pom.xml` : il s'attache à la JVM au démarrage.
+
 Conséquence pratique : une bibliothèque partagée peut s'instrumenter avec l'API sans imposer quoi que ce soit à ses utilisateurs. Et si vous retirez le `-javaagent`, l'application tourne toujours — sans métriques.
 
 La chaîne de types est la même dans tous les langages : **`MeterProvider` → `Meter` → instrument**. Les trois maillons n'ont ni le même rôle ni le même nombre d'exemplaires :

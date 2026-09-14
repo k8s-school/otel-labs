@@ -201,9 +201,17 @@ DoubleHistogram duration = meter
 created.add(1, Attributes.of(RATING, 5L));   // attribut = dimension
 ```
 
-- **API ≠ SDK** : sans SDK **installé**, l'API est **no-op** — le code compile,
-  tourne, et ne produit rien. L'avoir dans le classpath ne suffit pas :
-  quelqu'un doit le construire. L'agent du Lab 2 le fait de l'extérieur.
+- Pour **compiler**, une seule dépendance dans le `pom.xml` (l'agent, lui, ne s'y déclare jamais) :
+
+```xml
+<dependency>
+  <groupId>io.opentelemetry</groupId>
+  <artifactId>opentelemetry-api</artifactId>
+</dependency>
+```
+
+- **API ≠ SDK** : sans SDK **installé**, l'API est **no-op** — le code tourne et ne
+  produit rien. L'agent du Lab 2 installe le SDK de l'extérieur
 - Le nom passé à `getMeter()` = **scope d'instrumentation** (`otel.scope.name`)
 
 ---
