@@ -138,7 +138,8 @@ sum by(path) (rate(http_requests_total{status="500"}[5m]))
 
 - L'application n'écrit plus *pour Prometheus* : elle émet de l'OTLP, et la plateforme
   choisit le backend — sans redéploiement, comme au chapitre 3
-- La **temporalité** devient explicite (delta ou cumulative) au lieu d'être implicite
+- Un compteur dit s'il est **cumulé depuis le démarrage** (`CUMULATIVE`) ou **depuis le
+  dernier envoi** (`DELTA`) — Prometheus supposait le premier sans le dire
 
 ---
 
@@ -256,7 +257,7 @@ SdkMeterProvider.builder().registerView(
 - Le SDK OpenTelemetry exporte en **cumulative** par défaut ;
   certains composants (le connector `count`, les backends type
   Datadog/StatsD) parlent **delta**
-- D'où le processor **`deltatocumulative`** du Lab 6 : sans lui, l'endpoint
+- D'où le processor **`deltatocumulative`** du Lab 6 bonus : sans lui, l'endpoint
   OTLP de Prometheus répond **HTTP 500** et le collecteur jette les points
 - ⚠️ Le symptôme est muet : `Exporting failed. Dropping data.` dans les
   logs du collecteur, et des courbes vides dans Grafana
