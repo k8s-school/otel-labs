@@ -154,7 +154,7 @@ Le **SDK OpenTelemetry** exporte en cumulative : toutes les 60 secondes, il repu
 
 Le **connector `count`**, lui, émet en **delta** : à chaque cycle il annonce « tant de spans en erreur depuis la dernière fois ». Et quand il n'y en a eu aucun, il n'envoie **rien du tout** — pas même un zéro.
 
-Prometheus, de son côté, ne sait travailler qu'en cumulatif : `rate()` calcule une pente, ce qui suppose une courbe qui monte. C'est tout le rôle du processor **`deltatocumulative`** du Lab 6 : il additionne les deltas au fil de l'eau pour reconstituer un total.
+Prometheus, de son côté, ne sait travailler qu'en cumulatif : `rate()` calcule une pente, ce qui suppose une courbe qui monte. C'est tout le rôle du processor **`deltatocumulative`** ajouté à la section 1 : il additionne les deltas au fil de l'eau pour reconstituer un total.
 
 Sans lui, l'endpoint OTLP de Prometheus rejette les points. Vérifié en retirant le processor du pipeline sur le cluster de la formation — voici ce que le collecteur écrit alors, une ligne par export :
 
@@ -253,7 +253,7 @@ opentelemetry-collector:
 
 `kind == SPAN_KIND_SERVER` ne retient que les spans de **requêtes reçues** : un service qui échoue en appelant un autre ne compte pas ici, seul l'échec qu'il renvoie à son propre appelant est compté.
 
-Il **s'empile** sur celui du Lab 6 : Helm fusionne les maps, donc `app.requests.errors` s'ajoute à `app.spans.errors` sans la remplacer. Rien d'autre à redéclarer — ni les pipelines, ni `deltatocumulative` :
+Il **s'empile** sur celui de la section 1 : Helm fusionne les maps, donc `app.requests.errors` s'ajoute à `app.spans.errors` sans la remplacer. Rien d'autre à redéclarer — ni les pipelines, ni `deltatocumulative` :
 
 ```bash
 cp content/1_Labs/61-otel-metrics-values.yaml manifests/
