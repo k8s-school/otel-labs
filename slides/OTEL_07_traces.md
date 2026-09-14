@@ -99,6 +99,32 @@ try (Scope scope = span.makeCurrent()) {
 
 - Le span courant est accessible partout : `Span.current()`
 - L'instrumentation auto (agent) et manuelle **s'imbriquent** naturellement
+- Pour **compiler** : `opentelemetry-api` dans le `pom.xml` — le même JAR que pour
+  les métriques du chapitre 6 ; l'agent fournit le SDK à l'exécution
+
+---
+
+## Annotations
+
+- Le span manuel sans le code de plomberie :
+
+```java
+@WithSpan("product-catalog.lookup")
+public void checkProductExists(@SpanAttribute("app.product.id") String productId)
+```
+
+- L'agent ne fournit pas les annotations à votre code : pour **compiler**, il faut
+  ajouter ce JAR au `pom.xml` (l'agent, lui, ne s'y déclare jamais)
+
+```xml
+<dependency>
+  <groupId>io.opentelemetry.instrumentation</groupId>
+  <artifactId>opentelemetry-instrumentation-annotations</artifactId>
+</dependency>
+```
+
+- À l'exécution, interprétées par l'agent **et** par le starter
+- Sans SDK actif : no-op — zéro risque à instrumenter
 
 ---
 
@@ -166,27 +192,3 @@ tail_sampling:
 - Vérifier : les erreurs survivent, le bruit diminue
 
 ➡ [Lab 7 — Traces & échantillonnage](https://k8s-school.fr/labs/otel/fr/1_labs/70-otel-traces/index.html)
-
----
-
-## Annexe — Annotations
-
-- Le span manuel sans le code de plomberie :
-
-```java
-@WithSpan("product-catalog.lookup")
-public void checkProductExists(@SpanAttribute("app.product.id") String productId)
-```
-
-- L'agent ne fournit pas les annotations à votre code : pour **compiler**, il faut
-  ajouter ce JAR au `pom.xml` (l'agent, lui, ne s'y déclare jamais)
-
-```xml
-<dependency>
-  <groupId>io.opentelemetry.instrumentation</groupId>
-  <artifactId>opentelemetry-instrumentation-annotations</artifactId>
-</dependency>
-```
-
-- À l'exécution, interprétées par l'agent **et** par le starter
-- Sans SDK actif : no-op — zéro risque à instrumenter
