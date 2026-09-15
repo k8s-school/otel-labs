@@ -5,6 +5,16 @@ SLIDES: 2 -> mieux comprendre le fonctionnement du java agent (annexes)
 6 -> relire et comprendre simplifier les annexes.
 
 Ajouter au lab1 un TP ou on créé des failures et on voir le résultat, comme dans le livre
+  - PIEGE cartFailure (testé le 2026-09-15, cluster local, sans tail sampling) :
+    le panel « Error Rate by Span Name » (service=cart) reste vide 5 à 6 min
+    après avoir activé le flag, puis ne montre qu'une erreur toutes les 2-3 min.
+    Cause dans le code du cart (2.2.0) : EmptyCart bascule sur un ValkeyCartStore
+    pointé sur un hôte bidon, ConnectRetry=30 avec backoff exponentiel, le tout
+    sous un lock -> chaque EmptyCart en erreur dure 140 à 365 s (vu dans Jaeger)
+    et les appels se mettent en file. Le span PlaceOrder du checkout attend
+    autant, donc spanmetrics ne compte rien pendant ce temps. Pour un TP
+    « je casse, je vois », prendre un flag qui echoue tout de suite
+    (productCatalogFailure, paymentFailure) plutot que cartFailure.
 Explique la structure de l'appli de démo, plutôt dans les slides?
 
 LAB3:

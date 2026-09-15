@@ -255,6 +255,10 @@ Dans Jaeger, faites **deux recherches distinctes** — ce ne sont pas les mêmes
 
 C'est le contraste entre ces deux comptes qui prouve que la politique fonctionne : le trafic ordinaire est réduit, les erreurs sont intégralement conservées.
 
+> ⚠️ **Le lien log → trace du Lab 5 tombe désormais 3 fois sur 4 sur une erreur.** Le `tail_sampling` n'est que dans le pipeline `traces` : les logs, eux, partent toujours à 100 %, chacun avec son `traceId`. Dans *Explore*, ouvrez les logs `Creating review`, dépliez-en un et cliquez le bouton **Jaeger** : pour la plupart, le volet de droite affiche un bandeau rouge `request failed: 404 Not Found (Trace ID: …)`. Le lien n'est pas cassé, c'est sa cible qui n'existe plus — la trace est passée dans les 75 % jetés. Et le *Trace ID* du bandeau n'est pas le vôtre : c'est celui de la requête interne de Grafana, sans rapport avec la trace cherchée.
+>
+> C'est le prix de l'échantillonnage, et il faut le connaître avant de le payer : dès qu'on échantillonne les traces, tout ce qui pointe vers elles — un log, un exemplar du Lab 4.2 — devient un lien qui peut ne mener nulle part. Les erreurs et les requêtes lentes, elles, restent toujours reliées : c'est exactement pour cela que les deux premières politiques les gardent à 100 %.
+
 **Et si compter à la main vous laisse dubitatif**, le processor tient ses propres comptes, que le collecteur exporte comme n'importe quelle métrique. Commencez par la **décision finale** :
 
 > 📊 **Tous les chiffres qui suivent sont un relevé d'exemple**, pris sur le cluster de la formation. **Les vôtres seront différents** : ils dépendent du trafic que le load generator a produit depuis votre `helm upgrade`. Ce sont les **rapports entre eux** qui comptent, pas les valeurs.

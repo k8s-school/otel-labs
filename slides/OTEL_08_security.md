@@ -19,8 +19,9 @@ backgroundColor: #ffffff
 
 - Le backend d'observabilité est rarement protégé comme la base de prod
   - accès larges (toute l'équipe, parfois l'entreprise), rétention longue, sauvegardes
-- Fuites **fréquentes** (vues au lab, dans un code réaliste) :
-  - header **`Authorization`** / token **JWT** copiés attribut de span
+- Fuites **fréquentes** — le Lab 8, tout à l'heure, vous fera fabriquer les deux premières :
+  - header **`Authorization`** / token **JWT** copié en attribut de span
+  - **email** du client en attribut de span et dans un message de log
   - **mot de passe / secret** dans un message de log ou une stack trace
   - **payload** complet (body de requête) en attribut « pour debug »
   - header **`Cookie`** / `X-Api-Key`
