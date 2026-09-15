@@ -2,6 +2,7 @@
 marp: true
 theme: custom-theme
 paginate: true
+footer: "© 2026 Fabrice Jammes — k8s-school.fr — CC BY-SA 4.0"
 backgroundColor: #ffffff
 ---
 
@@ -29,7 +30,7 @@ backgroundColor: #ffffff
 
 ## Le pipeline (1/2)
 
-<!-- _footer: "Schéma : opentelemetry.io — CC BY 4.0" -->
+<!-- _footer: "Schéma : opentelemetry.io — CC BY 4.0 · © 2026 Fabrice Jammes — k8s-school.fr — CC BY-SA 4.0" -->
 
 ![w:900](images/otel-collector.svg)
 

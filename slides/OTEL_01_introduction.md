@@ -2,6 +2,7 @@
 marp: true
 theme: custom-theme
 paginate: true
+footer: "© 2026 Fabrice Jammes — k8s-school.fr — CC BY-SA 4.0"
 backgroundColor: #ffffff
 ---
 

@@ -2,6 +2,7 @@
 marp: true
 theme: custom-theme
 paginate: true
+footer: "© 2026 Fabrice Jammes — k8s-school.fr — CC BY-SA 4.0"
 backgroundColor: #ffffff
 ---
 
@@ -30,7 +31,7 @@ backgroundColor: #ffffff
 
 ## Un dashboard, concrètement
 
-<!-- _footer: "Capture : opentelemetry.io — CC BY 4.0" -->
+<!-- _footer: "Capture : opentelemetry.io — CC BY 4.0 · © 2026 Fabrice Jammes — k8s-school.fr — CC BY-SA 4.0" -->
 
 Chaque panel a **sa** requête — ici la latence vient de `spanmetrics` (chapitre 3)
 
@@ -110,7 +111,7 @@ histogram_quantile(0.95, sum(rate(
 
 ![h:135](images/grafana-panel-timeseries.png) ![h:135](images/grafana-panel-stat.png) ![h:135](images/grafana-panel-logs.png) ![h:135](images/grafana-panel-traces.png)
 
-<!-- _footer: "Captures : grafana.com/docs" -->
+<!-- _footer: "Captures : grafana.com/docs · © 2026 Fabrice Jammes — k8s-school.fr — CC BY-SA 4.0" -->
 
 ---
 
