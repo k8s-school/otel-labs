@@ -148,7 +148,15 @@ Ouvrez l'URL affichée (`http://localhost:9090` sur un poste individuel) et cher
 
 ### 3. Écrire le fichier de values qui ajoute les deux receivers
 
-Créez `manifests/30-otel-collector-values.yaml`. Il doit ajouter au collecteur :
+Créez `manifests/30-otel-collector-values.yaml`. C'est un fichier de *values* Helm, pas une configuration de collecteur brute : la configuration du collecteur y est rangée sous la section `opentelemetry-collector.config`, celle que Helm fusionne avec la configuration de la démo pour produire la ConfigMap de l'étape 1. Le fichier commence donc par ces deux lignes, et tout le reste s'indente dessous :
+
+```yaml
+opentelemetry-collector:
+  config:
+    # receivers, extensions, service… à partir d'ici
+```
+
+Il doit ajouter au collecteur :
 * un receiver **`hostmetrics`** (scrapers `cpu`, `memory`, `load`, `disk`, `network`) — [documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/receiver/hostmetricsreceiver/README.md) ;
 * un receiver **`postgresql`** pointé sur la base de la boutique (service `postgresql:5432`, user `root`, mot de passe `otel`) — celle-là même qu'utilise votre `review-service` — [documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/receiver/postgresqlreceiver/README.md) ;
 * l'extension **`zpages`** (pages de debug du collecteur) ;

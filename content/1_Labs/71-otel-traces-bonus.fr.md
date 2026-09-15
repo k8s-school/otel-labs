@@ -126,18 +126,22 @@ Cette trace s'arrête tôt : le produit n'existant pas, la requête n'a jamais a
 
 Le cas d'usage type du bagage, c'est le **tenant**. Une requête traverse cinq services ; seul le premier sait de quel client elle vient. Quand `product-catalog`, quatre sauts plus loin, met trois secondes sur une requête SQL, il n'a aucun moyen de savoir qui il faisait patienter : l'information est restée à l'entrée. Le bagage la lui apporte.
 
-Et une fois `app.tenant` posé sur tous les spans, le collecteur peut **décider** dessus. Reprenez la politique du Lab 7 et ajoutez-lui une quatrième règle — « ce client-là, on garde tout » :
+Et une fois `app.tenant` posé sur tous les spans, le collecteur peut **décider** dessus. Reprenez la politique du Lab 7 dans un nouveau fichier de values, `manifests/71-otel-traces-values.yaml`, toujours sous la section `opentelemetry-collector.config`, et ajoutez-lui une quatrième règle — « ce client-là, on garde tout » :
 
 > 💡 **Le tail sampling, lui, n'a besoin de rien de tout ça.** Les trois politiques du Lab 7 décident sur ce que les spans portent déjà : un statut `ERROR`, une durée, un tirage au sort. C'est la règle générale du collecteur — **il ne peut trancher que sur ce qui est dans les spans**. Le bagage n'y étant pas, la seule façon de décider dessus est de l'y avoir copié en amont, dans l'application. Retirez la variable de la section 2 et cette quatrième politique cesse silencieusement de retenir quoi que ce soit : les requêtes du client `acme` retombent dans les 25 % du tirage ordinaire, sans le moindre message d'erreur nulle part.
 
 ```yaml
-policies:
-  - name: keep-tenant-acme
-    type: string_attribute
-    string_attribute:
-      key: app.tenant
-      values: [acme]
-  # … puis les trois politiques du Lab 7, inchangées
+opentelemetry-collector:
+  config:
+    processors:
+      tail_sampling:
+        policies:
+          - name: keep-tenant-acme
+            type: string_attribute
+            string_attribute:
+              key: app.tenant
+              values: [acme]
+          # … puis les trois politiques du Lab 7, inchangées
 ```
 
 > ⚠️ **Ce fichier ne s'empile pas sur celui du Lab 7, il le remplace.** Helm fusionne les *maps*, mais remplace une *liste* en bloc : un fichier ne contenant que `keep-tenant-acme` effacerait les trois autres politiques. D'où le fichier de référence [`71-otel-traces-values.yaml`](../71-otel-traces-values.yaml), qui les redonne toutes les quatre.

@@ -13,7 +13,15 @@ Cette page fait naître une métrique **sans écrire une ligne de code** — le 
 Aucun des labs précédents n'en dépend, et le fichier de values suit exactement le modèle du Lab 3.
 
 
-1.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values, `manifests/61-otel-metrics-spans-values.yaml`. Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
+1.  **Ajouter le connector `count`** : comme au Lab 3, un fichier de values, `manifests/61-otel-metrics-spans-values.yaml`, dont la configuration du collecteur vit sous la section `opentelemetry-collector.config` :
+
+    ```yaml
+    opentelemetry-collector:
+      config:
+        # connectors, processors, service… à partir d'ici
+    ```
+
+    Il doit compter les spans **en erreur** et exposer le résultat en métrique `app.spans.errors`.
 
     La [documentation du connector `count`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/connector/countconnector/README.md) donne la structure attendue (`spans:`, puis une entrée par métrique avec ses `conditions:`) ; la condition elle-même s'écrit en **OTTL**, dont les fonctions sont [répertoriées ici](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md).
 

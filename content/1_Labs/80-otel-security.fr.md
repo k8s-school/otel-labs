@@ -155,6 +155,14 @@ La documentation officielle sur les [extensions de l'agent Java](https://opentel
 
 5.  **Écrire la règle OTTL** dans `manifests/80-otel-security-values.yaml` : elle supprime `user.email` et `http.request.header.authorization` de **tous** les spans, et masque les emails dans **tous** les bodies de logs — quel que soit le service, corrigé ou non.
 
+    Comme au Lab 3, c'est un fichier de values Helm : le processor `transform` se déclare sous la section `opentelemetry-collector.config`, et le fichier commence par ces deux lignes :
+
+    ```yaml
+    opentelemetry-collector:
+      config:
+        # processors, service… à partir d'ici
+    ```
+
     Deux documentations pour cela : celle du [processor `transform`](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/transformprocessor/README.md), qui donne la structure (`trace_statements`, `log_statements`), et la [liste des fonctions OTTL](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/pkg/ottl/ottlfuncs/README.md) — `delete_key` et `replace_pattern` sont celles qu'il vous faut.
 
 {{%expand "Réponse" %}}

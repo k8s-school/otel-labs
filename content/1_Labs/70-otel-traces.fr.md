@@ -154,7 +154,13 @@ C'est aussi ce qui se passe, en temps normal, à chaque saut : le `traceparent` 
 
 **Écrivez la politique** dans `manifests/70-otel-traces-values.yaml` : 100 % des traces en erreur, 100 % des traces > 1 s, 25 % du reste.
 
-Trois politiques à combiner, une par ligne de l'énoncé.
+Trois politiques à combiner, une par ligne de l'énoncé. Comme au Lab 3, c'est un fichier de values Helm : le processor `tail_sampling` se déclare sous la section `opentelemetry-collector.config`, et le fichier commence par ces deux lignes :
+
+```yaml
+opentelemetry-collector:
+  config:
+    # processors, service… à partir d'ici
+```
 
 Pour démarrer, le [billet officiel sur le tail sampling](https://opentelemetry.io/blog/2022/tail-sampling/#how-to-implement-tail-sampling-in-the-opentelemetry-collector) donne un exemple court : deux politiques, dont **deux des trois** qui vous sont demandées. La [documentation du processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/tailsamplingprocessor/README.md) liste ensuite tous les types et leurs paramètres — c'est là que vous trouverez la troisième, `latency`. Et le concept lui-même, head *vs* tail, est résumé dans la [doc OpenTelemetry sur l'échantillonnage](https://opentelemetry.io/docs/concepts/sampling/).
 
